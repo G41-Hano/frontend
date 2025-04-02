@@ -1,12 +1,47 @@
-# React + Vite
+# Hano
+An Interactive Vocabulary Learning Platform for Hearing-Impaired Grade 3 Students.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+<br>
 
-Currently, two official plugins are available:
+## Frontend for Hano
+Uses the React library for building a dynamic, responsive, and interactive user interface.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Frontend Stack
+- <strong>React.js</strong> – Core JavaScript library for building the UI
+- <strong>React Router 7</strong> – Handles navigation between pages
+- <strong>Material UI (MUI)</strong> – Pre-built React components for styling and icons
+- <strong>Tailwind CSS</strong> – Utility-first CSS framework for responsive design
+- <strong>Emotion</strong> – CSS-in-JS styling library
 
-## Expanding the ESLint configuration
+### State Management & Authentication
+- <strong>Axios</strong> – Handles HTTP requests to the backend
+- <strong>JWT Decode</strong> – Decodes JSON Web Tokens for authentication
 
-If you are developing a production application, we recommend using TypeScript and enable type-aware lint rules. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Installation:
+1. Navigate to your main app folder (Hano)
+```
+cd Hano
+```
+2. Clone the repository
+```
+git clone https://github.com/G41-Hano/frontend.git
+```
+3. Navigate to the frontend folder
+```
+cd frontend
+```
+4. Create a <strong>.env file<strong>
+5. Paste this inside the <strong>.env file<strong>
+```
+VITE_API_URL = ""
+```
+> <i>Note: paste the URL provided when running the backend server</i> <br>
+> Example: VITE_API_URL = "http://localhost:8000"
+6. Install the dependencies
+```
+npm install
+```
+7. Run the server
+```
+npm run dev
+```
