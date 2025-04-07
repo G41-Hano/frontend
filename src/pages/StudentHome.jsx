@@ -1,4 +1,12 @@
+import { useNavigate } from "react-router-dom"
+
 export default function StudentHome() {
-  return <div>Student Home</div>
-  
+  const navigate = useNavigate();
+
+  return(
+  <>
+    <div>Student Home</div>
+    <button onClick={()=>navigate("/logout")}>Log Out</button>
+  </>
+  )
 }
