@@ -1,4 +1,3 @@
-import react from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from "./pages/Login"
 import Register from "./pages/Register"
@@ -28,6 +27,7 @@ function App() {
         />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<RegisterAndLogout />} />
+        <Route path="/register/teacher" element={<RegisterAndLogout />} />
         <Route path="*" element={<>Not Found</>} />
       </Routes>
     </BrowserRouter>
