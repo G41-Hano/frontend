@@ -3,6 +3,8 @@ import api from "../api";
 import { useNavigate } from "react-router-dom";
 import { ACCESS_TOKEN, REFRESH_TOKEN } from "../constants";
 import LoadingIndicator from "./LoadingIndicator";
+import usernameIcon from "../assets/username.png";
+import passwordIcon from "../assets/password.png";
 
 function Form({ route, method }) { /* route is for the route when submitting form, method identifies if its for register or login */
     const [username, setUsername] = useState("");
@@ -14,7 +16,8 @@ function Form({ route, method }) { /* route is for the route when submitting for
     const [roleInput, setRoleInput] = useState("student"); // or "teacher" 
     const navigate = useNavigate();
 
-    const name = method === "login" ? "Login" : "Register"; 
+    const name = method === "login" ? "Log in to your Account" : "Register"; 
+    const btnName = method === "login" ? "Login Now" : "Register"; 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -51,21 +54,42 @@ function Form({ route, method }) { /* route is for the route when submitting for
 
     return (
         <form onSubmit={handleSubmit} className="form-container">
-            <h1>{name}</h1>
-            <input
-                className="form-input"
+            {/* Login Form */}
+            <div className="text-center mb-6">
+                <h1 className="text-1xl font-bold text-[#4C53B4]">{name}</h1>
+            </div>
+
+            {/* Username Field with Icon */}
+            <div className="relative mb-2 w-100">
+                <img
+                src={usernameIcon}
+                alt="Username Icon"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5"
+                />
+                <input
+                className="form-input border border-gray-400 rounded px-10 py-2 w-full"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Username"
-            />
-            <input
-                className="form-input"
+                />
+            </div>
+
+            {/* Password Field with Icon */}
+            <div className="relative mb-4 w-100">
+                <img
+                src={passwordIcon}
+                alt="Password Icon"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5"
+                />
+                <input
+                className="form-input border border-gray-400 rounded px-10 py-2 w-full"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
-            />
+                />
+            </div>
 
             {/* Only show these if we're registering */}
             {method !== "login" && (
@@ -102,8 +126,11 @@ function Form({ route, method }) { /* route is for the route when submitting for
                 </>
             )}
             {loading && <LoadingIndicator />}
-            <button className="form-button" type="submit">
-                {name}
+            <button
+                className="bg-[#4C53B4] text-white rounded-[20px] w-[400px] py-2 font-semibold hover:bg-[#3a4095] transition"
+                type="submit"
+                >
+                {btnName}
             </button>
         </form>
     );
