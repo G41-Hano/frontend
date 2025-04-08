@@ -40,7 +40,7 @@ function App() {
         <Route path="/login" element={<AuthRoute requireAuth={false}><Login /></AuthRoute>} />
         <Route path="/logout" element={<Logout />} />
         <Route path="/register" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
-        <Route path="/register/teacher" element={<RegisterAndLogout />} />
+        <Route path="/register/teacher" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
         <Route path="*" element={<>Not Found</>} />
       </Routes>
     </BrowserRouter>

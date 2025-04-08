@@ -44,7 +44,7 @@ function Register() {
 
                 {/*Registration Form Component*/}
                 <Form 
-                    route={`/api/user/register/${endpoint}`} 
+                    route="/api/user/register/" 
                     method="register" 
                     userType={userType}
                 />
