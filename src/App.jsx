@@ -5,6 +5,7 @@ import AuthRoute from './routes/AuthRoute'
 import StudentRoutes from './routes/StudentRoutes'
 import TeacherRoutes from './routes/TeacherRoutes'
 import PasswordReset from './pages/PasswordReset'
+import NewPassword from './pages/NewPassword'
 
 function Logout() {
   localStorage.clear()
@@ -43,6 +44,7 @@ function App() {
         <Route path="/register" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
         <Route path="/register/teacher" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
         <Route path="/reset-password" element={<AuthRoute requireAuth={false}><PasswordReset /></AuthRoute>} />
+        <Route path="/new-password" element={<AuthRoute requireAuth={false}><NewPassword /></AuthRoute>} />
         <Route path="*" element={<>Not Found</>} />
       </Routes>
     </BrowserRouter>
