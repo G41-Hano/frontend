@@ -199,12 +199,14 @@ function Form({ route, method, userType }) { /* route is for the route when subm
             
             {/* Submit Button */}
             <button
-                className="btn w-full rounded-3xl bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] text-white border-none py-3 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 mt-3"
                 type="submit"
+                className="btn w-full rounded-3xl bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] text-white border-none py-3 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 mt-3"
                 disabled={loading}
             >
                 {loading ? (
-                    <span className="loading loading-spinner loading-md"></span>
+                    <div className="flex items-center justify-center">
+                        <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
                 ) : (
                     <div className="flex items-center justify-center gap-2">
                         {btnName}
