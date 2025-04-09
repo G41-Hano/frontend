@@ -374,6 +374,18 @@ function Form({ route, method, userType }) { /* route is for the route when subm
                 {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
             </div>
 
+            {/* Forgot Password Link - Only shown for login */}
+            {method === "login" && (
+                <div className="text-right -mt-2">
+                    <a 
+                        href="/reset-password" 
+                        className="text-[#4C53B4] hover:text-[#6366f1] text-sm transition-colors duration-200 hover:underline"
+                    >
+                        Forgot Password?
+                    </a>
+                </div>
+            )}
+
             {/* Confirm Password Field - Only shown for registration */}
             {method !== "login" && (
                 <div className="form-control w-full">
