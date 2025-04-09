@@ -7,13 +7,15 @@ import { useState, useEffect } from "react"
 /*
   This will protect the routes in case an unauthorized user to access out links
 */
-export default function ProtectedRoute({children}) {
+export default function AuthRoute({children, requireAuth = true, requiredRole = null}) {
   const [isAuthorized, setIsAuthorized] = useState(null)
+  const [userRole, setUserRole] = useState(null)
 
   useEffect(()=>{
     auth().catch(() => setIsAuthorized(false))
-  })
+  }, [])
 
+  // refreshes the token 
   const refreshToken = async () => {
     const refreshToken = localStorage.getItem(REFRESH_TOKEN)
     try {
@@ -34,14 +36,18 @@ export default function ProtectedRoute({children}) {
     }
   }
 
+  // 
   const auth = async () => {
     const token = localStorage.getItem(ACCESS_TOKEN)
+
+    // if a token does not exist => UNAUTHORIZED
     if (!token) {
       setIsAuthorized(false)
       return
     }
     const decoded = jwtDecode(token)
     const tokenExpiration = decoded.exp
+    setUserRole(decoded.role)
     const now = Date.now() / 1000
 
     if (tokenExpiration < now) {
@@ -56,6 +62,27 @@ export default function ProtectedRoute({children}) {
     return <div>Loading...</div>
   }
 
-  return isAuthorized ? children : <Navigate to="/login" />
+  /*  requires the user to be authenticated before accessing children
+      or else, it will navigate to login page 
+  */
+  if (requireAuth && !isAuthorized) {
+    return <Navigate to="/login" />;
+  }
+  /*  when user is authenticated and accesses login/register,  
+      navigate to home page
+  */
+  if (!requireAuth && isAuthorized) {
+    if (userRole != null) {
+      if (userRole === 'student') return <Navigate to="/s" />  //student home page
+      if (userRole === 'teacher') return <Navigate to="/t" /> //teacher home page
+    }
+    return
+  }
+  
+  // check if the user accesses pages for his specific role only
+  if (requiredRole && userRole !== requiredRole) {
+    return <Navigate to="/unauthorized" />;
+  }
 
+  return children
 }

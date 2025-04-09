@@ -36,7 +36,7 @@ function Form({ route, method, userType }) { /* route is for the route when subm
                 first_name: firstName,
                 last_name: lastName,
                 email,
-                role: userType.toLowerCase()
+                role_input: userType.toLowerCase(),
             };
     
         try {

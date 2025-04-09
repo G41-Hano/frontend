@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from "./pages/Login"
 import Register from "./pages/Register"
-import ProtectedRoute from './components/ProtectedRoute'
+import AuthRoute from './routes/AuthRoute'
+import StudentRoutes from './routes/StudentRoutes'
+import TeacherRoutes from './routes/TeacherRoutes'
 
 function Logout() {
   localStorage.clear()
@@ -17,17 +19,28 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<Navigate to="/login"/>}/>
+
         <Route 
-          path="/" 
+          path="/s/*" 
           element={
-            <ProtectedRoute>
-              <>Home</>
-            </ProtectedRoute>
+            <AuthRoute requiredRole="student">
+              <StudentRoutes />
+            </AuthRoute>
           } 
         />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<RegisterAndLogout />} />
-        <Route path="/register/teacher" element={<RegisterAndLogout />} />
+        <Route 
+          path="/t/*" 
+          element={
+            <AuthRoute requiredRole="teacher">
+              <TeacherRoutes />
+            </AuthRoute>
+          } 
+        />
+        <Route path="/login" element={<AuthRoute requireAuth={false}><Login /></AuthRoute>} />
+        <Route path="/logout" element={<Logout />} />
+        <Route path="/register" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
+        <Route path="/register/teacher" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
         <Route path="*" element={<>Not Found</>} />
       </Routes>
     </BrowserRouter>
