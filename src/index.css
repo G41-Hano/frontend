@@ -1,6 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Rubik+Bubbles&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400..800&display=swap');
 @import "tailwindcss";
 
 .font-rubik-bubbles {
   font-family: 'Rubik Bubbles', cursive;
+}
+
+.font-baloo {
+  font-family: 'Baloo 2', system-ui;
 }

@@ -6,6 +6,16 @@ import StudentRoutes from './routes/StudentRoutes'
 import TeacherRoutes from './routes/TeacherRoutes'
 import PasswordReset from './pages/PasswordReset'
 import NewPassword from './pages/NewPassword'
+import DashboardLayout from './components/DashboardLayout'
+
+// Temporary mock user data 
+const mockUser = {
+  name: 'Ayna Dia',
+  username: 'aynadia',
+  badges: 5,
+  points: 3090,
+  avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNC8vD7js6jU79E2koWs91aCww8sFXwtcMUw&s'
+}
 
 function Logout() {
   localStorage.clear()
@@ -21,31 +31,60 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Navigate to="/login"/>}/>
-
-        <Route 
-          path="/s/*" 
-          element={
-            <AuthRoute requiredRole="student">
-              <StudentRoutes />
-            </AuthRoute>
-          } 
-        />
-        <Route 
-          path="/t/*" 
-          element={
-            <AuthRoute requiredRole="teacher">
-              <TeacherRoutes />
-            </AuthRoute>
-          } 
-        />
         <Route path="/login" element={<AuthRoute requireAuth={false}><Login /></AuthRoute>} />
         <Route path="/logout" element={<Logout />} />
         <Route path="/register" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
         <Route path="/register/teacher" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
         <Route path="/reset-password" element={<AuthRoute requireAuth={false}><PasswordReset /></AuthRoute>} />
         <Route path="/new-password" element={<AuthRoute requireAuth={false}><NewPassword /></AuthRoute>} />
-        <Route path="*" element={<>Not Found</>} />
+
+        {/* Student Routes */}
+        <Route path="/s" element={
+          <AuthRoute requiredRole="student">
+            <DashboardLayout user={mockUser} />
+          </AuthRoute>
+        }>
+          <Route path="*" element={<StudentRoutes />} />
+        </Route>
+
+        {/* Teacher Routes */}
+        <Route path="/t" element={
+          <AuthRoute requiredRole="teacher">
+            <DashboardLayout user={mockUser} />
+          </AuthRoute>
+        }>
+          <Route path="*" element={<TeacherRoutes />} />
+        </Route>
+
+        {/* 404 Route */}
+        <Route path="*" element={
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#EEF1F5] to-[#E6E9FF] p-4">
+            <div className="bg-white/80 backdrop-blur-lg rounded-3xl p-8 md:p-12 shadow-xl max-w-md w-full text-center relative overflow-hidden">
+              {/* Decorative elements */}
+              <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-[#FFDF9F]/30 blur-2xl"></div>
+              <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-[#4C53B4]/20 blur-2xl"></div>
+              
+              <div className="relative">
+                <div className="w-24 h-24 mx-auto mb-6 bg-[#FFDF9F] rounded-2xl flex items-center justify-center transform -rotate-12">
+                  <span className="text-5xl font-bold text-[#4C53B4]">?</span>
+                </div>
+                
+                <h1 className="text-6xl font-bold text-[#4C53B4] mb-4">404</h1>
+                <p className="text-gray-600 text-lg mb-8">Oops! This page seems to be playing hide and seek.</p>
+                
+                <a 
+                  href="/login" 
+                  className="inline-flex items-center justify-center px-6 py-3 bg-[#4C53B4] text-white font-semibold rounded-xl hover:bg-[#6366f1] transition-colors duration-200 gap-2 group"
+                >
+                  <i className="fa-solid fa-arrow-left text-sm group-hover:-translate-x-1 transition-transform"></i>
+                  Back to Login
+                </a>
+              </div>
+            </div>
+          </div>
+        }/>
       </Routes>
     </BrowserRouter>
   )
