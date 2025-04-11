@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import Badge from '../assets/Badge.png';
 import Points from '../assets/Points.png';
+import { useNavigate } from 'react-router-dom';
 
 const Topbar = ({ user, onMenuClick }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const navigate = useNavigate();
+
+  //Logout Function
+  const handleLogout = () => {
+    setIsDropdownOpen(false);
+    navigate('/logout');
+  };
 
   return (
     <header className="h-16 bg-white w-full flex items-center justify-between px-4 shadow-md z-20 sticky top-0">
@@ -64,13 +72,20 @@ const Topbar = ({ user, onMenuClick }) => {
 
           {/* Dropdown Menu */}
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
-              <button className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors font-baloo text-sm sm:text-base">
-                Profile Settings
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-gray-100 shadow-lg py-2 z-50 animate-fadeIn">
+              <button 
+                className="w-full px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors text-gray-600 hover:text-[#4C53B4]"
+              >
+                <i className="fa-solid fa-user text-xs"></i>
+                <span>Profile Settings</span>
               </button>
-              <hr className="my-1" />
-              <button className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 transition-colors font-baloo text-sm sm:text-base">
-                Logout
+              <div className="border-t border-gray-100 my-1"></div>
+              <button 
+                onClick={handleLogout}
+                className="w-full px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors text-red-500 hover:text-red-600"
+              >
+                <i className="fa-solid fa-right-from-bracket text-xs"></i>
+                <span>Logout</span>
               </button>
             </div>
           )}
