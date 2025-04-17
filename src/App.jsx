@@ -37,8 +37,8 @@ function App() {
         <Route path="/logout" element={<Logout />} />
         <Route path="/register" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
         <Route path="/register/teacher" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
-        <Route path="/reset-password" element={<AuthRoute requireAuth={false}><PasswordReset /></AuthRoute>} />
-        <Route path="/new-password" element={<AuthRoute requireAuth={false}><NewPassword /></AuthRoute>} />
+        <Route path="/request-password-reset" element={<AuthRoute requireAuth={false}><PasswordReset /></AuthRoute>} />
+        <Route path="/reset-password/:token" element={<AuthRoute requireAuth={false}><NewPassword /></AuthRoute>} />
 
         {/* Student Routes */}
         <Route path="/s" element={
