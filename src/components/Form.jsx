@@ -378,7 +378,7 @@ function Form({ route, method, userType }) { /* route is for the route when subm
             {method === "login" && (
                 <div className="text-right -mt-2">
                     <a 
-                        href="/reset-password" 
+                        href="/request-password-reset" 
                         className="text-[#4C53B4] hover:text-[#6366f1] text-sm transition-colors duration-200 hover:underline"
                     >
                         Forgot Password?

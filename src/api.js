@@ -18,4 +18,30 @@ api.interceptors.request.use(
   }
 )
 
+export const authService = {
+  // Request password reset
+  async requestPasswordReset(email) {
+    try {
+      const response = await api.post('/api/password-reset/', { email });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || 'Failed to request password reset');
+    }
+  },
+
+  // Reset password with token
+  async resetPassword(token, newPassword, confirmPassword) {
+    try {
+      const response = await api.post(`/api/reset-password/${token}/`, {
+        new_password: newPassword,
+        confirm_password: confirmPassword
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error resetting password:', error.response?.data);
+      throw new Error(error.response?.data?.error || 'Failed to reset password');
+    }
+  }
+};
+
 export default api

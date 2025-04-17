@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import bgImage from '../assets/bg_loginregister.png';
 import lockIcon from '../assets/pass_reset.png';
 import logo from '../assets/logo.png';
 import MouseTrail from '../components/MouseTrail';
 import api from '../api';
+import { authService } from '../api';
 
 const NewPassword = () => {
   const navigate = useNavigate();
@@ -18,11 +19,9 @@ const NewPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [token, setToken] = useState('');
+  const { token: tokenParam } = useParams();
 
   useEffect(() => {
-    // Get token from URL query params
-    const params = new URLSearchParams(location.search);
-    const tokenParam = params.get('token');
     // Check if token is valid
     if (!tokenParam) {
       setErrors({ token: 'Invalid or missing reset token' });
@@ -34,11 +33,13 @@ const NewPassword = () => {
   const validateForm = () => {
     const newErrors = {};
     
-    // Password validation - min 8 chars
+    // Password validation - min 8 chars, at least one capital letter and symbol
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
+    } else if (!/(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_])[A-Za-z\d@$!%*?&_]{8,}$/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one capital letter, one number, and one special character';
     }
 
     // Confirm password validation
@@ -58,19 +59,20 @@ const NewPassword = () => {
 
     setLoading(true);
     try {
-      // TODO: Replace with actual API endpoint
-      await api.post('/api/auth/reset-password/confirm/', {
-        token, 
-        new_password: formData.password 
-      });
-      
+      await authService.resetPassword(token, formData.password, formData.confirmPassword);
+
       // Show success message and redirect to login
       setTimeout(() => {
-        navigate('/login');
-      }, 2000); // 2 seconds delay
+        navigate('/login', { 
+          state: { 
+            message: 'Password reset successful. Please login with your new password.' 
+          } 
+        });
+      }, 2000);
     } catch (error) {
+      console.error('Error during password reset:', error);
       setErrors({
-        submit: error.response?.data?.message || 'Failed to reset password. Please try again.' 
+        submit: error.response?.data?.error || 'Failed to reset password. Please try again.' 
       });
     } finally {
       setLoading(false); 
