@@ -1,18 +1,38 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import bgImage from '../assets/bg_loginregister.png';
 import lockIcon from '../assets/pass_reset.png';
 import logo from '../assets/logo.png';
 import MouseTrail from '../components/MouseTrail';
+import { authService } from '../api';
+
 
 const PasswordReset = () => {
   const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setMessage('');
     setLoading(true);
-    // TODO: Implement password reset logic here
+
+    try {
+      await authService.requestPasswordReset(email);
+      setMessage('If an account exists with this email, you will receive a password reset link.');
+      setTimeout(() => {
+        navigate('/login');
+      }, 3000);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+
     console.log('Password reset requested for:', email);
     setTimeout(() => {
       setLoading(false);
@@ -22,14 +42,14 @@ const PasswordReset = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden px-4 sm:px-6"
-         style={{
-           backgroundImage: `url(${bgImage})`,
-           backgroundSize: 'cover',
-           backgroundPosition: 'center',
-         }}>
+      style={{
+        backgroundImage: `url(${bgImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}>
 
       <MouseTrail excludeSelector=".form-container" />
-      
+
       {/* Logo */}
       <div className="absolute top-4 sm:top-8 left-4 sm:left-10">
         <img src={logo} alt="Hano Logo" className="w-24 sm:w-32 h-auto drop-shadow-lg" />
@@ -43,16 +63,18 @@ const PasswordReset = () => {
         </div>
         <h2 className="text-[#4C53B4] text-2xl sm:text-3xl font-semibold mb-3">Reset your Password</h2>
         <p className="text-gray-600 mb-8">
-          {isSubmitted 
+          {isSubmitted
             ? "Check your email for instructions to reset your password."
             : "Please provide your registered email address to reset your password."}
         </p>
-        
+
         {/* Reset password form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="form-control w-full">
             <div className="relative group">
               <input
+                id="email"
+                name="email"
                 type="email"
                 placeholder="Enter your email account"
                 value={email}
@@ -62,7 +84,19 @@ const PasswordReset = () => {
               />
             </div>
           </div>
-          
+
+          {message && (
+            <div className="rounded-md bg-green-50 p-4">
+              <div className="text-sm text-green-700">{message}</div>
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-md bg-red-50 p-4">
+              <div className="text-sm text-red-700">{error}</div>
+            </div>
+          )}
+
           {/* Submit button with loading state */}
           <button
             type="submit"
