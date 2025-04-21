@@ -66,7 +66,7 @@ const Topbar = ({ user, onMenuClick }) => {
                 {user?.name?.[0] || 'U'} {/* if user has no avatar, show the first letter of the name */}
               </div>
             )}
-            <span className="text-gray-600 font-baloo text-sm sm:text-base hidden sm:block">{user?.username || 'User'}</span> {/* if user has no username, show 'User' */}
+            <span className="text-gray-600 font-baloo text-sm sm:text-base hidden sm:block">{user?.first_name + " " + user?.last_name || 'User'}</span> {/* if user has no username, show 'User' */}
             <i className="fa-solid fa-chevron-down text-gray-400 group-hover:text-gray-600 transition-colors"></i>
           </button>
 

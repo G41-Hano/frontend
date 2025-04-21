@@ -3,6 +3,7 @@ import { jwtDecode } from "jwt-decode"
 import api from "../api"
 import { REFRESH_TOKEN, ACCESS_TOKEN } from "../constants"
 import { useState, useEffect } from "react"
+import { useUser } from "../contexts/UserContext"
 
 /*
   This will protect the routes in case an unauthorized user to access out links
@@ -10,6 +11,7 @@ import { useState, useEffect } from "react"
 export default function AuthRoute({children, requireAuth = true, requiredRole = null}) {
   const [isAuthorized, setIsAuthorized] = useState(null)
   const [userRole, setUserRole] = useState(null)
+  const { loginUser } = useUser()
 
   useEffect(()=>{
     auth().catch(() => setIsAuthorized(false))
@@ -46,6 +48,8 @@ export default function AuthRoute({children, requireAuth = true, requiredRole = 
       return
     }
     const decoded = jwtDecode(token)
+    console.log("Decoded token: " )
+    console.log(decoded)
     const tokenExpiration = decoded.exp
     setUserRole(decoded.role)
     const now = Date.now() / 1000
@@ -55,7 +59,8 @@ export default function AuthRoute({children, requireAuth = true, requiredRole = 
     } else {
       setIsAuthorized(true)
     }    
-
+    
+    loginUser(token)
   }
 
   if (isAuthorized === null) {
