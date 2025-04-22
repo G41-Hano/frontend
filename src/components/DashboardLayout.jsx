@@ -23,7 +23,7 @@ const DashboardLayout = () => {
         {/* Topbar */}
         <Topbar user={user} onMenuClick={() => setIsSidebarOpen(true)} />
         {/* Main Content */}
-        <main className="pt-12 flex-1 overflow-x-hidden">
+        <main className="flex-1 overflow-x-hidden">
           <Outlet />
         </main>
       </div>
