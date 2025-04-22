@@ -9,14 +9,6 @@ import NewPassword from './pages/NewPassword'
 import DashboardLayout from './components/DashboardLayout'
 import { UserProvider } from './contexts/UserContext'
 
-// Temporary mock user data 
-const mockUser = {
-  name: 'Ayna Dia',
-  username: 'aynadia',
-  badges: 5,
-  points: 3090,
-  avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNC8vD7js6jU79E2koWs91aCww8sFXwtcMUw&s'
-}
 
 function Logout() {
   localStorage.clear()

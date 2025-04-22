@@ -21,11 +21,13 @@ const Sidebar = ({ isOpen, onClose }) => {
       text: user?.role === 'teacher' ? 'All Classes' : 'My Classes', 
       path: `/${user?.role === 'teacher' ? 't' : 's'}/classes` 
     },
-    { 
+    
+    // Only show Badges for students
+    ...(user?.role === 'student' ? [{
       icon: Badges, 
       text: 'Badges', 
-      path: `/${user?.role === 'teacher' ? 't' : 's'}/badges` 
-    },
+      path: '/s/badges'
+    }] : []),
     { 
       icon: Profile, 
       text: 'Profile', 

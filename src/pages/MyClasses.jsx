@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { useState, useEffect } from 'react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import api from '../api';
 import pencilBook from '../assets/pencil_book.png';
 
 const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']; //Classroom Colors
@@ -7,55 +8,53 @@ const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']
 const MyClasses = () => {
   const [filter, setFilter] = useState('active');
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [classrooms, setClassrooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [classCode, setClassCode] = useState('');
 
-  //Temporary Classroom Data
-  const [classrooms, setClassrooms] = useState([
-    {
-      id: 1,
-      name: 'Mahogany SY2425',
-      students: 3,
-      section: 'Mahogany',
-      image: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?q=80&w=1470&auto=format&fit=crop',
-      color: '#7D83D7',
-      isHidden: false,
-      studentAvatars: [
-        { id: 1, name: 'John Smith', initials: 'JS' },
-        { id: 2, name: 'Maria Garcia', initials: 'MG' },
-        { id: 3, name: 'David Chen', initials: 'DC' }
-      ]
-    },
-    {
-      id: 2,
-      name: 'Narra SY2425',
-      students: 5,
-      section: 'Narra',
-      image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=1422&auto=format&fit=crop',
-      color: '#E79051',
-      isHidden: false,
-      studentAvatars: [
-        { id: 4, name: 'Sarah Johnson', initials: 'SJ' },
-        { id: 5, name: 'Michael Lee', initials: 'ML' },
-        { id: 6, name: 'Emma Wilson', initials: 'EW' },
-        { id: 7, name: 'James Brown', initials: 'JB' },
-        { id: 8, name: 'Lisa Anderson', initials: 'LA' }
-      ]
-    },
-    {
-      id: 3,
-      name: 'Molave SY2425',
-      students: 4,
-      section: 'Molave',
-      image: null,
-      color: '#A6CB00',
-      isHidden: false,
-      studentAvatars: [
-        { id: 9, name: 'James Brown', initials: 'JB' },
-        { id: 10, name: 'Lisa Anderson', initials: 'LA' },
-        { id: 11, name: 'Robert Taylor', initials: 'RT' },
-        { id: 12, name: 'John Smith', initials: 'JS' }
-      ]
+  // Fetch student's enrolled classrooms
+  useEffect(() => {
+    fetchClassrooms();
+  }, []);
+
+  const fetchClassrooms = async () => {
+    try {
+      const response = await api.get('/api/classrooms/');
+      setClassrooms(Array.isArray(response.data) ? response.data : []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching classrooms:', err);
+      setError(err.response?.data?.error || 'Failed to fetch classrooms');
+      setClassrooms([]);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  // Handle joining classroom with code
+  const handleJoinClassroom = async (e) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      const response = await api.post('/api/classrooms/join/', { 
+        class_code: classCode 
+      });
+      
+      // Response contains classroom info on success
+      if (response.data.classroom_id) {
+        await fetchClassrooms(); // Refresh the list
+        setClassCode('');
+        setIsJoinModalOpen(false);
+      } else {
+        setError(response.data.error || 'Failed to join classroom');
+      }
+    } catch (error) {
+      console.error('Error joining classroom:', error.response?.data || error.message);
+      setError(error.response?.data?.error || 'Failed to join classroom. Please check your class code.');
+    }
+  };
 
   //Handle Color Change
   const handleColorChange = (classroomId, newColor) => {
@@ -91,6 +90,32 @@ const MyClasses = () => {
     ? classrooms.filter(c => !c.isHidden)                          //Show Active Classrooms
     : classrooms.filter(c => c.isHidden);                          //Show Hidden Classrooms
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <div className="text-red-500 mb-4">
+          <i className="fa-solid fa-circle-exclamation text-3xl"></i>
+        </div>
+        <h3 className="text-xl font-semibold text-gray-800 mb-2">Oops! Something went wrong</h3>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <button
+          onClick={fetchClassrooms}
+          className="px-4 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 px-4 sm:px-6 max-w-full md:max-w-[95%] mx-auto">
       {/* Header */}
@@ -101,6 +126,13 @@ const MyClasses = () => {
             minds grow, and futures shine!
           </h1>
           <p className="text-gray-700 text-base sm:text-lg">Start learning today</p>
+          <button
+            onClick={() => setIsJoinModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] text-white text-sm font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200"
+          >
+            <i className="fa-solid fa-plus mr-2"></i>
+            Join Classroom
+          </button>
         </div>
         <div className="w-24 sm:w-40 h-24 sm:h-40 flex-shrink-0">
           <img src={pencilBook} alt="Learning" className="h-full w-auto object-contain mx-auto" />
@@ -236,29 +268,14 @@ const MyClasses = () => {
                               
                               <div className="transform transition-all duration-300 group-hover:translate-x-1">
                                 <h3 className="text-lg sm:text-xl font-semibold text-white">{classroom.name}</h3>
-                                <p className="text-white/80 text-sm group-hover:text-white transition-colors duration-300">{classroom.students} students</p>
+                                <p className="text-white/80 text-sm group-hover:text-white transition-colors duration-300">{classroom.teacher_name}</p>
                               </div>
                             </div>
 
-                            {/* Student Avatars */}
-                            <div className="flex -space-x-2">
-                              {classroom.studentAvatars.slice(0, 3).map((student) => (  //Show First 3 Students
-                                <div
-                                  key={student.id}
-                                  className="w-8 sm:w-10 h-8 sm:h-10 rounded-full bg-[#4C53B4] border-2 border-white flex items-center justify-center text-white text-[10px] sm:text-xs font-medium transform transition-all duration-300 hover:scale-110 hover:translate-y-[-2px] hover:z-10 group relative"
-                                  title={student.name}
-                                >
-                                  {student.initials}
-                                </div>
-                              ))}
-                              {classroom.students > 3 && (  //if more than 3 students, show +3
-                                <div 
-                                  className="w-8 sm:w-10 h-8 sm:h-10 rounded-full bg-white/30 backdrop-blur-sm border-2 border-white flex items-center justify-center text-white text-[10px] sm:text-xs font-medium transform transition-all duration-300 hover:scale-110 hover:translate-y-[-2px] hover:z-10"
-                                  title={`${classroom.students - 3} more students`} 
-                                >
-                                  +{classroom.students - 3}  
-                                </div>
-                              )}
+                            {/* Student Count */}
+                            <div className="flex items-center gap-2 text-white/80">
+                              <i className="fa-solid fa-users"></i>
+                              <span>{classroom.student_count} students</span>
                             </div>
                           </div>
 
@@ -281,6 +298,45 @@ const MyClasses = () => {
           </Droppable>
         </DragDropContext>
       </div>
+
+      {/* Join Classroom Modal */}
+      {isJoinModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md mx-4 relative animate-scaleIn">
+            <button 
+              onClick={() => setIsJoinModalOpen(false)}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+            >
+              <i className="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Join a Classroom</h2>
+
+            <form onSubmit={handleJoinClassroom} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter Class Code
+                </label>
+                <input
+                  type="text"
+                  value={classCode}
+                  onChange={(e) => setClassCode(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
+                  placeholder="Enter your class code here"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl text-white font-semibold bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] transition-all duration-200 transform hover:scale-[1.02]"
+              >
+                Join Classroom
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

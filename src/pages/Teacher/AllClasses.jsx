@@ -1,95 +1,102 @@
-import { useState } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { useState, useEffect } from 'react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import api from '../../api';
 import pencilBook from '../../assets/pencil_book.png';
+import CreateClassroomModal from './CreateClassroomModal';
 
 const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']; //Classroom Colors
 
-const MyClasses = () => {
+const AllClasses = () => {
   const [filter, setFilter] = useState('active');
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [classrooms, setClassrooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  //Temporary Classroom Data
-  const [classrooms, setClassrooms] = useState([
-    {
-      id: 1,
-      name: 'Mahogany SY2425',
-      students: 3,
-      section: 'Mahogany',
-      image: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?q=80&w=1470&auto=format&fit=crop',
-      color: '#7D83D7',
-      isHidden: false,
-      studentAvatars: [
-        { id: 1, name: 'John Smith', initials: 'JS' },
-        { id: 2, name: 'Maria Garcia', initials: 'MG' },
-        { id: 3, name: 'David Chen', initials: 'DC' }
-      ]
-    },
-    {
-      id: 2,
-      name: 'Narra SY2425',
-      students: 5,
-      section: 'Narra',
-      image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=1422&auto=format&fit=crop',
-      color: '#E79051',
-      isHidden: false,
-      studentAvatars: [
-        { id: 4, name: 'Sarah Johnson', initials: 'SJ' },
-        { id: 5, name: 'Michael Lee', initials: 'ML' },
-        { id: 6, name: 'Emma Wilson', initials: 'EW' },
-        { id: 7, name: 'James Brown', initials: 'JB' },
-        { id: 8, name: 'Lisa Anderson', initials: 'LA' }
-      ]
-    },
-    {
-      id: 3,
-      name: 'Molave SY2425',
-      students: 4,
-      section: 'Molave',
-      image: null,
-      color: '#A6CB00',
-      isHidden: false,
-      studentAvatars: [
-        { id: 9, name: 'James Brown', initials: 'JB' },
-        { id: 10, name: 'Lisa Anderson', initials: 'LA' },
-        { id: 11, name: 'Robert Taylor', initials: 'RT' },
-        { id: 12, name: 'John Smith', initials: 'JS' }
-      ]
+  // Fetch classrooms
+  useEffect(() => {
+    fetchClassrooms();
+  }, []);
+
+  const fetchClassrooms = async () => {
+    try {
+      const response = await api.get('/api/classrooms/');
+      setClassrooms(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error('Error fetching classrooms:', err);
+      setError(err.response?.data?.error || 'Failed to fetch classrooms');
+      setClassrooms([]); 
+    } finally {
+      setLoading(false);
     }
-  ]);
-
-  //Handle Color Change
-  const handleColorChange = (classroomId, newColor) => {
-    setClassrooms(prevClassrooms =>                                 //Update Classroom Color
-      prevClassrooms.map(classroom =>
-        classroom.id === classroomId ? { ...classroom, color: newColor } : classroom 
-      )
-    );
-    setOpenMenuId(null); 
   };
 
-  //Handle Hide Toggle
-  const handleHideToggle = (classroomId) => {
-    setClassrooms(prevClassrooms =>                                 //Update Classroom Visibility
-      prevClassrooms.map(classroom =>
-        classroom.id === classroomId ? { ...classroom, isHidden: !classroom.isHidden } : classroom
-      )
-    );
+  // Handle classroom creation success
+  const handleClassroomCreated = (newClassroom) => {
+    setClassrooms(prev => [newClassroom, ...prev]);
+  };
+
+  // Handle color change
+  const handleColorChange = async (classroomId, newColor) => {
+    try {
+      await api.patch(`/api/classrooms/${classroomId}/`, {
+        color: newColor
+      });
+      setClassrooms(prev =>
+        prev.map(classroom =>
+          classroom.id === classroomId ? { ...classroom, color: newColor } : classroom
+        )
+      );
+    } catch (err) {
+      console.error('Error updating classroom color:', err);
+      setError(err.response?.data?.error || 'Failed to update classroom color');
+    }
     setOpenMenuId(null);
   };
 
-  //Handle Drag and Drop
+  // Handle hide toggle
+  const handleHideToggle = async (classroomId) => {
+    try {
+      const classroom = classrooms.find(c => c.id === classroomId);
+      await api.patch(`/api/classrooms/${classroomId}/`, {
+        isHidden: !classroom?.isHidden
+      });
+      setClassrooms(prev =>
+        prev.map(classroom =>
+          classroom.id === classroomId ? { ...classroom, isHidden: !classroom.isHidden } : classroom
+        )
+      );
+    } catch {
+      setError('Failed to update classroom visibility');
+    }
+    setOpenMenuId(null);
+  };
+
+  // Handle drag and drop
   const onDragEnd = (result) => {
     if (!result.destination) return;
     const items = Array.from(classrooms);
-    const [reorderedItem] = items.splice(result.source.index, 1);    //Remove Item
-    items.splice(result.destination.index, 0, reorderedItem);       //Insert Item
-    setClassrooms(items);                                           //Update Classroom Order
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    setClassrooms(items);
   };
 
-  //Filter Classrooms
-  const filteredClassrooms = filter === 'active'                    //Filter Active or Hidden Classrooms
-    ? classrooms.filter(c => !c.isHidden)                          //Show Active Classrooms
-    : classrooms.filter(c => c.isHidden);                          //Show Hidden Classrooms
+  // Filter classrooms
+  const filteredClassrooms = classrooms && Array.isArray(classrooms) ? 
+    (filter === 'active' 
+      ? classrooms.filter(c => !c?.isHidden)
+      : classrooms.filter(c => c?.isHidden)
+    ) 
+    : [];
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
 
   return (
     <div className="space-y-6 px-4 sm:px-6 max-w-full md:max-w-[95%] mx-auto">
@@ -100,12 +107,14 @@ const MyClasses = () => {
             A space where hands speak,<br />
             minds grow, and futures shine!
           </h1>
-          <p className="text-gray-700 text-base sm:text-lg">Start learning today</p>
+          <p className="text-gray-700 text-base sm:text-lg">Start teaching today</p>
           <button
-                type="submit"
-                className="btn w-full rounded-3xl bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] text-white border-none py-3 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 mt-3"
-            > + Create Classroom
-            </button>
+            onClick={() => setIsCreateModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] text-white text-sm font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200"
+          >
+            <i className="fa-solid fa-plus mr-2"></i>
+            Create Classroom
+          </button>
         </div>
         <div className="w-24 sm:w-40 h-24 sm:h-40 flex-shrink-0">
           <img src={pencilBook} alt="Learning" className="h-full w-auto object-contain mx-auto" />
@@ -247,7 +256,7 @@ const MyClasses = () => {
 
                             {/* Student Avatars */}
                             <div className="flex -space-x-2">
-                              {classroom.studentAvatars.slice(0, 3).map((student) => (  //Show First 3 Students
+                              {classroom.studentAvatars?.slice(0, 3).map((student) => (
                                 <div
                                   key={student.id}
                                   className="w-8 sm:w-10 h-8 sm:h-10 rounded-full bg-[#4C53B4] border-2 border-white flex items-center justify-center text-white text-[10px] sm:text-xs font-medium transform transition-all duration-300 hover:scale-110 hover:translate-y-[-2px] hover:z-10 group relative"
@@ -256,12 +265,12 @@ const MyClasses = () => {
                                   {student.initials}
                                 </div>
                               ))}
-                              {classroom.students > 3 && (  //if more than 3 students, show +3
+                              {(classroom.student_count > 3 || classroom.students > 3) && (
                                 <div 
                                   className="w-8 sm:w-10 h-8 sm:h-10 rounded-full bg-white/30 backdrop-blur-sm border-2 border-white flex items-center justify-center text-white text-[10px] sm:text-xs font-medium transform transition-all duration-300 hover:scale-110 hover:translate-y-[-2px] hover:z-10"
-                                  title={`${classroom.students - 3} more students`} 
+                                  title={`${(classroom.student_count || classroom.students) - 3} more students`} 
                                 >
-                                  +{classroom.students - 3}  
+                                  +{(classroom.student_count || classroom.students) - 3}
                                 </div>
                               )}
                             </div>
@@ -286,8 +295,15 @@ const MyClasses = () => {
           </Droppable>
         </DragDropContext>
       </div>
+
+      {/* Create Classroom Modal */}
+      <CreateClassroomModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleClassroomCreated}
+      />
     </div>
   );
 };
 
-export default MyClasses;
+export default AllClasses;

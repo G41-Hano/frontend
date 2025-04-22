@@ -9,7 +9,6 @@ function Register() {
     // Determine user type from URL path for dynamic form rendering
     const location = useLocation()
     const userType = location.pathname.includes('teacher') ? 'Teacher' : 'Student'
-    const endpoint = userType.toLowerCase()
 
     return (
         <div className="min-h-screen flex flex-col md:flex-row items-center justify-center md:justify-between relative overflow-hidden">

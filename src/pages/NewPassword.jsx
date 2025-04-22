@@ -4,7 +4,6 @@ import bgImage from '../assets/bg_loginregister.png';
 import lockIcon from '../assets/pass_reset.png';
 import logo from '../assets/logo.png';
 import MouseTrail from '../components/MouseTrail';
-import api from '../api';
 import { authService } from '../api';
 
 const NewPassword = () => {
