@@ -2,9 +2,11 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { useState } from 'react';
+import { useUser } from '../contexts/UserContext';
 
-const DashboardLayout = ({ user }) => {
+const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const {user} = useUser();
 
   return (
     <div className="min-h-screen bg-[#EEF1F5] flex">

@@ -5,14 +5,39 @@ import Badges from '../assets/Badges.png';
 import Profile from '../assets/Profile.png';
 import Settings from '../assets/Settings.png';
 import logo from '../assets/logo.png';
+import { useUser } from '../contexts/UserContext';
 
 const Sidebar = ({ isOpen, onClose }) => {
+  const { user } = useUser();
+  
   const navItems = [
-    { icon: Home, text: 'Home', path: '/s/home' },
-    { icon: MyClasses, text: 'My Classes', path: '/s/classes' },
-    { icon: Badges, text: 'Badges', path: '/s/badges' },
-    { icon: Profile, text: 'Profile', path: '/s/profile' },
-    { icon: Settings, text: 'Settings', path: '/s/settings' },
+    { 
+      icon: Home, 
+      text: 'Home', 
+      path: `/${user?.role === 'teacher' ? 't' : 's'}/home` 
+    },
+    { 
+      icon: MyClasses, 
+      text: user?.role === 'teacher' ? 'All Classes' : 'My Classes', 
+      path: `/${user?.role === 'teacher' ? 't' : 's'}/classes` 
+    },
+    
+    // Only show Badges for students
+    ...(user?.role === 'student' ? [{
+      icon: Badges, 
+      text: 'Badges', 
+      path: '/s/badges'
+    }] : []),
+    { 
+      icon: Profile, 
+      text: 'Profile', 
+      path: `/${user?.role === 'teacher' ? 't' : 's'}/profile` 
+    },
+    { 
+      icon: Settings, 
+      text: 'Settings', 
+      path: `/${user?.role === 'teacher' ? 't' : 's'}/settings` 
+    },
   ];
 
   return (

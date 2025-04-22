@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import api from '../api';
-import pencilBook from '../assets/pencil_book.png';
+import api from '../../api';
+import pencilBook from '../../assets/pencil_book.png';
+import CreateClassroomModal from './CreateClassroomModal';
 
 const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']; //Classroom Colors
 
-const MyClasses = () => {
+const AllClasses = () => {
   const [filter, setFilter] = useState('active');
   const [openMenuId, setOpenMenuId] = useState(null);
   const [classrooms, setClassrooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
-  const [classCode, setClassCode] = useState('');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  // Fetch student's enrolled classrooms
+  // Fetch classrooms
   useEffect(() => {
     fetchClassrooms();
   }, []);
@@ -23,97 +23,79 @@ const MyClasses = () => {
     try {
       const response = await api.get('/api/classrooms/');
       setClassrooms(Array.isArray(response.data) ? response.data : []);
-      setError(null);
     } catch (err) {
       console.error('Error fetching classrooms:', err);
       setError(err.response?.data?.error || 'Failed to fetch classrooms');
-      setClassrooms([]);
+      setClassrooms([]); 
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle joining classroom with code
-  const handleJoinClassroom = async (e) => {
-    e.preventDefault();
-    setError(null);
+  // Handle classroom creation success
+  const handleClassroomCreated = (newClassroom) => {
+    setClassrooms(prev => [newClassroom, ...prev]);
+  };
+
+  // Handle color change
+  const handleColorChange = async (classroomId, newColor) => {
     try {
-      const response = await api.post('/api/classrooms/join/', { 
-        class_code: classCode 
+      await api.patch(`/api/classrooms/${classroomId}/`, {
+        color: newColor
       });
-      
-      // Response contains classroom info on success
-      if (response.data.classroom_id) {
-        await fetchClassrooms(); // Refresh the list
-        setClassCode('');
-        setIsJoinModalOpen(false);
-      } else {
-        setError(response.data.error || 'Failed to join classroom');
-      }
-    } catch (error) {
-      console.error('Error joining classroom:', error.response?.data || error.message);
-      setError(error.response?.data?.error || 'Failed to join classroom. Please check your class code.');
+      setClassrooms(prev =>
+        prev.map(classroom =>
+          classroom.id === classroomId ? { ...classroom, color: newColor } : classroom
+        )
+      );
+    } catch (err) {
+      console.error('Error updating classroom color:', err);
+      setError(err.response?.data?.error || 'Failed to update classroom color');
     }
-  };
-
-  //Handle Color Change
-  const handleColorChange = (classroomId, newColor) => {
-    setClassrooms(prevClassrooms =>                                 //Update Classroom Color
-      prevClassrooms.map(classroom =>
-        classroom.id === classroomId ? { ...classroom, color: newColor } : classroom 
-      )
-    );
-    setOpenMenuId(null); 
-  };
-
-  //Handle Hide Toggle
-  const handleHideToggle = (classroomId) => {
-    setClassrooms(prevClassrooms =>                                 //Update Classroom Visibility
-      prevClassrooms.map(classroom =>
-        classroom.id === classroomId ? { ...classroom, isHidden: !classroom.isHidden } : classroom
-      )
-    );
     setOpenMenuId(null);
   };
 
-  //Handle Drag and Drop
+  // Handle hide toggle
+  const handleHideToggle = async (classroomId) => {
+    try {
+      const classroom = classrooms.find(c => c.id === classroomId);
+      await api.patch(`/api/classrooms/${classroomId}/`, {
+        isHidden: !classroom?.isHidden
+      });
+      setClassrooms(prev =>
+        prev.map(classroom =>
+          classroom.id === classroomId ? { ...classroom, isHidden: !classroom.isHidden } : classroom
+        )
+      );
+    } catch {
+      setError('Failed to update classroom visibility');
+    }
+    setOpenMenuId(null);
+  };
+
+  // Handle drag and drop
   const onDragEnd = (result) => {
     if (!result.destination) return;
     const items = Array.from(classrooms);
-    const [reorderedItem] = items.splice(result.source.index, 1);    //Remove Item
-    items.splice(result.destination.index, 0, reorderedItem);       //Insert Item
-    setClassrooms(items);                                           //Update Classroom Order
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    setClassrooms(items);
   };
 
-  //Filter Classrooms
-  const filteredClassrooms = filter === 'active'                    //Filter Active or Hidden Classrooms
-    ? classrooms.filter(c => !c.isHidden)                          //Show Active Classrooms
-    : classrooms.filter(c => c.isHidden);                          //Show Hidden Classrooms
+  // Filter classrooms
+  const filteredClassrooms = classrooms && Array.isArray(classrooms) ? 
+    (filter === 'active' 
+      ? classrooms.filter(c => !c?.isHidden)
+      : classrooms.filter(c => c?.isHidden)
+    ) 
+    : [];
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-        <div className="text-red-500 mb-4">
-          <i className="fa-solid fa-circle-exclamation text-3xl"></i>
-        </div>
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">Oops! Something went wrong</h3>
-        <p className="text-gray-600 mb-4">{error}</p>
-        <button
-          onClick={fetchClassrooms}
-          className="px-4 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    );
+    return <div>Error: {error}</div>;
   }
 
   return (
@@ -125,13 +107,13 @@ const MyClasses = () => {
             A space where hands speak,<br />
             minds grow, and futures shine!
           </h1>
-          <p className="text-gray-700 text-base sm:text-lg">Start learning today</p>
+          <p className="text-gray-700 text-base sm:text-lg">Start teaching today</p>
           <button
-            onClick={() => setIsJoinModalOpen(true)}
+            onClick={() => setIsCreateModalOpen(true)}
             className="inline-flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] text-white text-sm font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200"
           >
             <i className="fa-solid fa-plus mr-2"></i>
-            Join Classroom
+            Create Classroom
           </button>
         </div>
         <div className="w-24 sm:w-40 h-24 sm:h-40 flex-shrink-0">
@@ -268,14 +250,29 @@ const MyClasses = () => {
                               
                               <div className="transform transition-all duration-300 group-hover:translate-x-1">
                                 <h3 className="text-lg sm:text-xl font-semibold text-white">{classroom.name}</h3>
-                                <p className="text-white/80 text-sm group-hover:text-white transition-colors duration-300">{classroom.teacher_name}</p>
+                                <p className="text-white/80 text-sm group-hover:text-white transition-colors duration-300">{classroom.students} students</p>
                               </div>
                             </div>
 
-                            {/* Student Count */}
-                            <div className="flex items-center gap-2 text-white/80">
-                              <i className="fa-solid fa-users"></i>
-                              <span>{classroom.student_count} students</span>
+                            {/* Student Avatars */}
+                            <div className="flex -space-x-2">
+                              {classroom.studentAvatars?.slice(0, 3).map((student) => (
+                                <div
+                                  key={student.id}
+                                  className="w-8 sm:w-10 h-8 sm:h-10 rounded-full bg-[#4C53B4] border-2 border-white flex items-center justify-center text-white text-[10px] sm:text-xs font-medium transform transition-all duration-300 hover:scale-110 hover:translate-y-[-2px] hover:z-10 group relative"
+                                  title={student.name}
+                                >
+                                  {student.initials}
+                                </div>
+                              ))}
+                              {(classroom.student_count > 3 || classroom.students > 3) && (
+                                <div 
+                                  className="w-8 sm:w-10 h-8 sm:h-10 rounded-full bg-white/30 backdrop-blur-sm border-2 border-white flex items-center justify-center text-white text-[10px] sm:text-xs font-medium transform transition-all duration-300 hover:scale-110 hover:translate-y-[-2px] hover:z-10"
+                                  title={`${(classroom.student_count || classroom.students) - 3} more students`} 
+                                >
+                                  +{(classroom.student_count || classroom.students) - 3}
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -299,46 +296,14 @@ const MyClasses = () => {
         </DragDropContext>
       </div>
 
-      {/* Join Classroom Modal */}
-      {isJoinModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md mx-4 relative animate-scaleIn">
-            <button 
-              onClick={() => setIsJoinModalOpen(false)}
-              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-            >
-              <i className="fa-solid fa-xmark text-xl"></i>
-            </button>
-
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Join a Classroom</h2>
-
-            <form onSubmit={handleJoinClassroom} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Enter Class Code
-                </label>
-                <input
-                  type="text"
-                  value={classCode}
-                  onChange={(e) => setClassCode(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
-                  placeholder="Enter your class code here"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 rounded-xl text-white font-semibold bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] transition-all duration-200 transform hover:scale-[1.02]"
-              >
-                Join Classroom
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Create Classroom Modal */}
+      <CreateClassroomModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleClassroomCreated}
+      />
     </div>
   );
 };
 
-export default MyClasses;
+export default AllClasses;
