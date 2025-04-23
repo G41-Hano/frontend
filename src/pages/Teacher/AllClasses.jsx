@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
   closestCenter,
@@ -34,7 +35,8 @@ const SortableClassroomCard = ({
   setSelectedClassroom,
   setIsUpdateModalOpen,
   setIsDeleteModalOpen,
-  setOpenMenuId
+  setOpenMenuId,
+  handleClick
 }) => {
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
@@ -82,6 +84,12 @@ const SortableClassroomCard = ({
       ref={setNodeRef} 
       style={style} 
       className={`${isDragging ? 'z-0' : (openMenuId === classroom.id ? 'z-50' : 'z-10')}`}
+      onClick={(e) => {
+        if (!isDragging) {
+          e.stopPropagation();
+          handleClick(classroom.id);
+        }
+      }}
       {...attributes}
     >
       <div
@@ -633,6 +641,7 @@ const AllClasses = () => {
                   setIsUpdateModalOpen={setIsUpdateModalOpen}
                   setIsDeleteModalOpen={setIsDeleteModalOpen}
                   setOpenMenuId={setOpenMenuId}
+                  handleClick={handleClick}
                 />
               ))}
             </div>
