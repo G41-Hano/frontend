@@ -6,6 +6,7 @@ import EnrollStudentsModal from './EnrollStudentsModal';
 import ConfirmationModal from './ConfirmationModal';
 import UpdateClassroom from './UpdateClassroom';
 import DeleteClassroom from './DeleteClassroom';
+import TransferStudentModal from './TransferStudentModal';
 
 const DrillCard = ({ title, icon, color, hoverColor }) => (
   <div 
@@ -66,6 +67,8 @@ const TeacherClassroom = () => {
   const [studentToRemove, setStudentToRemove] = useState(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [studentToTransfer, setStudentToTransfer] = useState(null);
 
   // Combined fetch for classroom and students data
   const fetchClassroomData = async () => {
@@ -137,8 +140,13 @@ const TeacherClassroom = () => {
     }
   };
 
-  const handleTransferStudent = async (studentId) => {
-    console.log('Transfer student:', studentId);
+  const handleTransferClick = (student) => {
+    setStudentToTransfer(student);
+    setIsTransferModalOpen(true);
+  };
+
+  const handleTransferSuccess = () => {
+    fetchEnrolledStudents();
   };
 
   const handleSort = (key) => {
@@ -471,7 +479,7 @@ const TeacherClassroom = () => {
                                         Remove
                                       </button>
                                       <button
-                                        onClick={() => handleTransferStudent(student.id)}
+                                        onClick={() => handleTransferClick(student)}
                                         className="text-[#4C53B4] hover:text-[#3a4095] bg-[#EEF1F5] hover:bg-[#E6E9FF] px-3 py-1 rounded-lg transition-all duration-300 transform hover:scale-105"
                                       >
                                         Transfer
@@ -538,6 +546,18 @@ const TeacherClassroom = () => {
         onSuccess={() => {
           navigate('/t/classes');
         }}
+      />
+
+      {/* Add TransferStudentModal */}
+      <TransferStudentModal
+        isOpen={isTransferModalOpen}
+        onClose={() => {
+          setIsTransferModalOpen(false);
+          setStudentToTransfer(null);
+        }}
+        classroomId={id}
+        studentToTransfer={studentToTransfer}
+        onTransferSuccess={handleTransferSuccess}
       />
     </div>
   );
