@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import { ACCESS_TOKEN } from '../../constants';
@@ -7,6 +7,7 @@ import ConfirmationModal from './ConfirmationModal';
 import UpdateClassroom from './UpdateClassroom';
 import DeleteClassroom from './DeleteClassroom';
 import TransferStudentModal from './TransferStudentModal';
+import TeacherDashboard from './TeacherDashboard';
 
 const DrillCard = ({ title, icon, color, hoverColor }) => (
   <div 
@@ -56,7 +57,6 @@ const TeacherClassroom = () => {
   const [classroom, setClassroom] = useState(null);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('drills');
-  const [activeDashboardSection, setActiveDashboardSection] = useState('manage-students');
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [studentError, setStudentError] = useState(null);
@@ -71,7 +71,7 @@ const TeacherClassroom = () => {
   const [studentToTransfer, setStudentToTransfer] = useState(null);
 
   // Combined fetch for classroom and students data
-  const fetchClassroomData = async () => {
+  const fetchClassroomData = useCallback(async () => {
     try {
       const [classroomResponse, studentsResponse] = await Promise.all([
         api.get(`/api/classrooms/${id}/`),
@@ -94,12 +94,12 @@ const TeacherClassroom = () => {
       setClassroom(null);
       setStudents([]);
     }
-  };
+  }, [id]);
 
   // Initial fetch
   useEffect(() => {
     fetchClassroomData();
-  }, [id]);
+  }, [fetchClassroomData]);
 
   // Only fetch students when enrolling new ones
   const fetchEnrolledStudents = async () => {
@@ -206,12 +206,8 @@ const TeacherClassroom = () => {
 
   const tabs = [
     { id: 'drills', label: 'Drills', icon: 'fa-dumbbell' },
+    { id: 'students', label: 'Students', icon: 'fa-users' },
     { id: 'dashboard', label: 'Dashboard', icon: 'fa-gauge' }
-  ];
-
-  const dashboardNavItems = [
-    { id: 'manage-students', label: 'Manage Students', icon: 'fa-users' },
-    { id: 'teacher-dashboard', label: 'Teacher Dashboard', icon: 'fa-chalkboard-teacher' }
   ];
 
   const filteredStudents = Array.isArray(students) 
@@ -345,162 +341,135 @@ const TeacherClassroom = () => {
                 ))}
               </div>
             )}
-            {activeTab === 'dashboard' && (
-              <div className="flex gap-6 animate-fadeIn">
-                {/* Dashboard Navigation */}
-                <div className="w-56 bg-white rounded-2xl shadow-lg border-2 border-gray-100 h-fit transform hover:scale-[1.02] transition-all duration-300">
-                  <nav className="p-4 relative overflow-hidden">
-                    {/* Decorative elements */}
-                    <div className="absolute -right-4 -top-4 w-16 h-16 bg-[#4C53B4]/5 rounded-full"></div>
-                    <div className="absolute -left-4 -bottom-4 w-20 h-20 bg-[#FFDF9F]/10 rounded-full"></div>
-                    
-                    {dashboardNavItems.map(item => (
-                      <DashboardNavItem
-                        key={item.id}
-                        label={item.label}
-                        icon={item.icon}
-                        isActive={activeDashboardSection === item.id}
-                        onClick={() => setActiveDashboardSection(item.id)}
+            {activeTab === 'students' && (
+              <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 animate-slideIn relative overflow-hidden">
+                {/* Decorative shapes */}
+                <div className="absolute -right-16 -top-16 w-32 h-32 bg-[#4C53B4]/5 rounded-full"></div>
+                <div className="absolute -left-16 -bottom-16 w-48 h-48 bg-[#FFDF9F]/10 rounded-full"></div>
+
+                {/* Search and Enroll Section */}
+                <div className="p-6 border-b border-gray-200 relative">
+                  <div className="flex justify-between items-center gap-4">
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search students..."
+                        className="w-full pl-10 pr-4 py-2 rounded-xl border-2 border-gray-100 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
                       />
-                    ))}
-                  </nav>
+                      <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                    <button 
+                      onClick={() => setIsEnrollModalOpen(true)}
+                      className="px-4 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-all duration-300 flex items-center gap-2"
+                    >
+                      <i className="fa-solid fa-user-plus"></i>
+                      Enroll Students
+                    </button>
+                  </div>
                 </div>
 
-                {/* Dashboard Content */}
-                <div className="flex-1 transform transition-all duration-500">
-                  {activeDashboardSection === 'manage-students' && (
-                    <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 animate-slideIn relative overflow-hidden">
-                      {/* Decorative shapes */}
-                      <div className="absolute -right-16 -top-16 w-32 h-32 bg-[#4C53B4]/5 rounded-full"></div>
-                      <div className="absolute -left-16 -bottom-16 w-48 h-48 bg-[#FFDF9F]/10 rounded-full"></div>
-
-                      {/* Search and Enroll Section */}
-                      <div className="p-6 border-b border-gray-200 relative">
-                        <div className="flex justify-between items-center gap-4">
-                          <div className="flex-1 relative">
-                            <input
-                              type="text"
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              placeholder="Search students..."
-                              className="w-full pl-10 pr-4 py-2 rounded-xl border-2 border-gray-100 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
-                            />
-                            <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                          </div>
-                          <button 
-                            onClick={() => setIsEnrollModalOpen(true)}
-                            className="px-4 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-all duration-300 flex items-center gap-2"
-                          >
-                            <i className="fa-solid fa-user-plus"></i>
-                            Enroll Students
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Students Table */}
-                      <div className="p-6 relative">
-                        {studentError ? (
-                          <div className="text-center py-8">
-                            <p className="text-red-500">{studentError}</p>
-                          </div>
-                        ) : !Array.isArray(students) || students.length === 0 ? (
-                          <div className="text-center py-8">
-                            <div className="w-16 h-16 mx-auto bg-[#FFDF9F]/20 rounded-full flex items-center justify-center mb-4">
-                              <i className="fa-solid fa-users text-[#4C53B4] text-2xl"></i>
-                            </div>
-                            <p className="text-gray-500">No students in this classroom yet.</p>
-                          </div>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead>
-                                <tr>
-                                  <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
-                                    onClick={() => handleSort('id')}
-                                  >
-                                    <div className="flex items-center gap-1">
-                                      ID No.
-                                      <div className="flex flex-col">
-                                        <i className={`fa-solid fa-caret-up text-xs ${sortConfig.key === 'id' && sortConfig.direction === 'asc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
-                                        <i className={`fa-solid fa-caret-down text-xs ${sortConfig.key === 'id' && sortConfig.direction === 'desc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
-                                      </div>
-                                    </div>
-                                  </th>
-                                  <th 
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
-                                    onClick={() => handleSort('name')}
-                                  >
-                                    <div className="flex items-center gap-1">
-                                      Name
-                                      <div className="flex flex-col">
-                                        <i className={`fa-solid fa-caret-up text-xs ${sortConfig.key === 'name' && sortConfig.direction === 'asc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
-                                        <i className={`fa-solid fa-caret-down text-xs ${sortConfig.key === 'name' && sortConfig.direction === 'desc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
-                                      </div>
-                                    </div>
-                                  </th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredStudents.map((student, index) => (
-                                  <tr 
-                                    key={student.id} 
-                                    className="hover:bg-gray-50 transition-colors"
-                                    style={{
-                                      animation: `slideIn 0.3s ease-out ${index * 0.05}s both`
-                                    }}
-                                  >
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{student.id}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      <div className="flex items-center">
-                                        <div className="w-8 h-8 rounded-full bg-[#4C53B4] flex items-center justify-center text-white transform hover:scale-110 transition-transform">
-                                          {student.first_name?.[0] || student.username[0]}
-                                        </div>
-                                        <div className="ml-3">
-                                          <div className="text-sm font-medium text-gray-900">
-                                            {student.first_name} {student.last_name}
-                                          </div>
-                                          <div className="text-sm text-gray-500">@{student.username}</div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 animate-pulse">
-                                        Active
-                                      </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                      <button
-                                        onClick={() => handleRemoveClick(student)}
-                                        className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-lg transition-all duration-300 transform hover:scale-105"
-                                      >
-                                        Remove
-                                      </button>
-                                      <button
-                                        onClick={() => handleTransferClick(student)}
-                                        className="text-[#4C53B4] hover:text-[#3a4095] bg-[#EEF1F5] hover:bg-[#E6E9FF] px-3 py-1 rounded-lg transition-all duration-300 transform hover:scale-105"
-                                      >
-                                        Transfer
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
+                {/* Students Table */}
+                <div className="p-6 relative">
+                  {studentError ? (
+                    <div className="text-center py-8">
+                      <p className="text-red-500">{studentError}</p>
                     </div>
-                  )}
-                  {activeDashboardSection === 'teacher-dashboard' && (
-                    <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-6 animate-slideIn">
-                      <h3 className="text-lg font-medium text-gray-900">Teacher Dashboard</h3>
-                      <p className="text-gray-500 mt-2">Coming soon...</p>
+                  ) : !Array.isArray(students) || students.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 mx-auto bg-[#FFDF9F]/20 rounded-full flex items-center justify-center mb-4">
+                        <i className="fa-solid fa-users text-[#4C53B4] text-2xl"></i>
+                      </div>
+                      <p className="text-gray-500">No students in this classroom yet.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead>
+                          <tr>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
+                              onClick={() => handleSort('id')}
+                            >
+                              <div className="flex items-center gap-1">
+                                ID No.
+                                <div className="flex flex-col">
+                                  <i className={`fa-solid fa-caret-up text-xs ${sortConfig.key === 'id' && sortConfig.direction === 'asc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
+                                  <i className={`fa-solid fa-caret-down text-xs ${sortConfig.key === 'id' && sortConfig.direction === 'desc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
+                                </div>
+                              </div>
+                            </th>
+                            <th 
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
+                              onClick={() => handleSort('name')}
+                            >
+                              <div className="flex items-center gap-1">
+                                Name
+                                <div className="flex flex-col">
+                                  <i className={`fa-solid fa-caret-up text-xs ${sortConfig.key === 'name' && sortConfig.direction === 'asc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
+                                  <i className={`fa-solid fa-caret-down text-xs ${sortConfig.key === 'name' && sortConfig.direction === 'desc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
+                                </div>
+                              </div>
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {filteredStudents.map((student, index) => (
+                            <tr 
+                              key={student.id} 
+                              className="hover:bg-gray-50 transition-colors"
+                              style={{
+                                animation: `slideIn 0.3s ease-out ${index * 0.05}s both`
+                              }}
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{student.id}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <div className="w-8 h-8 rounded-full bg-[#4C53B4] flex items-center justify-center text-white transform hover:scale-110 transition-transform">
+                                    {student.first_name?.[0] || student.username[0]}
+                                  </div>
+                                  <div className="ml-3">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {student.first_name} {student.last_name}
+                                    </div>
+                                    <div className="text-sm text-gray-500">@{student.username}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 animate-pulse">
+                                  Active
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                <button
+                                  onClick={() => handleRemoveClick(student)}
+                                  className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-lg transition-all duration-300 transform hover:scale-105"
+                                >
+                                  Remove
+                                </button>
+                                <button
+                                  onClick={() => handleTransferClick(student)}
+                                  className="text-[#4C53B4] hover:text-[#3a4095] bg-[#EEF1F5] hover:bg-[#E6E9FF] px-3 py-1 rounded-lg transition-all duration-300 transform hover:scale-105"
+                                >
+                                  Transfer
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+            {activeTab === 'dashboard' && (
+              <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-6 animate-slideIn h-full">
+                <TeacherDashboard />
               </div>
             )}
           </div>
