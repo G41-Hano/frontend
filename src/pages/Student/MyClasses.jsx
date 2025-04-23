@@ -16,9 +16,9 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import api from '../api';
-import pencilBook from '../assets/pencil_book.png';
-import JoinClassroomModal from './Student/JoinClassroomModal';
+import api from '../../api';  
+import pencilBook from '../../assets/pencil_book.png';
+import JoinClassroomModal from './JoinClassroomModal';
 
 const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']; //Classroom Colors
 

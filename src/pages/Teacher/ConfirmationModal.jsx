@@ -45,7 +45,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
             className="px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all transform hover:scale-105 hover:shadow-lg flex items-center gap-2 group"
           >
             <span className="flex items-center gap-2">
-              <i className="fa-solid fa-trash group-hover:animate-bounce"></i>
+              <i className="fa-solid fa-trash"></i>
               Yes, Remove
             </span>
           </button>
