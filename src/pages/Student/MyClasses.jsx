@@ -19,11 +19,12 @@ import { CSS } from '@dnd-kit/utilities';
 import api from '../../api';  
 import pencilBook from '../../assets/pencil_book.png';
 import JoinClassroomModal from './JoinClassroomModal';
+import { useNavigate } from 'react-router-dom';
 
 const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']; //Classroom Colors
 
 // Sortable Classroom Card Component
-const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleColorChange, handleHideToggle }) => {
+const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleColorChange, handleHideToggle, handleClick }) => {
   const {
     attributes,
     listeners,
@@ -45,6 +46,12 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
       ref={setNodeRef} 
       style={style} 
       className={`${isDragging ? 'z-0' : 'z-10'}`}
+      onClick={(e) => {
+        if (!isDragging) {
+          e.stopPropagation();
+          handleClick(classroom.id);
+        }
+      }}
       {...attributes}
     >
       <div
@@ -57,7 +64,10 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
         {/* Menu Button */}
         <div className="absolute top-3 right-3 z-10">
           <button
-            onClick={() => handleOpenMenu(classroom.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenMenu(classroom.id);
+            }}
             className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-all duration-300 hover:scale-110"
           >
             <i className="fa-solid fa-ellipsis-vertical text-sm transition-transform group-hover:rotate-90"></i>
@@ -72,7 +82,10 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
                 {CLASSROOM_COLORS.map((color, index) => (
                   <button
                     key={index}
-                    onClick={() => handleColorChange(classroom.id, color)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleColorChange(classroom.id, color);
+                    }}
                     className="w-5 h-5 rounded-full hover:scale-110 transition-all duration-300 hover:shadow-lg"
                     style={{ backgroundColor: color }}
                   />
@@ -82,7 +95,10 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
               {/* Hide Classroom Button */}
               <div className="border-t border-gray-100 mt-2 pt-2">
                 <button
-                  onClick={() => handleHideToggle(classroom.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleHideToggle(classroom.id);
+                  }}
                   className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                 >
                   <i className={`fa-solid ${classroom.is_hidden ? 'fa-eye' : 'fa-eye-slash'} text-gray-500`}></i> 
@@ -102,7 +118,10 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
             
             <div className="transform transition-all duration-300 group-hover:translate-x-1">
               <h3 className="text-lg sm:text-xl font-semibold text-white">{classroom.name}</h3>
-              <p className="text-white/80 text-sm group-hover:text-white transition-colors duration-300">{classroom.student_count || classroom.students?.length || 0} students</p>
+              <p className="text-white/80 text-sm group-hover:text-white transition-colors duration-300">
+                {classroom.student_count || classroom.students?.length || 0}
+                {(classroom.student_count || classroom.students?.length || 0) <= 1 ? ' Student' : ' Students'}
+              </p>
             </div>
           </div>
 
@@ -180,7 +199,10 @@ const ClassroomCard = ({ classroom }) => {
           
           <div>
             <h3 className="text-lg sm:text-xl font-semibold text-white">{classroom.name}</h3>
-            <p className="text-white/80 text-sm">{classroom.student_count || classroom.students?.length || 0} students</p>
+            <p className="text-white/80 text-sm">
+              {classroom.student_count || classroom.students?.length || 0} 
+              {(classroom.student_count || classroom.students?.length || 0) <= 1 ? ' Student' : ' Students'}
+            </p>
           </div>
         </div>
 
@@ -234,6 +256,7 @@ const ClassroomCard = ({ classroom }) => {
 };
 
 const MyClasses = () => {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState('active');
   const [openMenuId, setOpenMenuId] = useState(null);
   const [classrooms, setClassrooms] = useState([]);
@@ -296,9 +319,44 @@ const MyClasses = () => {
 
   // Handle joining classroom with code
   const handleJoinSuccess = async () => {
-    // Refresh the list after joining
-    const response = await api.get('/api/classrooms/');
-    setClassrooms(Array.isArray(response.data) ? response.data : []);
+    try {
+      // Get the updated list of classrooms
+      const response = await api.get('/api/classrooms/');
+      let fetchedClassrooms = Array.isArray(response.data) ? response.data : [];
+      
+      // If we have existing classrooms, make sure new ones are added to the end
+      if (classrooms.length > 0) {
+        // Find the new classroom(s) by comparing with current state
+        const existingIds = new Set(classrooms.map(c => c.id));
+        const newClassrooms = fetchedClassrooms.filter(c => !existingIds.has(c.id));
+        
+        // Get the highest current order value
+        const maxOrder = Math.max(...classrooms.map(c => c.order || 0), 0);
+        
+        // Update order values for new classrooms to place them at the end
+        for (const newClassroom of newClassrooms) {
+          try {
+            // Set order to maxOrder + index + 1 to ensure it's at the end
+            await api.patch(`/api/classrooms/${newClassroom.id}/`, {
+              order: maxOrder + 1 + newClassrooms.indexOf(newClassroom)
+            });
+          } catch (err) {
+            console.error('Error updating order for new classroom:', err);
+          }
+        }
+      }
+      
+      // Fetch all classrooms again to get updated order values
+      const finalResponse = await api.get('/api/classrooms/');
+      let finalClassrooms = Array.isArray(finalResponse.data) ? finalResponse.data : [];
+      
+      // Sort by order field
+      finalClassrooms.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      
+      setClassrooms(finalClassrooms);
+    } catch (error) {
+      console.error('Error refreshing classrooms:', error);
+    }
   };
 
   //Handle Color Change
@@ -395,6 +453,10 @@ const MyClasses = () => {
   // Handle open menu 
   const handleOpenMenu = (id) => {
     setOpenMenuId(openMenuId === id ? null : id);
+  };
+
+  const handleClick = (classroomId) => {
+    navigate(`/s/classes/${classroomId}/`);
   };
 
   //Filter Classrooms
@@ -552,9 +614,10 @@ const MyClasses = () => {
                   openMenuId={openMenuId}
                   handleColorChange={handleColorChange}
                   handleHideToggle={handleHideToggle}
-                                    />
-                                  ))}
-                                </div>
+                  handleClick={handleClick}
+                />
+              ))}
+            </div>
           </SortableContext>
 
           {/* Drag Overlay for active item */}
