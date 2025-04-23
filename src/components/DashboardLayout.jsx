@@ -9,7 +9,7 @@ const DashboardLayout = () => {
   const {user} = useUser();
 
   return (
-    <div className="min-h-screen bg-[#EEF1F5] flex">
+    <div className="h-screen flex overflow-hidden">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -19,11 +19,11 @@ const DashboardLayout = () => {
       )}
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-      <div className="flex-1 flex flex-col min-h-screen"> 
+      <div className="flex-1 flex flex-col h-screen overflow-hidden"> 
         {/* Topbar */}
         <Topbar user={user} onMenuClick={() => setIsSidebarOpen(true)} />
         {/* Main Content */}
-        <main className="pt-12 flex-1 overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto bg-[#EEF1F5] pt-6">
           <Outlet />
         </main>
       </div>
