@@ -17,6 +17,7 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [createdClassroom, setCreatedClassroom] = useState(null);
+  const [isCopied, setIsCopied] = useState(false);
 
   // Fetch available students
   const fetchStudents = async () => {
@@ -70,9 +71,25 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
   // Handle final submission
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
+    if (selectedStudents.length === 0) {
+      setError('Please add at least one student to the classroom');
+      return;
+    }
+    await createClassroom();
+  };
+
+  // Handle skip (create classroom without students)
+  const handleSkip = async () => {
     setLoading(true);
     setError(null);
+    await createClassroom(true);
+  };
 
+  // Create classroom helper function
+  const createClassroom = async (skipStudents = false) => {
+    setLoading(true);
+    setError(null);
+    
     try {
       // First create the classroom
       const classroomResponse = await api.post('/api/classrooms/', {
@@ -81,8 +98,8 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
         color: formData.color
       });
 
-      // Then add students if any are selected
-      if (selectedStudents.length > 0) {
+      // Then add students if any are selected and we're not skipping
+      if (!skipStudents && selectedStudents.length > 0) {
         await api.post(`/api/classrooms/${classroomResponse.data.id}/students/`, {
           student_ids: selectedStudents.map(s => s.id)
         });
@@ -100,11 +117,37 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
+  // Reset form when closed
   const handleClose = () => {
+    // Only call onSuccess if the classroom was created
     if (createdClassroom) {
       onSuccess(createdClassroom);
     }
+    
+    // Close the modal
     onClose();
+    
+    // Reset the form after closing
+    setTimeout(() => {
+      setStep(1);
+      setFormData({
+        name: '',
+        description: '',
+        studentIds: [],
+        color: '#7D83D7'
+      });
+      setSelectedStudents([]);
+      setSearchTerm('');
+      setError(null);
+      setCreatedClassroom(null);
+      setIsCopied(false);
+    }, 300); // Slight delay to ensure animation completes
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(createdClassroom?.class_code);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
   };
 
   if (!isOpen) return null;
@@ -281,28 +324,39 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
               >
                 Back
               </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className={`
-                  px-4 md:px-6 py-2 md:py-3 rounded-xl text-white font-semibold text-sm md:text-base
-                  ${loading 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4]'
-                  }
-                  transition-all duration-200 transform hover:scale-[1.02]
-                  flex items-center gap-2
-                `}
-              >
-                {loading ? (
-                  <>
-                    <i className="fa-solid fa-circle-notch animate-spin"></i>
-                    Creating...
-                  </>
-                ) : (
-                  'Create Classroom'
-                )}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSkip();
+                  }}
+                  className="px-4 md:px-6 py-2 md:py-3 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition-colors text-sm md:text-base"
+                >
+                  Skip
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`
+                    px-4 md:px-6 py-2 md:py-3 rounded-xl text-white font-semibold text-sm md:text-base
+                    ${loading 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4]'
+                    }
+                    transition-all duration-200 transform hover:scale-[1.02]
+                    flex items-center gap-2
+                  `}
+                >
+                  {loading ? (
+                    <>
+                      <i className="fa-solid fa-circle-notch animate-spin"></i>
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Classroom'
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         ) : (
@@ -326,13 +380,11 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
                 {createdClassroom?.class_code}
               </span>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(createdClassroom?.class_code);
-                }}
+                onClick={handleCopyCode}
                 className="text-gray-500 hover:text-gray-700 transition-colors"
                 title="Copy to clipboard"
               >
-                <i className="fa-regular fa-copy"></i>
+                <i className={`fa-regular ${isCopied ? 'fa-check-circle' : 'fa-copy'}`}></i>
               </button>
             </div>
 
