@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import StudentHome from '../pages/Student/StudentHome';
 import MyClasses from '../pages/Student/MyClasses';
 import StudentClassroom from '../pages/Student/StudentClassroom';
+import Profile from '../pages/Student/Profile';
 
 const StudentRoutes = () => {
   return (
@@ -11,7 +12,7 @@ const StudentRoutes = () => {
       <Route path="/classes" element={<MyClasses />} /> 
       <Route path="/classes/:id" element={<StudentClassroom />} />
       <Route path="/badges" element={<MyClasses />} /> {/* TODO: Badges page */}
-      <Route path="/profile" element={<MyClasses />} /> {/* TODO: Profile page */}
+      <Route path="/profile" element={<Profile />} />
       <Route path="/settings" element={<MyClasses />} /> {/* TODO: Settings page */}
     </Routes>
   );
