@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api';
 
 // Student List Modal Component
@@ -44,27 +44,6 @@ const StudentListModal = ({ isOpen, onClose, students }) => {
   );
 };
 
-const DrillCard = ({ title, icon, color, hoverColor }) => (
-  <div 
-    className="group relative bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 cursor-pointer hover:-translate-y-2 border-2 border-gray-100 overflow-hidden"
-  >
-    {/* Animated background shapes */}
-    <div className={`absolute -right-8 -bottom-8 w-32 h-32 rounded-full ${color} opacity-10 transition-transform duration-500 group-hover:scale-150`} />
-    <div className={`absolute -right-4 -bottom-4 w-20 h-20 rounded-full ${color} opacity-10 transition-transform duration-500 group-hover:scale-150 delay-100`} />
-    
-    <div className={`relative w-16 h-16 rounded-2xl ${color} group-hover:${hoverColor} transform transition-all duration-500 mb-4 p-4 group-hover:rotate-6`}>
-      <i className={`fa-solid ${icon} text-white text-2xl transition-transform duration-500 group-hover:scale-110`}></i>
-    </div>
-    <h3 className="text-xl font-bold text-gray-800 group-hover:text-[#4C53B4] transition-colors duration-300">{title}</h3>
-    <p className="text-gray-600 mt-2 group-hover:text-gray-700 transition-colors duration-300">Practice {title.toLowerCase()} signs</p>
-    
-    {/* Fun hover indicator */}
-    <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
-      <i className="fa-solid fa-arrow-right text-[#4C53B4]"></i>
-    </div>
-  </div>
-);
-
 const StudentClassroom = () => {
   const { id } = useParams();
   const [classroom, setClassroom] = useState(null);
@@ -73,11 +52,28 @@ const StudentClassroom = () => {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [isStudentListOpen, setIsStudentListOpen] = useState(false);
+  const [drills, setDrills] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [openDrillId, setOpenDrillId] = useState(null);
+
+  // Sort drills: older drills first, newer drills last
+  const getSortedDrills = (drillsToSort) => {
+    return [...drillsToSort].sort((a, b) => {
+      // Sort by ID (older first, newer last)
+      return a.id - b.id;
+    });
+  };
+
+  // Toggle drill panel open/close
+  const toggleDrillPanel = (drillId) => {
+    setOpenDrillId(openDrillId === drillId ? null : drillId);
+  };
 
   // Fetch classroom and students data
   useEffect(() => {
     const fetchClassroomData = async () => {
       try {
+        setLoading(true);
         const [classroomResponse, studentsResponse] = await Promise.all([
           api.get(`/api/classrooms/${id}/`),
           api.get(`/api/classrooms/${id}/students/`)
@@ -86,7 +82,18 @@ const StudentClassroom = () => {
         const studentData = Array.isArray(studentsResponse.data) ? studentsResponse.data : 
                         Array.isArray(studentsResponse.data?.students) ? studentsResponse.data.students : [];
         setStudents(studentData);
+        
+        // Fetch available drills for this classroom
+        const drillsResponse = await api.get('/api/drills/', {
+          params: { classroom: id }
+        });
+        
+        // Filter only published drills
+        const publishedDrills = drillsResponse.data.filter(drill => drill.status === 'published');
+        setDrills(publishedDrills);
+        
         setError(null);
+        setLoading(false);
       } catch (err) {
         console.error('Error details:', {
           message: err.message,
@@ -96,6 +103,7 @@ const StudentClassroom = () => {
         });
         setError(err.response?.data?.error || 'Failed to fetch classroom');
         setClassroom(null);
+        setLoading(false);
       }
     };
 
@@ -131,27 +139,6 @@ const StudentClassroom = () => {
   const tabs = [
     { id: 'drills', label: 'Drills', icon: 'fa-dumbbell' },
     { id: 'leaderboard', label: 'Leaderboard', icon: 'fa-trophy' }
-  ];
-
-  const drillCards = [
-    { 
-      title: 'Animals', 
-      icon: 'fa-paw', 
-      color: 'bg-[#FE93AA]',
-      hoverColor: 'bg-[#FF97BE]'
-    },
-    { 
-      title: 'Weather', 
-      icon: 'fa-cloud-sun', 
-      color: 'bg-[#E79051]',
-      hoverColor: 'bg-[#F7A061]'
-    },
-    { 
-      title: 'Objects', 
-      icon: 'fa-cube', 
-      color: 'bg-[#A6CB00]',
-      hoverColor: 'bg-[#B6DB10]'
-    }
   ];
 
   return (
@@ -227,11 +214,65 @@ const StudentClassroom = () => {
           {/* Tab Content */}
           <div className="p-6">
             {activeTab === 'drills' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {drillCards.map(card => (
-                  <DrillCard key={card.title} {...card} />
-                ))}
-              </div>
+              <>
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
+                  </div>
+                ) : drills.length === 0 ? (
+                  <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-6 text-center py-10">
+                    <div className="w-16 h-16 mx-auto bg-[#EEF1F5] rounded-full flex items-center justify-center mb-4">
+                      <i className="fa-solid fa-book text-[#4C53B4] text-2xl"></i>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900">No Drills Available</h3>
+                    <p className="text-gray-500 mt-2">Your teacher hasn't published any drills yet.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {getSortedDrills(drills).map((drill, idx) => (
+                      <div key={drill.id} className={`relative rounded-2xl overflow-visible shadow border border-[#F7D9A0] bg-[#FFE6C7] hover:shadow-lg transition-all duration-300`}>
+                        <div 
+                          className="flex items-center justify-between px-6 py-4 cursor-pointer group"
+                          onClick={() => toggleDrillPanel(drill.id)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <i className={`fa-solid ${openDrillId === drill.id ? 'fa-caret-down' : 'fa-caret-right'} text-lg text-gray-700 transition-transform duration-300`}></i>
+                            <div className="flex flex-col">
+                              <span className="text-xs text-gray-400 font-semibold leading-tight mb-0.5">Drill {idx+1}</span>
+                              <span className="font-bold text-2xl text-black leading-tight group-hover:text-[#4C53B4] transition-colors">{drill.title}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {openDrillId === drill.id && (
+                          <div className="bg-[#F7F9FC] px-8 py-6 border-t border-[#F7D9A0] flex flex-col md:flex-row md:items-center md:justify-between gap-6 animate-fadeIn">
+                            <div className="flex-1 flex flex-col gap-2">
+                              <div className="text-gray-500 text-sm">Due: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
+                              <div className="mt-2">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs text-gray-500 font-medium">Progress</span>
+                                  <span className="text-xs text-gray-600 font-bold">0%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div className="bg-green-500 h-2 rounded-full" style={{ width: '0%' }}></div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2 md:items-center md:flex-row">
+                              <Link 
+                                to={`/s/take-drill/${drill.id}`}
+                                className="ml-2 px-6 py-2 rounded-xl bg-[#38CA77] text-white font-bold shadow hover:bg-[#2DA05F] transition-all duration-300 flex items-center gap-2 hover:scale-105"
+                              >
+                                <i className="fa-solid fa-play"></i> Start Drill
+                              </Link>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
             {activeTab === 'leaderboard' && (
               <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-6 animate-slideIn">

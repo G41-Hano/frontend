@@ -2,17 +2,15 @@ import { Routes, Route } from 'react-router-dom';
 import StudentHome from '../pages/Student/StudentHome';
 import MyClasses from '../pages/Student/MyClasses';
 import StudentClassroom from '../pages/Student/StudentClassroom';
+import TakeDrill from '../pages/Student/TakeDrill';
 
 const StudentRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<StudentHome />} /> 
-      <Route path="/home" element={<MyClasses />} /> {/* TODO: Home page */}
       <Route path="/classes" element={<MyClasses />} /> 
       <Route path="/classes/:id" element={<StudentClassroom />} />
-      <Route path="/badges" element={<MyClasses />} /> {/* TODO: Badges page */}
-      <Route path="/profile" element={<MyClasses />} /> {/* TODO: Profile page */}
-      <Route path="/settings" element={<MyClasses />} /> {/* TODO: Settings page */}
+      <Route path="/take-drill/:id" element={<TakeDrill />} />
     </Routes>
   );
 };

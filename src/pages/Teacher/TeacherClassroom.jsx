@@ -1,13 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import api from '../../api';
-import { ACCESS_TOKEN } from '../../constants';
+import CreateDrill from './CreateDrill';
+import EditDrill from './EditDrill';
+import ViewDrillResults from './ViewDrillResults';
 import EnrollStudentsModal from './EnrollStudentsModal';
 import ConfirmationModal from './ConfirmationModal';
 import UpdateClassroom from './UpdateClassroom';
 import DeleteClassroom from './DeleteClassroom';
 import TransferStudentModal from './TransferStudentModal';
 import TeacherDashboard from './TeacherDashboard';
+import ClassroomHeader from './ClassroomHeader';  
+import ReactDOM from 'react-dom';
 
 const DrillCard = ({ title, icon, color, hoverColor }) => (
   <div 
@@ -69,6 +73,9 @@ const TeacherClassroom = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [studentToTransfer, setStudentToTransfer] = useState(null);
+  const [drills, setDrills] = useState([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [openMenuDrillId, setOpenMenuDrillId] = useState(null);
 
   // Combined fetch for classroom and students data
   const fetchClassroomData = useCallback(async () => {
@@ -96,10 +103,33 @@ const TeacherClassroom = () => {
     }
   }, [id]);
 
+  // Fetch drills for this classroom
+  const fetchDrills = useCallback(async () => {
+    try {
+      const response = await api.get(`/api/drills/?classroom=${id}`);
+      setDrills(response.data);
+    } catch {
+      setDrills([]);
+    }
+  }, [id]);
+
+  // Sort drills: drafts first, then published
+  const getSortedDrills = useCallback((drillsToSort) => {
+    return [...drillsToSort].sort((a, b) => {
+      // If status is different, sort by status (draft first)
+      if (a.status !== b.status) {
+        return a.status === 'draft' ? -1 : 1;
+      }
+      // If status is the same, sort by ID (older first)
+      return a.id - b.id;
+    });
+  }, []);
+
   // Initial fetch
   useEffect(() => {
     fetchClassroomData();
-  }, [fetchClassroomData]);
+    fetchDrills();
+  }, [fetchClassroomData, fetchDrills]);
 
   // Only fetch students when enrolling new ones
   const fetchEnrolledStudents = async () => {
@@ -178,6 +208,17 @@ const TeacherClassroom = () => {
     fetchEnrolledStudents();
   };
 
+  // Drill sub-page logic (do this AFTER all hooks)
+  const drillMode = searchParams.get('drill');
+  const drillId = searchParams.get('drillId');
+  if (drillMode === 'create') return <CreateDrill
+    onDrillCreated={fetchDrills}
+    classroom={classroom}
+    students={students}
+  />;
+  if (drillMode === 'edit' && drillId) return <EditDrill />;
+  if (drillMode === 'results' && drillId) return <ViewDrillResults />;
+
   if (error) {
     return (
       <div className="p-4">
@@ -218,96 +259,16 @@ const TeacherClassroom = () => {
       ))
     : [];
 
-  const drillCards = [
-    { 
-      title: 'Animals', 
-      icon: 'fa-paw', 
-      color: 'bg-[#FE93AA]',
-      hoverColor: 'bg-[#FF97BE]'
-    },
-    { 
-      title: 'Weather', 
-      icon: 'fa-cloud-sun', 
-      color: 'bg-[#E79051]',
-      hoverColor: 'bg-[#F7A061]'
-    },
-    { 
-      title: 'Objects', 
-      icon: 'fa-cube', 
-      color: 'bg-[#A6CB00]',
-      hoverColor: 'bg-[#B6DB10]'
-    }
-  ];
-
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
       {/* Header */}
-      <div className="bg-white shadow-lg mt-6 rounded-2xl mx-10 pb-6">
-        <div className="max-w-[95%] mx-auto">
-          {/* Back button */}
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 px-4 py-6 text-gray-600 hover:text-[#4C53B4] transition-colors group"
-          >
-            <i className="fa-solid fa-arrow-left transform group-hover:-translate-x-1 transition-transform"></i>
-            Back to Classes
-          </button>
-
-          <div className="px-6">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-              <div className="flex items-start gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#4C53B4] to-[#6f75d6] flex items-center justify-center shadow-lg">
-                  <i className="fa-solid fa-graduation-cap text-white text-2xl"></i>
-                </div>
-                <div>
-                  <h2 className="text-3xl font-bold text-gray-800 mb-2">
-                    {classroom.name}
-                  </h2>
-                  {classroom.description && (
-                    <p className="text-gray-600 mb-4 max-w-2xl">
-                      {classroom.description}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-4">
-                    <div className="bg-[#EEF1F5] px-4 py-2 rounded-xl flex items-center gap-2">
-                      <i className="fa-solid fa-key text-[#4C53B4]"></i>
-                      <span className="text-sm font-medium">
-                        Class Code: <span className="font-mono text-[#4C53B4]">{classroom.class_code}</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-gray-500 flex items-center gap-2">
-                        <i className="fa-solid fa-users text-[#4C53B4]"></i>
-                        {students.length} {students.length === 1 ? 'Student' : 'Students'}
-                      </span>
-                      <span className="text-gray-500 flex items-center gap-2">
-                        <i className="fa-solid fa-calendar text-[#4C53B4]"></i>
-                        Created {new Date(classroom.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-4 w-full lg:w-auto">
-                <button 
-                  onClick={() => setIsUpdateModalOpen(true)}
-                  className="flex-1 lg:flex-initial px-6 py-3 text-base font-medium text-[#4C53B4] bg-[#EEF1F5] rounded-xl hover:bg-[#4C53B4] hover:text-white transition-all duration-300 flex items-center gap-2 justify-center"
-                >
-                  <i className="fa-solid fa-pen"></i>
-                  Edit
-                </button>
-                <button 
-                  onClick={() => setIsDeleteModalOpen(true)}
-                  className="flex-1 lg:flex-initial px-6 py-3 text-base font-medium text-red-600 bg-red-50 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-300 flex items-center gap-2 justify-center"
-                >
-                  <i className="fa-solid fa-trash"></i>
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ClassroomHeader
+        classroom={classroom}
+        students={students}
+        onEdit={() => setIsUpdateModalOpen(true)}
+        onDelete={() => setIsDeleteModalOpen(true)}
+        onBack={() => navigate(-1)}
+      />
 
       {/* Content Area */}
       <div className="max-w-[95%] mx-auto mt-6">
@@ -335,10 +296,26 @@ const TeacherClassroom = () => {
           {/* Tab Content */}
           <div className="p-6">
             {activeTab === 'drills' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {drillCards.map(card => (
-                  <DrillCard key={card.title} {...card} />
-                ))}
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-800">Drills</h2>
+                  <button
+                    className="px-5 py-2 bg-[#4C53B4] text-white rounded-xl shadow hover:bg-[#3a4095] transition-all duration-300 flex items-center gap-2"
+                    onClick={() => setSearchParams({ drill: 'create' })}
+                  >
+                    <i className="fa-solid fa-plus"></i>
+                    Create Drill
+                  </button>
+                </div>
+                <div className="flex flex-col gap-4">
+                  {drills.length === 0 ? (
+                    <div className="text-center text-gray-400 py-12">No drills yet.</div>
+                  ) : (
+                    getSortedDrills(drills).map((drill, idx) => (
+                      <DrillPanel key={drill.id} drill={drill} idx={idx} onDelete={() => fetchDrills()} setSearchParams={setSearchParams} openMenuDrillId={openMenuDrillId} setOpenMenuDrillId={setOpenMenuDrillId} navigate={navigate} />
+                    ))
+                  )}
+                </div>
               </div>
             )}
             {activeTab === 'students' && (
@@ -532,4 +509,327 @@ const TeacherClassroom = () => {
   );
 };
 
+function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, setOpenMenuDrillId, navigate }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef();
+  const buttonRef = useRef();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Only show menu if openMenuDrillId === drill.id
+  const menuOpen = openMenuDrillId === drill.id;
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e) {
+      if (buttonRef.current && !buttonRef.current.contains(e.target) &&
+          menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpenMenuDrillId(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [menuOpen, setOpenMenuDrillId]);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await api.delete(`/api/drills/${drill.id}/`);
+      setSearchParams({});
+      setConfirmDelete(false);
+      setOpenMenuDrillId(null);
+      if (onDelete) onDelete();
+    } catch (error) {
+      console.error('Failed to delete drill:', error);
+      alert('Failed to delete drill. Please try again.');
+      setConfirmDelete(false);
+      setOpenMenuDrillId(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    try {
+      await api.patch(`/api/drills/${drill.id}/`, { status: 'published' });
+      if (onDelete) onDelete();
+    } catch {
+      alert('Failed to publish drill.');
+    }
+  };
+
+  const handleMenuOpen = () => {
+    setOpenMenuDrillId(menuOpen ? null : drill.id);
+  };
+
+  const fadeInStyle = {
+    animation: 'fadeIn 0.3s ease-out forwards',
+  };
+
+  const fadeInUpStyle = {
+    animation: 'fadeInUp 0.3s ease-out forwards',
+  };
+
+  useEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.innerHTML = `
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    `;
+    document.head.appendChild(styleElement);
+    
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
+
+  // Menu component
+  const Menu = () => {
+    const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+    
+    const updatePosition = useCallback(() => {
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        const menuWidth = 192;
+        const menuHeight = 200; // Approximate height
+        
+        // Calculate position
+        let left = rect.right - menuWidth;
+        let flippedToTop = false;
+        
+        // Check if menu would go off screen to the left
+        if (left < 0) {
+          left = 0;
+        }
+        
+        // Check if menu would go off screen to the right
+        if (left + menuWidth > window.innerWidth) {
+          left = window.innerWidth - menuWidth - 5;
+        }
+        
+        // Check if menu would go off screen at the bottom
+        if (rect.bottom + menuHeight > window.innerHeight) {
+          // Position menu above the button instead with a smaller gap
+          flippedToTop = true;
+        }
+        
+        setMenuPosition({
+          top: flippedToTop ? rect.top + window.scrollY : rect.bottom + window.scrollY + 5,
+          left,
+          flippedToTop
+        });
+      }
+    }, []);
+    
+    useEffect(() => {
+      // Initial position
+      updatePosition();
+      
+      // Update position on scroll and resize
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }, [updatePosition]);
+    
+    return ReactDOM.createPortal(
+      <div 
+        ref={menuRef}
+        className="fixed bg-white rounded-xl shadow-lg z-[9999] border border-gray-100 py-2 animate-fadeIn opacity-100"
+        style={{ 
+          boxShadow: '0 10px 25px rgba(0,0,0,0.2)', 
+          width: '192px',
+          top: menuPosition.flippedToTop ? 'auto' : `${menuPosition.top}px`,
+          bottom: menuPosition.flippedToTop ? `${window.innerHeight - menuPosition.top + 5}px` : 'auto',
+          left: `${menuPosition.left}px`,
+          maxHeight: '80vh',
+          overflowY: 'auto'
+        }}
+      >
+        {/* Only show 'View Drill Results' if not draft */}
+        {drill.status !== 'draft' && (
+          <button 
+            className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-gray-700" 
+            onClick={() => { 
+              setOpenMenuDrillId(null); 
+              setSearchParams({ drill: 'results', drillId: drill.id }); 
+            }}
+          >
+            <i className="fa-solid fa-arrow-up-right-from-square"></i> View Drill Results
+          </button>
+        )}
+        <button 
+          className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-gray-700" 
+          onClick={() => { 
+            setOpenMenuDrillId(null);
+            navigate(`/t/take-drill/${drill.id}`);
+          }}
+        >
+          <i className={`fa-solid ${drill.status === 'draft' ? 'fa-eye' : 'fa-play'}`}></i> {drill.status === 'draft' ? 'Preview Drill' : 'Take Drill'}
+        </button>
+        <button 
+          className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-gray-700" 
+          onClick={() => { 
+            setOpenMenuDrillId(null); 
+            setSearchParams({ drill: 'edit', drillId: drill.id }); 
+          }}
+        >
+          <i className="fa-solid fa-pen"></i> Edit Drill
+        </button>
+        {drill.status === 'draft' && (
+          <button 
+            className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-green-600" 
+            onClick={() => { 
+              setOpenMenuDrillId(null); 
+              handlePublish(); 
+            }}
+          >
+            <i className="fa-solid fa-upload"></i> Publish
+          </button>
+        )}
+        <button 
+          className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-red-500" 
+          onClick={() => { 
+            setOpenMenuDrillId(null); 
+            setConfirmDelete(true); 
+          }}
+        >
+          <i className="fa-solid fa-trash"></i> Delete Drill
+        </button>
+      </div>,
+      document.body
+    );
+  };
+
+  return (
+    <div className={`relative rounded-2xl overflow-visible shadow border ${drill.status === 'draft' ? 'border-yellow-300 bg-yellow-50 opacity-80' : 'border-[#F7D9A0] bg-[#FFE6C7]'}`}>
+      <div className="flex items-center justify-between px-6 py-4 cursor-pointer" onClick={e => {
+        // Only toggle if not clicking the menu button or its children
+        if (!buttonRef.current || !buttonRef.current.contains(e.target)) {
+          setOpen(o => !o);
+        }
+      }}>
+        <div className="flex items-center gap-3">
+          <i className={`fa-solid ${open ? 'fa-caret-down' : 'fa-caret-right'} text-lg text-gray-700`}></i>
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-400 font-semibold leading-tight mb-0.5">Drill {idx+1}</span>
+            <span className="font-bold text-3xl text-black leading-tight">{drill.title}</span>
+            {drill.status === 'draft' && (
+              <span className="block mt-1 w-20 text-center py-1 rounded bg-yellow-200 text-yellow-800 text-xs font-bold">Draft</span>
+            )}
+          </div>
+        </div>
+        <div className="relative z-[100]">
+          <button
+            ref={buttonRef}
+            className="text-gray-500 hover:text-gray-700 p-2 rounded-full focus:outline-none"
+            onClick={handleMenuOpen}
+          >
+            <i className="fa-solid fa-ellipsis-vertical"></i>
+          </button>
+          {menuOpen && <Menu />}
+        </div>
+      </div>
+      
+      {open && (
+        <div className="bg-[#F7F9FC] px-8 py-6 border-t border-[#F7D9A0] flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="flex-1 flex flex-col gap-2">
+            <div className="text-gray-500 text-sm">Open: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
+            <div className="text-gray-500 text-sm">Due: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
+            <div className="mt-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-500 font-medium">Progress</span>
+                <span className="text-xs text-gray-600 font-bold">0%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-green-500 h-2 rounded-full" style={{ width: '0%' }}></div>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-2 md:items-center md:flex-row">
+            {drill.status === 'draft' && (
+              <button
+                className="px-5 py-2 rounded-xl bg-[#4C53B4] text-white font-bold shadow hover:bg-[#3a4095] hover:scale-105 transition-all duration-300 flex items-center gap-2"
+                onClick={() => { handlePublish(); }}
+              >
+                <i className="fa-solid fa-upload"></i> Publish
+              </button>
+            )}
+            <button 
+              className="ml-2 px-6 py-2 rounded-xl bg-[#38CA77] text-white font-bold shadow hover:bg-[#2DA05F] transition-all duration-300 flex items-center gap-2"
+              onClick={() => { 
+                navigate(`/t/take-drill/${drill.id}`);
+              }}
+            >
+              <i className={`fa-solid ${drill.status === 'draft' ? 'fa-eye' : 'fa-play'}`}></i> {drill.status === 'draft' ? 'Preview Drill' : 'Take Drill'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Improved Modal Dialog with inline styles */}
+      {confirmDelete && ReactDOM.createPortal(
+        <div 
+          className="fixed inset-0 z-[1000] flex items-center justify-center" 
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(4px)',
+            ...fadeInStyle
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-xl p-8 w-[350px] flex flex-col items-center mx-4"
+            style={fadeInUpStyle}
+          >
+            <div className="w-16 h-16 flex items-center justify-center bg-yellow-100 rounded-full mb-4">
+              <i className="fa-solid fa-triangle-exclamation text-yellow-500 text-3xl"></i>
+            </div>
+            <div className="font-bold text-xl mb-2 text-center">Delete Drill</div>
+            <div className="mb-6 text-gray-600 text-center">
+              Are you sure you want to delete <span className="font-semibold">{drill.title}</span>?
+              <p className="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
+            </div>
+            <div className="flex justify-end gap-3 w-full">
+              <button 
+                className="flex-1 px-6 py-3 rounded-xl bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors" 
+                onClick={() => setConfirmDelete(false)} 
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button 
+                className="flex-1 px-6 py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors" 
+                onClick={handleDelete} 
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full" 
+                      style={{ animation: 'spin 1s linear infinite' }}>
+                    </div>
+                    <span>Deleting...</span>
+                  </div>
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
 export default TeacherClassroom;
