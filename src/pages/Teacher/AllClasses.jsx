@@ -36,7 +36,8 @@ const SortableClassroomCard = ({
   setIsUpdateModalOpen,
   setIsDeleteModalOpen,
   setOpenMenuId,
-  handleClick
+  handleClick,
+  handleArchiveClassroom
 }) => {
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
@@ -166,18 +167,17 @@ const SortableClassroomCard = ({
                 {classroom.is_hidden ? 'Show Classroom' : 'Hide Classroom'}
               </button>
 
-              {/* Delete Classroom Button */}
+              {/* Archive/Unarchive Button */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelectedClassroom(classroom);
-                  setIsDeleteModalOpen(true);
+                  handleArchiveClassroom(classroom.id, classroom.is_archived);
                   setOpenMenuId(null);
                 }}
-                className="w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 border-t border-gray-100"
+                className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-t border-gray-100"
               >
-                <i className="fa-solid fa-trash text-red-500 w-5"></i>
-                Delete Classroom
+                <i className={`fa-solid ${classroom.is_archived ? 'fa-box-open' : 'fa-box-archive'} text-gray-500 w-5`}></i>
+                {classroom.is_archived ? 'Unarchive' : 'Archive'}
               </button>
             </div>
           )}
@@ -518,6 +518,39 @@ const AllClasses = () => {
     }
   };
 
+  // Handle archive toggle
+  const handleArchiveClassroom = async (classroomId, isArchived) => {
+    try {
+      // If currently not archived (isArchived=false), set to true (archive)
+      // If currently archived (isArchived=true), set to false (unarchive)
+      const newArchiveStatus = isArchived ? false : true;
+      
+      console.log('Current archive status:', isArchived);
+      console.log('New archive status to be set:', newArchiveStatus);
+      
+      const response = await api.patch(`/api/classrooms/${classroomId}/`, {
+        is_archived: newArchiveStatus
+      });
+      
+      console.log('API Response:', response.data);
+      
+      setClassrooms(prev =>
+        prev.map(classroom =>
+          classroom.id === classroomId ? { ...classroom, is_archived: newArchiveStatus } : classroom
+        )
+      );
+      
+      // If unarchiving (changing from true to false), switch to active filter
+      if (isArchived) {
+        setFilter('active');
+      }
+    } catch (error) {
+      console.error('Error updating archive status:', error.response?.data || error);
+      setError('Failed to update archive status');
+    }
+    setOpenMenuId(null);
+  };
+
   // Handle open menu
   const handleOpenMenu = (id) => {
     setOpenMenuId(openMenuId === id ? null : id);
@@ -529,8 +562,10 @@ const AllClasses = () => {
 
   // Filter classrooms
   const filteredClassrooms = filter === 'active'
-    ? classrooms.filter(c => !c?.is_hidden)
-    : classrooms.filter(c => c?.is_hidden);
+    ? classrooms.filter(c => !c?.is_hidden && !c?.is_archived)
+    : filter === 'hidden'
+      ? classrooms.filter(c => c?.is_hidden && !c?.is_archived)
+      : classrooms.filter(c => c?.is_archived);
 
   if (loading) {
     return (
@@ -596,7 +631,7 @@ const AllClasses = () => {
             >
               <i className="fa-solid fa-filter text-gray-500 group-hover:text-[#4C53B4] transition-colors"></i>
               <span className="text-sm font-medium text-gray-700">
-                {filter === 'active' ? 'All Classrooms' : 'Hidden Classrooms'}
+                {filter === 'active' ? 'All Classrooms' : filter === 'hidden' ? 'Hidden Classrooms' : 'Archived Classrooms'}
               </span>
               <i className="fa-solid fa-chevron-down text-xs text-gray-500 group-hover:text-[#4C53B4] transition-transform duration-300 group-hover:rotate-180"></i>
             </button>
@@ -628,6 +663,18 @@ const AllClasses = () => {
                   <i className={`fa-solid fa-check text-xs ${filter === 'hidden' ? 'opacity-100' : 'opacity-0'}`}></i>
                   <span>Hidden Classrooms</span>
                 </button>
+                <button
+                  onClick={() => {
+                    setFilter('archived');
+                    setOpenMenuId(null);
+                  }}
+                  className={`w-full px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors ${
+                    filter === 'archived' ? 'text-[#4C53B4] font-medium' : 'text-gray-600'
+                  }`}
+                >
+                  <i className={`fa-solid fa-check text-xs ${filter === 'archived' ? 'opacity-100' : 'opacity-0'}`}></i>
+                  <span>Archived Classrooms</span>
+                </button>
               </div>
             )}
           </div>
@@ -658,9 +705,10 @@ const AllClasses = () => {
                   setIsDeleteModalOpen={setIsDeleteModalOpen}
                   setOpenMenuId={setOpenMenuId}
                   handleClick={handleClick}
-                                    />
-                                  ))}
-                                </div>
+                  handleArchiveClassroom={handleArchiveClassroom}
+                />
+              ))}
+            </div>
           </SortableContext>
 
           {/* Drag Overlay */}
