@@ -12,6 +12,7 @@ import TransferStudentModal from './TransferStudentModal';
 import TeacherDashboard from './TeacherDashboard';
 import ClassroomHeader from './ClassroomHeader';  
 import ReactDOM from 'react-dom';
+import { useSuccessModal } from '../../contexts/SuccessModalContext';
 
 const DrillCard = ({ title, icon, color, hoverColor }) => (
   <div 
@@ -76,6 +77,7 @@ const TeacherClassroom = () => {
   const [drills, setDrills] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [openMenuDrillId, setOpenMenuDrillId] = useState(null);
+  const { showSuccessModal } = useSuccessModal();
 
   // Combined fetch for classroom and students data
   const fetchClassroomData = useCallback(async () => {
@@ -157,9 +159,15 @@ const TeacherClassroom = () => {
         data: { student_ids: [studentToRemove.id] }
       });
       
+      const studentName = `${studentToRemove?.first_name || ''} ${studentToRemove?.last_name || ''}`.trim();
       setStudents(prev => prev.filter(s => s.id !== studentToRemove.id));
       setIsConfirmModalOpen(false);
       setStudentToRemove(null);
+      
+      // Show success modal after closing the confirmation modal
+      setTimeout(() => {
+        showSuccessModal('remove', { studentName });
+      }, 300);
     } catch (error) {
       console.error('Error removing student:', {
         message: error.message,
