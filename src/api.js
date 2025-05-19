@@ -44,4 +44,20 @@ export const authService = {
   }
 };
 
+const importStudentsFromCsv = async (classroomId, file) => {
+  const formData = new FormData();
+  formData.append('csv_file', file);
+
+  try {
+    const response = await api.post(
+      `/api/classrooms/${classroomId}/import-students/`,
+      formData
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
 export default api
+export { importStudentsFromCsv }

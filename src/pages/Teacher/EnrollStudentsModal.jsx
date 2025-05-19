@@ -12,6 +12,10 @@ const EnrollStudentsModal = ({ isOpen, onClose, classroomId, onEnrollSuccess }) 
   const [showSuccess, setShowSuccess] = useState(false);
   const [enrolledCount, setEnrolledCount] = useState(0);
   const { showSuccessModal } = useSuccessModal();
+  const [csvFile, setCsvFile] = useState(null);
+  const [csvError, setCsvError] = useState(null);
+  const [isProcessingCsv, setIsProcessingCsv] = useState(false);
+  const [csvSuccess, setCsvSuccess] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -118,6 +122,48 @@ const EnrollStudentsModal = ({ isOpen, onClose, classroomId, onEnrollSuccess }) 
     resetModal();
   };
 
+  const handleCsvUpload = (event) => {
+    const file = event.target.files[0];
+    setCsvFile(file);
+    setCsvError(null);
+    setCsvSuccess(false);
+  };
+
+  const handleImportCsv = async () => {
+    if (!csvFile) {
+      setCsvError('Please select a CSV file.');
+      return;
+    }
+    setIsProcessingCsv(true);
+    setCsvError(null);
+    setCsvSuccess(false);
+    try {
+      await api.post(
+        `/api/classrooms/${classroomId}/import-students/`,
+        (() => {
+          const formData = new FormData();
+          formData.append('csv_file', csvFile);
+          return formData;
+        })()
+      );
+      setCsvFile(null);
+      setIsProcessingCsv(false);
+      setCsvError(null);
+      setCsvSuccess(true);
+      fetchAvailableStudents(); // Refresh the list
+      showSuccessModal('enroll', { count: 'CSV' });
+      // Close the modal after a short delay
+      setTimeout(() => {
+        setCsvSuccess(false);
+        handleClose();
+      }, 1500);
+    } catch (err) {
+      setCsvError('Failed to import students from CSV.');
+      setIsProcessingCsv(false);
+      setCsvSuccess(false);
+    }
+  };
+
   const filteredStudents = availableStudents.filter(student =>
     student.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -148,6 +194,62 @@ const EnrollStudentsModal = ({ isOpen, onClose, classroomId, onEnrollSuccess }) 
               {error}
             </div>
           )}
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Import Students from CSV
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleCsvUpload}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-[#4C53B4] file:text-white hover:file:bg-[#3a4095]"
+                key={csvFile ? csvFile.name : ''} // Reset input after import
+              />
+              <button
+                type="button"
+                onClick={handleImportCsv}
+                disabled={isProcessingCsv || !csvFile}
+                className={`px-3 py-2 rounded-xl text-white font-semibold text-sm
+                  ${isProcessingCsv || !csvFile
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4]'}
+                  transition-all duration-200 transform hover:scale-[1.02]
+                  flex items-center gap-2
+                `}
+              >
+                {isProcessingCsv ? (
+                  <>
+                    <i className="fa-solid fa-circle-notch animate-spin"></i>
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-file-csv mr-1"></i>
+                    Import CSV
+                  </>
+                )}
+              </button>
+            </div>
+            {csvFile && !isProcessingCsv && !csvSuccess && (
+              <div className="text-green-600 text-sm mt-1 flex items-center gap-2">
+                <i className="fa-solid fa-check-circle"></i>
+                {csvFile.name} ready to import
+              </div>
+            )}
+            {csvError && (
+              <div className="text-red-500 text-sm mt-1">
+                {csvError}
+              </div>
+            )}
+            {csvSuccess && (
+              <div className="flex items-center gap-2 text-green-600 text-sm mt-1 animate-fade-in">
+                <i className="fa-solid fa-circle-check text-lg"></i>
+                Students imported successfully!
+              </div>
+            )}
+          </div>
 
           <div className="mb-6">
             <div className="relative">

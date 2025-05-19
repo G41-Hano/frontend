@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '../../api';
+import api, { importStudentsFromCsv } from '../../api';
 import { ACCESS_TOKEN } from '../../constants';
 
 const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
@@ -18,6 +18,9 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [createdClassroom, setCreatedClassroom] = useState(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [csvFile, setCsvFile] = useState(null);
+  const [csvError, setCsvError] = useState(null);
+  const [isProcessingCsv, setIsProcessingCsv] = useState(false);
 
   // Fetch available students
   const fetchStudents = async () => {
@@ -71,8 +74,9 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
   // Handle final submission
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
-    if (selectedStudents.length === 0) {
-      setError('Please add at least one student to the classroom');
+    // Allow submission if either students are selected OR a CSV file is present
+    if (selectedStudents.length === 0 && !csvFile) {
+      setError('Please add at least one student or upload a CSV file.');
       return;
     }
     await createClassroom();
@@ -90,28 +94,45 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
     setLoading(true);
     setError(null);
     
-    try {
-      // First create the classroom
-      const classroomResponse = await api.post('/api/classrooms/', {
-        name: formData.name,
-        description: formData.description,
-        color: formData.color
-      });
+    // Validate required fields
+    if (!formData.name.trim()) {
+      setError('Classroom name is required');
+      setLoading(false);
+      return;
+    }
 
-      // Then add students if any are selected and we're not skipping
-      if (!skipStudents && selectedStudents.length > 0) {
-        await api.post(`/api/classrooms/${classroomResponse.data.id}/students/`, {
-          student_ids: selectedStudents.map(s => s.id)
-        });
+    try {
+      // 1. Create the classroom
+      const classroomData = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        color: formData.color || '#7D83D7',
+        is_archived: false,
+        is_hidden: false,
+        order: 0
+      };
+
+      const classroomResponse = await api.post('/api/classrooms/', classroomData);
+      const classroomId = classroomResponse.data.id;
+
+      // 2. If CSV file is present and not skipping, import students
+      if (!skipStudents && csvFile) {
+        console.log('Uploading CSV to backend:', classroomId, csvFile);
+        setIsProcessingCsv(true);
+        try {
+          await importStudentsFromCsv(classroomId, csvFile);
+        } catch (csvErr) {
+          setCsvError(csvErr?.error || 'Failed to import students from CSV');
+        } finally {
+          setIsProcessingCsv(false);
+        }
       }
 
       setCreatedClassroom(classroomResponse.data);
-      if (onSuccess) {
-        onSuccess(classroomResponse.data);
-      }
-      setStep(3); // Move to success step
+      if (onSuccess) onSuccess(classroomResponse.data);
+      setStep(3);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create classroom');
+      setError('Failed to create classroom. ' + (err?.error || err?.message || ''));
     } finally {
       setLoading(false);
     }
@@ -150,11 +171,20 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  // Add CSV processing function
+  const handleCsvUpload = (event) => {
+    const file = event.target.files[0];
+    setCsvFile(file);
+    setCsvError(null);
+    setIsProcessingCsv(false);
+    console.log('CSV file selected:', file);
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl p-6 w-full max-w-2xl mx-auto relative animate-scaleIn">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl p-6 w-full max-w-xl mx-auto relative">
         {/* Close Button */}
         <button 
           onClick={handleClose}
@@ -164,63 +194,63 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
         </button>
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-center mb-8">
-          <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${
+        <div className="flex items-center justify-center mb-4">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
             step === 1 ? 'bg-[#4C53B4] text-white' : 'bg-gray-200 text-gray-600'
           }`}>
             1
           </div>
-          <div className="w-12 md:w-16 h-1 bg-gray-200">
+          <div className="w-12 h-1 bg-gray-200">
             <div className={`h-full bg-[#4C53B4] transition-all ${
               step >= 2 ? 'w-full' : 'w-0'
             }`}></div>
           </div>
-          <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
             step === 2 ? 'bg-[#4C53B4] text-white' : 'bg-gray-200 text-gray-600'
           }`}>
             2
           </div>
-          <div className="w-12 md:w-16 h-1 bg-gray-200">
+          <div className="w-12 h-1 bg-gray-200">
             <div className={`h-full bg-[#4C53B4] transition-all ${
               step === 3 ? 'w-full' : 'w-0'
             }`}></div>
           </div>
-          <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
             step === 3 ? 'bg-[#4C53B4] text-white' : 'bg-gray-200 text-gray-600'
           }`}>
             3
           </div>
         </div>
 
-        <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-6">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">
           {step === 1 ? 'Create New Classroom' : step === 2 ? 'Add Students' : 'Classroom Created!'}
         </h2>
 
         {step === 1 ? (
           // Step 1: Basic Information
-          <form onSubmit={handleStep1Submit} className="space-y-6">
+          <form onSubmit={handleStep1Submit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Classroom Name
               </label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
                 placeholder="e.g., Math Class 2024"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Description (Optional)
               </label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all h-32 resize-none"
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all h-24 resize-none"
                 placeholder="Add a description for your classroom..."
               />
             </div>
@@ -234,7 +264,7 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-6 py-3 rounded-xl text-white font-semibold bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] transition-all duration-200 transform hover:scale-[1.02]"
+                className="px-4 py-2 rounded-xl text-white font-semibold bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] transition-all duration-200 transform hover:scale-[1.02]"
               >
                 Next Step
               </button>
@@ -242,28 +272,75 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
           </form>
         ) : step === 2 ? (
           // Step 2: Add Students
-          <form onSubmit={handleFinalSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search Students
-              </label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
-                placeholder="Search by name or username..."
-              />
+          <form onSubmit={handleFinalSubmit} className="space-y-4">
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Import Students from CSV
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleCsvUpload}
+                    className="block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-3
+                      file:rounded-xl file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-[#4C53B4] file:text-white
+                      hover:file:bg-[#3a4095]"
+                  />
+                  {isProcessingCsv && (
+                    <div className="text-sm text-gray-500">
+                      <i className="fa-solid fa-circle-notch animate-spin mr-2"></i>
+                      Processing...
+                    </div>
+                  )}
+                </div>
+                {csvError && (
+                  <div className="text-red-500 text-sm">
+                    {csvError}
+                  </div>
+                )}
+                {csvFile && !csvError && (
+                  <div className="text-green-500 text-sm">
+                    <i className="fa-solid fa-check mr-2"></i>
+                    CSV file loaded successfully
+                  </div>
+                )}
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">or</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Search Students
+                </label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
+                  placeholder="Search by name or username..."
+                />
+              </div>
             </div>
 
-            <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-xl">
+            <div className="h-[200px] overflow-y-auto border border-gray-200 rounded-xl">
               {isLoadingStudents ? (
-                <div className="p-4 text-center text-gray-500">
+                <div className="p-3 text-center text-gray-500">
                   <i className="fa-solid fa-circle-notch animate-spin mr-2"></i>
                   Loading students...
                 </div>
               ) : !availableStudents || availableStudents.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">
+                <div className="p-3 text-center text-gray-500">
                   No students found
                 </div>
               ) : (
@@ -275,17 +352,17 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
                   .map(student => (
                     <div 
                       key={student.id}
-                      className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
+                      className="flex items-center justify-between p-2 hover:bg-gray-50 transition-colors"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#4C53B4] flex items-center justify-center text-white text-sm md:text-base">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-[#4C53B4] flex items-center justify-center text-white text-sm">
                           {student.first_name?.[0] || student.username[0]}
                         </div>
                         <div>
-                          <div className="font-medium text-sm md:text-base">
+                          <div className="font-medium text-sm">
                             {student.first_name ? `${student.first_name} ${student.last_name}` : student.username}
                           </div>
-                          <div className="text-xs md:text-sm text-gray-500">@{student.username}</div>
+                          <div className="text-xs text-gray-500">@{student.username}</div>
                         </div>
                       </div>
                       <button
@@ -297,7 +374,7 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
                             setSelectedStudents(prev => [...prev, student]);
                           }
                         }}
-                        className={`px-3 py-1 rounded-lg transition-colors text-sm md:text-base ${
+                        className={`px-2 py-1 rounded-lg transition-colors text-sm ${
                           selectedStudents.find(s => s.id === student.id)
                             ? 'bg-red-100 text-red-600 hover:bg-red-200'
                             : 'bg-[#4C53B4]/10 text-[#4C53B4] hover:bg-[#4C53B4]/20'
@@ -316,21 +393,19 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
               </div>
             )}
 
-            <div className="flex justify-between">
+            <div className="flex justify-between pt-2">
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="px-4 md:px-6 py-2 md:py-3 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition-colors text-sm md:text-base"
+                className="px-4 py-2 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition-colors text-sm"
               >
                 Back
               </button>
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    handleSkip();
-                  }}
-                  className="px-4 md:px-6 py-2 md:py-3 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition-colors text-sm md:text-base"
+                  onClick={() => createClassroom(true)} // SKIP enrolling students
+                  className="px-4 py-2 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition-colors text-sm"
                 >
                   Skip
                 </button>
@@ -338,7 +413,7 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
                   type="submit"
                   disabled={loading}
                   className={`
-                    px-4 md:px-6 py-2 md:py-3 rounded-xl text-white font-semibold text-sm md:text-base
+                    px-4 py-2 rounded-xl text-white font-semibold text-sm
                     ${loading 
                       ? 'bg-gray-400 cursor-not-allowed' 
                       : 'bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4]'
@@ -361,22 +436,22 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
           </form>
         ) : (
           // Step 3: Success
-          <div className="text-center space-y-6">
-            <div className="w-16 h-16 md:w-20 md:h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center text-green-500">
-              <i className="fa-solid fa-check text-2xl md:text-3xl"></i>
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center text-green-500">
+              <i className="fa-solid fa-check text-2xl"></i>
             </div>
             
             <div>
-              <h3 className="text-lg md:text-xl font-semibold text-gray-800 mb-2">
+              <h3 className="text-lg font-semibold text-gray-800 mb-1">
                 Classroom Created Successfully!
               </h3>
-              <p className="text-gray-600 text-sm md:text-base">
+              <p className="text-gray-600 text-sm">
                 Share this class code with your students:
               </p>
             </div>
 
-            <div className="bg-gray-100 p-4 rounded-xl flex items-center justify-center gap-3">
-              <span className="text-lg md:text-xl font-mono font-bold text-[#4C53B4]">
+            <div className="bg-gray-100 p-3 rounded-xl flex items-center justify-center gap-3">
+              <span className="text-lg font-mono font-bold text-[#4C53B4]">
                 {createdClassroom?.class_code}
               </span>
               <button
@@ -388,10 +463,10 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
               </button>
             </div>
 
-            <div className="pt-4">
+            <div className="pt-2">
               <button
                 onClick={handleClose}
-                className="px-6 py-3 rounded-xl text-white font-semibold bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] transition-all duration-200 transform hover:scale-[1.02] text-sm md:text-base"
+                className="px-4 py-2 rounded-xl text-white font-semibold bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] transition-all duration-200 transform hover:scale-[1.02] text-sm"
               >
                 Done
               </button>
