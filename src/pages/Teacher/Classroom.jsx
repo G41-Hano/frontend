@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import { ACCESS_TOKEN } from '../../constants';
 import MouseTrail2 from "../../components/MouseTrail2"
+import EnrollStudentsModal from './EnrollStudentsModal';
 
 const DrillCard = ({ title, icon, color, hoverColor }) => (
   <div 
@@ -59,6 +60,8 @@ const Classroom = () => {
   const [studentError, setStudentError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [availableStudents, setAvailableStudents] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
 
   useEffect(() => {
     console.log('Fetching classroom with ID:', id);
@@ -148,6 +151,35 @@ const Classroom = () => {
     console.log('Transfer student:', studentId);
   };
 
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortedStudents = (students) => {
+    if (!sortConfig.key) return students;
+
+    return [...students].sort((a, b) => {
+      if (sortConfig.key === 'id') {
+        return sortConfig.direction === 'asc' ? a.id - b.id : b.id - a.id;
+      } else if (sortConfig.key === 'name') {
+        const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+        const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+        return sortConfig.direction === 'asc' 
+          ? nameA.localeCompare(nameB)
+          : nameB.localeCompare(nameA);
+      }
+      return 0;
+    });
+  };
+
+  const handleEnrollSuccess = () => {
+    fetchEnrolledStudents();
+  };
+
   if (error) {
     return (
       <div className="p-4">
@@ -188,11 +220,11 @@ const Classroom = () => {
   ];
 
   const filteredStudents = Array.isArray(students) 
-    ? students.filter(student => 
+    ? getSortedStudents(students.filter(student => 
         student.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.username?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      ))
     : [];
 
   const drillCards = [
@@ -302,8 +334,8 @@ const Classroom = () => {
             {activeTab === 'dashboard' && (
               <div className="flex gap-6 animate-fadeIn">
                 {/* Dashboard Navigation */}
-                <div className="w-48 bg-white rounded-2xl shadow-lg border-2 border-gray-100 h-fit transform hover:scale-[1.02] transition-all duration-300">
-                  <nav className="p-3 relative overflow-hidden">
+                <div className="w-56 bg-white rounded-2xl shadow-lg border-2 border-gray-100 h-fit transform hover:scale-[1.02] transition-all duration-300">
+                  <nav className="p-4 relative overflow-hidden">
                     {/* Decorative elements */}
                     <div className="absolute -right-4 -top-4 w-16 h-16 bg-[#4C53B4]/5 rounded-full"></div>
                     <div className="absolute -left-4 -bottom-4 w-20 h-20 bg-[#FFDF9F]/10 rounded-full"></div>
@@ -342,7 +374,10 @@ const Classroom = () => {
                             />
                             <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
                           </div>
-                          <button className="px-4 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-all duration-300 flex items-center gap-2 transform hover:scale-105 hover:shadow-lg">
+                          <button 
+                            onClick={() => setIsEnrollModalOpen(true)}
+                            className="px-4 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-all duration-300 flex items-center gap-2 transform hover:scale-105 hover:shadow-lg"
+                          >
                             <i className="fa-solid fa-user-plus animate-bounce"></i>
                             Enroll Students
                           </button>
@@ -372,10 +407,31 @@ const Classroom = () => {
                             <table className="min-w-full divide-y divide-gray-200">
                               <thead>
                                 <tr>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID No.</th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                  <th 
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
+                                    onClick={() => handleSort('id')}
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      ID No.
+                                      <div className="flex flex-col">
+                                        <i className={`fa-solid fa-caret-up text-xs ${sortConfig.key === 'id' && sortConfig.direction === 'asc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
+                                        <i className={`fa-solid fa-caret-down text-xs ${sortConfig.key === 'id' && sortConfig.direction === 'desc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
+                                      </div>
+                                    </div>
+                                  </th>
+                                  <th 
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
+                                    onClick={() => handleSort('name')}
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      Name
+                                      <div className="flex flex-col">
+                                        <i className={`fa-solid fa-caret-up text-xs ${sortConfig.key === 'name' && sortConfig.direction === 'asc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
+                                        <i className={`fa-solid fa-caret-down text-xs ${sortConfig.key === 'name' && sortConfig.direction === 'desc' ? 'text-[#4C53B4]' : 'text-gray-300'}`}></i>
+                                      </div>
+                                    </div>
+                                  </th>
                                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Enrolled</th>
                                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                               </thead>
@@ -406,9 +462,6 @@ const Classroom = () => {
                                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 animate-pulse">
                                         Active
                                       </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      {new Date(student.date_joined).toLocaleDateString()}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                                       <button
@@ -445,6 +498,14 @@ const Classroom = () => {
           </div>
         </div>
       </div>
+
+      {/* Enroll Students Modal */}
+      <EnrollStudentsModal
+        isOpen={isEnrollModalOpen}
+        onClose={() => setIsEnrollModalOpen(false)}
+        classroomId={id}
+        onEnrollSuccess={handleEnrollSuccess}
+      />
     </div>
   );
 };
