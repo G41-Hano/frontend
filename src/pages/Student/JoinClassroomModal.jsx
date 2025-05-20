@@ -1,26 +1,36 @@
 import React, { useState } from 'react';
 import api from '../../api';
+import { useNavigate } from 'react-router-dom';
 
 const JoinClassroomModal = ({ isOpen, onClose, onSuccess }) => {
   const [classCode, setClassCode] = useState('');
   const [joinStatus, setJoinStatus] = useState(null);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   const handleJoinClassroom = async (e) => {
     e.preventDefault();
     setError(null);
     setJoinStatus('joining');
     try {
-      await api.post('/api/classrooms/join/', { 
+      const response = await api.post('/api/classrooms/join/', { 
         class_code: classCode 
       });
-      setJoinStatus('success');
-      onSuccess();
-      setTimeout(() => {
-        setClassCode('');
-        onClose();
-        setJoinStatus(null);
-      }, 2000);
+      
+      // Get the classroom ID from the response - API returns classroom_id
+      const classroomId = response.data.classroom_id;
+      
+      // Reset modal state
+      setClassCode('');
+      onClose();
+      
+      // Immediately redirect to the classroom
+      navigate(`/s/classes/${classroomId}/`);
+      
+      // Update classroom list in the background
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       console.error('Error joining classroom:', error.response?.data || error.message);
       setJoinStatus('error');

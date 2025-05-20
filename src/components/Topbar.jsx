@@ -2,16 +2,23 @@ import { useState } from 'react';
 import Badge from '../assets/Badge.png';
 import Points from '../assets/Points.png';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../contexts/UserContext';
 
-const Topbar = ({ user, onMenuClick }) => {
+const Topbar = ({ onMenuClick }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const navigate = useNavigate();
+  const { user } = useUser();
   const isTeacher = user?.role === 'teacher';
 
   //Logout Function
   const handleLogout = () => {
     setIsDropdownOpen(false);
     navigate('/logout');
+  };
+
+  const handleProfileClick = () => {
+    setIsDropdownOpen(false);
+    navigate('/s/profile');
   };
 
   return (
@@ -60,18 +67,20 @@ const Topbar = ({ user, onMenuClick }) => {
             onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
             className="flex items-center gap-2 sm:gap-3 hover:bg-gray-50 rounded-lg px-2 sm:px-3 py-2 sm:py-3 transition-colors group"
           >
-            {user?.avatar ? ( // if user has an avatar, show it
+            {user?.avatar ? (
               <img 
                 src={user.avatar} 
-                alt={user.name} 
-                className="w-7 sm:w-8 h-7 sm:h-8 rounded-full"
+                alt={user.first_name} 
+                className="w-7 sm:w-8 h-7 sm:h-8 rounded-full object-cover"
               />
             ) : (
               <div className="w-7 sm:w-8 h-7 sm:h-8 rounded-full bg-[#4C53B4] flex items-center justify-center text-white font-semibold text-sm">
-                {user?.name?.[0] || 'U'} {/* if user has no avatar, show the first letter of the name */}
+                {user?.first_name?.[0] || 'U'}
               </div>
             )}
-            <span className="text-gray-600 font-baloo text-sm sm:text-base hidden sm:block">{user?.first_name + " " + user?.last_name || 'User'}</span> {/* if user has no username, show 'User' */}
+            <span className="text-gray-600 font-baloo text-sm sm:text-base hidden sm:block">
+              {user?.first_name + " " + user?.last_name || 'User'}
+            </span>
             <i className="fa-solid fa-chevron-down text-gray-400 group-hover:text-gray-600 transition-colors"></i>
           </button>
 
@@ -79,6 +88,7 @@ const Topbar = ({ user, onMenuClick }) => {
           {isDropdownOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-gray-100 shadow-lg py-2 z-50 animate-fadeIn">
               <button 
+                onClick={handleProfileClick}
                 className="w-full px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors text-gray-600 hover:text-[#4C53B4]"
               >
                 <i className="fa-solid fa-user text-xs"></i>

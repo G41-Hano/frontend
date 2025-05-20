@@ -194,7 +194,7 @@ const SortableClassroomCard = ({
               <h3 className="text-lg sm:text-xl font-semibold text-white">{classroom.name}</h3>
               <p className="text-white/80 text-sm group-hover:text-white transition-colors duration-300">
                 {classroom.student_count || classroom.students?.length || 0} 
-                {(classroom.student_count || classroom.students?.length || 0) === 1 ? ' student' : ' students'}
+                {(classroom.student_count || classroom.students?.length || 0) <= 1 ? ' Student' : ' Students'}
               </p>
             </div>
           </div>
@@ -275,7 +275,7 @@ const ClassroomCard = ({ classroom }) => {
             <h3 className="text-lg sm:text-xl font-semibold text-white">{classroom.name}</h3>
             <p className="text-white/80 text-sm">
               {classroom.student_count || classroom.students?.length || 0} 
-              {(classroom.student_count || classroom.students?.length || 0) === 1 ? ' student' : ' students'}
+              {(classroom.student_count || classroom.students?.length || 0) <= 1 ? ' Student' : ' Students'}
             </p>
           </div>
         </div>
@@ -396,8 +396,24 @@ const AllClasses = () => {
   }, []);
 
   // Handle classroom creation success
-  const handleClassroomCreated = (newClassroom) => {
-    setClassrooms(prev => [...prev, newClassroom]);
+  const handleClassroomCreated = async (newClassroom) => {
+    try {
+      // Fetch the latest classroom data to ensure student count is accurate
+      const response = await api.get(`/api/classrooms/${newClassroom.id}/`);
+      const updatedClassroom = response.data;
+
+      // Update the classroom if it exists, otherwise add it
+      setClassrooms(prev => {
+        const exists = prev.some(c => c.id === updatedClassroom.id);
+        if (exists) {
+          return prev.map(c => c.id === updatedClassroom.id ? updatedClassroom : c);
+        } else {
+          return [...prev, {...updatedClassroom, order: prev.length}];
+        }
+      });
+    } catch (err) {
+      console.error('Error fetching updated classroom data:', err);
+    }
   };
 
   // Handle classroom update success
@@ -642,9 +658,9 @@ const AllClasses = () => {
                   setIsDeleteModalOpen={setIsDeleteModalOpen}
                   setOpenMenuId={setOpenMenuId}
                   handleClick={handleClick}
-                />
-              ))}
-            </div>
+                                    />
+                                  ))}
+                                </div>
           </SortableContext>
 
           {/* Drag Overlay */}
