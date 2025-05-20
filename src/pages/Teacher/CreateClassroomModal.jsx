@@ -436,37 +436,48 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
           </form>
         ) : (
           // Step 3: Success
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center text-green-500">
-              <i className="fa-solid fa-check text-2xl"></i>
+          <div className="text-center space-y-6">
+            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-green-100 to-emerald-50 rounded-2xl flex items-center justify-center text-green-500 transform rotate-3 hover:rotate-0 transition-all duration-300">
+              <i className="fa-solid fa-check text-3xl"></i>
             </div>
             
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-1">
-                Classroom Created Successfully!
+            <div className="space-y-2">
+              <h3 className="text-2xl font-bold text-gray-800">
+                Classroom Created!
               </h3>
-              <p className="text-gray-600 text-sm">
-                Share this class code with your students:
+              <p className="text-gray-600">
+                Share this class code with your students
               </p>
             </div>
 
-            <div className="bg-gray-100 p-3 rounded-xl flex items-center justify-center gap-3">
-              <span className="text-lg font-mono font-bold text-[#4C53B4]">
-                {createdClassroom?.class_code}
-              </span>
-              <button
-                onClick={handleCopyCode}
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-                title="Copy to clipboard"
-              >
-                <i className={`fa-regular ${isCopied ? 'fa-check-circle' : 'fa-copy'}`}></i>
-              </button>
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gray-50 rounded-2xl blur-md opacity-30 group-hover:opacity-40 transition-opacity"></div>
+              <div className="relative bg-gray-100 border-2 border-gray-200 px-4 py-2.5 rounded-2xl">
+                <div className="text-xs text-[#4C53B4] mb-0.5">CLASS CODE</div>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-2xl font-mono font-bold text-[#4C53B4] tracking-wider">
+                    {createdClassroom?.class_code}
+                  </span>
+                  <button
+                    onClick={handleCopyCode}
+                    className="text-[#4C53B4]/70 hover:text-[#4C53B4] transition-colors p-1 hover:bg-[#4C53B4]/5 rounded-lg"
+                    title="Copy to clipboard"
+                  >
+                    <i className={`fa-regular ${isCopied ? 'fa-check-circle text-[#4C53B4]' : 'fa-copy'}`}></i>
+                  </button>
+                </div>
+                {isCopied && (
+                  <div className="text-[#4C53B4] text-xs mt-0.5 animate-fadeIn">
+                    Copied to clipboard!
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="pt-2">
               <button
                 onClick={handleClose}
-                className="px-4 py-2 rounded-xl text-white font-semibold bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] transition-all duration-200 transform hover:scale-[1.02] text-sm"
+                className="px-6 py-2.5 rounded-xl text-white font-semibold bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] transition-all duration-200 transform hover:scale-[1.02] text-sm"
               >
                 Done
               </button>
