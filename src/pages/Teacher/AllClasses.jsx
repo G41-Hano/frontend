@@ -2,17 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
+  DragOverlay,
   useSensor,
-  useSensors,
-  DragOverlay
+  useSensors
 } from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   rectSortingStrategy,
   useSortable
 } from '@dnd-kit/sortable';
@@ -22,6 +20,7 @@ import pencilBook from '../../assets/pencil_book.png';
 import CreateClassroomModal from './CreateClassroomModal';
 import UpdateClassroom from './UpdateClassroom';
 import DeleteClassroom from './DeleteClassroom';
+import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
 
 const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']; //Classroom Colors
 
@@ -34,11 +33,12 @@ const SortableClassroomCard = ({
   handleHideToggle,
   setSelectedClassroom,
   setIsUpdateModalOpen,
-  setIsDeleteModalOpen,
   setOpenMenuId,
   handleClick,
   handleArchiveClassroom
 }) => {
+  const { getClassroomColor } = useClassroomPreferences();
+  const classroomColor = getClassroomColor(classroom.id) || classroom.color || '#7D83D7';
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: classroom.id.toString() });
@@ -78,13 +78,14 @@ const SortableClassroomCard = ({
     transition,
     opacity: isDragging ? 0.3 : 1,
     zIndex: isDragging ? 0 : (openMenuId === classroom.id ? 50 : 1),
+    cursor: 'pointer',
   };
 
   return (
     <div 
       ref={setNodeRef} 
       style={style} 
-      className={`${isDragging ? 'z-0' : (openMenuId === classroom.id ? 'z-50' : 'z-10')}`}
+      className={`${isDragging ? 'z-0' : (openMenuId === classroom.id ? 'z-50' : 'z-10')} relative cursor-pointer`}
       onClick={(e) => {
         if (!isDragging) {
           e.stopPropagation();
@@ -92,13 +93,13 @@ const SortableClassroomCard = ({
         }
       }}
       {...attributes}
+      {...listeners}
     >
       <div
-        style={{ backgroundColor: classroom.color }}
-        className={`rounded-3xl p-4 hover:shadow-2xl transition-all duration-300 ease-in-out cursor-grab relative overflow-visible min-h-[200px] flex flex-col justify-between group hover:-translate-y-1 ${
+        style={{ backgroundColor: classroomColor }}
+        className={`rounded-3xl p-4 hover:shadow-2xl transition-all duration-300 ease-in-out relative overflow-visible min-h-[200px] flex flex-col justify-between group hover:-translate-y-1 ${
           isDragging ? 'shadow-2xl cursor-grabbing' : ''
         }`}
-        {...listeners}
       >
         {/* Menu Button */}
         <div className="absolute top-3 right-3 z-[60]">
@@ -331,6 +332,7 @@ const ClassroomCard = ({ classroom }) => {
 
 const AllClasses = () => {
   const [filter, setFilter] = useState('active');
+  const navigate = useNavigate();
   const [openMenuId, setOpenMenuId] = useState(null);
   const [classrooms, setClassrooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -340,60 +342,39 @@ const AllClasses = () => {
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedClassroom, setSelectedClassroom] = useState(null);
+  const { setClassroomColor, updateOrder, sortClassrooms, initialized } = useClassroomPreferences();
+  const didFetch = useRef(false);
 
   // Setup DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // 8px of movement required before activating
+        delay: 200, // ms to hold before drag starts
+        tolerance: 5, // px movement allowed before drag
       },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
-  const navigate = useNavigate();
-
-  // Fetch classrooms
+  // Fetch classrooms only once per session/user
   useEffect(() => {
+    if (!initialized || didFetch.current) return;
     const fetchAndOrderClassrooms = async () => {
-    try {
+      try {
         const response = await api.get('/api/classrooms/');
         let fetchedClassrooms = Array.isArray(response.data) ? response.data : [];
-        
-        // Sort by order field
-        fetchedClassrooms.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        
-        // Ensure all classrooms have valid order values
-        const reorderedClassrooms = fetchedClassrooms.map((classroom, index) => ({
-          ...classroom,
-          order: index
-        }));
-
-        // Update backend if any order values were missing or incorrect
-        const updatePromises = reorderedClassrooms.map((classroom) => 
-          api.patch(`/api/classrooms/${classroom.id}/`, { order: classroom.order })
-        );
-
-        // Set state with ordered classrooms
-        setClassrooms(reorderedClassrooms);
-        
-        // Update backend in background
-        await Promise.all(updatePromises);
-        
+        fetchedClassrooms = sortClassrooms(fetchedClassrooms);
+        setClassrooms(fetchedClassrooms);
         setError(null);
-      } catch (err) {
-        console.error('Error fetching classrooms:', err.response?.data || err);
-      setError('Failed to fetch classrooms');
+        didFetch.current = true;
+      } catch {
+        setError('Failed to fetch classrooms');
         setClassrooms([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchAndOrderClassrooms();
-  }, []);
+  }, [initialized, sortClassrooms]);
 
   // Handle classroom creation success
   const handleClassroomCreated = async (newClassroom) => {
@@ -433,19 +414,12 @@ const AllClasses = () => {
   // Handle color change
   const handleColorChange = async (classroomId, newColor) => {
     try {
-      await api.patch(`/api/classrooms/${classroomId}/`, {
-        color: newColor
-      });
-      setClassrooms(prev =>
-        prev.map(classroom =>
-          classroom.id === classroomId ? { ...classroom, color: newColor } : classroom
-        )
-      );
+      setClassroomColor(classroomId, newColor);
+      setOpenMenuId(null);
     } catch (err) {
-      console.error('Error updating classroom color:', err.response?.data || err.message);
+      console.error('Error updating classroom color:', err);
       setError('Failed to update classroom color');
     }
-    setOpenMenuId(null);
   };
 
   // Handle hide toggle
@@ -476,45 +450,15 @@ const AllClasses = () => {
   };
 
   // Handle drag end
-  const handleDragEnd = async (event) => {
+  const handleDragEnd = (event) => {
     const { active, over } = event;
-    
-    // Reset active ID
     setActiveId(null);
-    
     if (over && active.id !== over.id) {
-      try {
-        const oldIndex = classrooms.findIndex(item => item.id.toString() === active.id);
-        const newIndex = classrooms.findIndex(item => item.id.toString() === over.id);
-        
-        // Create the reordered array
-        const reordered = arrayMove(classrooms, oldIndex, newIndex);
-        
-        // Assign new orders
-        const reorderedWithOrder = reordered.map((classroom, index) => ({
-          ...classroom,
-          order: index
-        }));
-
-        // Update state immediately
-        setClassrooms(reorderedWithOrder);
-
-        // Update backend
-        const updatePromises = reorderedWithOrder.map(classroom => 
-          api.patch(`/api/classrooms/${classroom.id}/`, { order: classroom.order })
-        );
-
-        // Wait for all updates to complete
-        await Promise.all(updatePromises);
-
-      } catch (error) {
-        console.error('Error updating classroom order:', error);
-        // Refresh from backend on error
-        const response = await api.get('/api/classrooms/');
-        const fetchedClassrooms = Array.isArray(response.data) ? response.data : [];
-        fetchedClassrooms.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        setClassrooms(fetchedClassrooms);
-      }
+      const oldIndex = classrooms.findIndex(item => item.id.toString() === active.id);
+      const newIndex = classrooms.findIndex(item => item.id.toString() === over.id);
+      const reordered = arrayMove(classrooms, oldIndex, newIndex);
+      setClassrooms(reordered);
+      updateOrder(reordered);
     }
   };
 
@@ -597,7 +541,7 @@ const AllClasses = () => {
   const activeClassroom = classrooms.find(classroom => classroom.id.toString() === activeId);
 
   return (
-    <div className="space-y-6 px-4 sm:px-6 max-w-full md:max-w-[95%] mx-auto mt-6">
+    <div className="space-y-6 px-4 sm:px-6 max-w-full md:max-w-[95%] mx-auto  ">
       {/* Header */}
       <div className="bg-[#FFDF9F] rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative overflow-hidden min-h-[180px]">
         <div className="space-y-2 max-w-full sm:max-w-[65%]">
@@ -683,7 +627,6 @@ const AllClasses = () => {
         {/* Drag and Drop */}
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >

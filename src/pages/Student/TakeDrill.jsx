@@ -196,7 +196,7 @@ const DragDropQuestion = ({ question, onAnswer, currentAnswers = {} }) => {
 };
 
 // Memory Game Question Component
-const MemoryGameQuestion = ({ question, onAnswer, currentAnswer }) => {
+const MemoryGameQuestion = ({ question, onAnswer }) => {
   const [flipped, setFlipped] = useState([]); // array of card ids currently flipped
   const [matched, setMatched] = useState([]); // array of card ids that are matched
   const [lock, setLock] = useState(false); // prevent flipping more than 2 at a time
@@ -283,7 +283,7 @@ const MemoryGameQuestion = ({ question, onAnswer, currentAnswer }) => {
   return (
     <div className="flex flex-col items-center">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 max-w-3xl mx-auto">
-        {shuffledCards.map((card, idx) => {
+        {shuffledCards.map((card) => {
           const isFlipped = flipped.includes(card.id) || matched.includes(card.id);
           return (
             <button
@@ -495,7 +495,6 @@ const TakeDrill = () => {
           <MemoryGameQuestion
             question={currentQuestion}
             onAnswer={handleAnswer}
-            currentAnswer={currentAnswer}
           />
         );
       default:

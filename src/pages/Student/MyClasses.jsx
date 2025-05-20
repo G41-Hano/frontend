@@ -1,17 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
+  DragOverlay,
   useSensor,
-  useSensors,
-  DragOverlay
+  useSensors
 } from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   rectSortingStrategy,
   useSortable
 } from '@dnd-kit/sortable';
@@ -20,11 +18,14 @@ import api from '../../api';
 import pencilBook from '../../assets/pencil_book.png';
 import JoinClassroomModal from './JoinClassroomModal';
 import { useNavigate } from 'react-router-dom';
+import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
 
 const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']; //Classroom Colors
 
 // Sortable Classroom Card Component
 const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleColorChange, handleHideToggle, handleClick }) => {
+  const { getClassroomColor } = useClassroomPreferences();
+  const classroomColor = getClassroomColor(classroom.id) || classroom.student_color || classroom.color || '#7D83D7';
   const {
     attributes,
     listeners,
@@ -42,10 +43,10 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
   };
 
   return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
-      className={`${isDragging ? 'z-0' : 'z-10'}`}
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`${isDragging ? 'z-0' : 'z-10'} relative cursor-pointer`}
       onClick={(e) => {
         if (!isDragging) {
           e.stopPropagation();
@@ -53,69 +54,67 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
         }
       }}
       {...attributes}
+      {...listeners}
     >
-      <div
-        style={{ backgroundColor: classroom.student_color || classroom.color }}
-        className={`rounded-3xl p-4 hover:shadow-2xl transition-all duration-300 ease-in-out cursor-grab relative overflow-hidden min-h-[200px] flex flex-col justify-between group hover:-translate-y-1 ${
-          isDragging ? 'shadow-2xl cursor-grabbing' : ''
-        }`}
-        {...listeners}
-      >
-        {/* Menu Button */}
-        <div className="absolute top-3 right-3 z-10">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenMenu(classroom.id);
-            }}
-            className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-all duration-300 hover:scale-110"
-          >
-            <i className="fa-solid fa-ellipsis-vertical text-sm transition-transform group-hover:rotate-90"></i>
-          </button>
+      {/* Menu Button */}
+      <div className="absolute top-3 right-3 z-20">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleOpenMenu(classroom.id);
+          }}
+          className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-all duration-300 hover:scale-110"
+        >
+          <i className="fa-solid fa-ellipsis-vertical text-sm transition-transform group-hover:rotate-90"></i>
+        </button>
 
-          {/* Color Picker Menu */}
-          {openMenuId === classroom.id && (
-            <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg py-2 z-50 animate-fadeIn">
-              <div className="px-4 py-2 text-sm text-gray-700 font-medium">Choose Color</div>
-              <div className="grid grid-cols-5 gap-2 px-4 pb-2">
-                {/* Color Options */}
-                {CLASSROOM_COLORS.map((color, index) => (
-                  <button
-                    key={index}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleColorChange(classroom.id, color);
-                    }}
-                    className="w-5 h-5 rounded-full hover:scale-110 transition-all duration-300 hover:shadow-lg"
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-
-              {/* Hide Classroom Button */}
-              <div className="border-t border-gray-100 mt-2 pt-2">
+        {/* Color Picker Menu */}
+        {openMenuId === classroom.id && (
+          <div className="absolute right-0 mt-2 w-44 bg-white rounded-lg shadow-lg py-2 z-50 animate-fadeIn">
+            <div className="px-4 py-2 text-sm text-gray-700 font-medium">Choose Color</div>
+            <div className="grid grid-cols-5 gap-2 px-4 pb-2">
+              {/* Color Options */}
+              {CLASSROOM_COLORS.map((color, index) => (
                 <button
+                  key={index}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleHideToggle(classroom.id);
+                    handleColorChange(classroom.id, color);
                   }}
-                  className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                >
-                  <i className={`fa-solid ${classroom.is_hidden ? 'fa-eye' : 'fa-eye-slash'} text-gray-500`}></i> 
-                  {classroom.is_hidden ? 'Show Classroom' : 'Hide Classroom'}
-                </button>
-              </div>
+                  className="w-5 h-5 rounded-full hover:scale-110 transition-all duration-300 hover:shadow-lg"
+                  style={{ backgroundColor: color }}
+                />
+              ))}
             </div>
-          )}
-        </div>
 
+            {/* Hide Classroom Button */}
+            <div className="border-t border-gray-100 mt-2 pt-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleHideToggle(classroom.id);
+                }}
+                className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <i className={`fa-solid ${classroom.is_hidden ? 'fa-eye' : 'fa-eye-slash'} text-gray-500`}></i> 
+                {classroom.is_hidden ? 'Show Classroom' : 'Hide Classroom'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Card Body (clickable, not draggable) */}
+      <div
+        style={{ backgroundColor: classroomColor }}
+        className={`rounded-3xl p-4 shadow-xl transition-all duration-300 ease-in-out relative overflow-hidden min-h-[200px] flex flex-col justify-between group hover:-translate-y-1 cursor-pointer`}
+      >
         {/* Classroom Details */}
-        <div className="space-y-6">
+        <div className="space-y-6 relative z-10">
           <div className="space-y-3">
             <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
               <i className="fa-solid fa-book text-2xl text-white/80 transition-all duration-300 group-hover:text-white"></i>
             </div>
-            
             <div className="transform transition-all duration-300 group-hover:translate-x-1">
               <h3 className="text-lg sm:text-xl font-semibold text-white">{classroom.name}</h3>
               <p className="text-white/80 text-sm group-hover:text-white transition-colors duration-300">
@@ -124,7 +123,6 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
               </p>
             </div>
           </div>
-
           {/* Student Avatars */}
           <div className="flex -space-x-2">
             {(classroom.students || []).slice(0, 3).map((student) => (
@@ -160,15 +158,6 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
               </div>
             )}
           </div>
-        </div>
-
-        {/* Decorative Circles */}
-        <div className="absolute right-0 bottom-0 transition-transform duration-500 group-hover:translate-x-4 group-hover:translate-y-4">
-          <div className="w-36 sm:w-48 h-36 sm:h-48 rounded-full bg-white/10 absolute -bottom-20 sm:-bottom-24 -right-20 sm:-right-24 transition-transform duration-500 group-hover:scale-110"></div>
-          <div className="w-24 sm:w-32 h-24 sm:h-32 rounded-full bg-white/10 absolute -bottom-4 sm:-bottom-6 -right-4 sm:-right-6 transition-transform duration-500 group-hover:scale-125"></div>
-        </div>
-        <div className="absolute left-1/2 top-1/2 transition-transform duration-500 group-hover:rotate-45">
-          <div className="w-16 sm:w-20 h-16 sm:h-20 rounded-full bg-white/10 absolute -translate-x-1/2 -translate-y-1/2"></div>
         </div>
       </div>
     </div>
@@ -264,58 +253,37 @@ const MyClasses = () => {
   const [error, setError] = useState(null);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [activeId, setActiveId] = useState(null);
+  const { setClassroomColor, updateOrder, sortClassrooms, initialized } = useClassroomPreferences();
+  const didFetch = useRef(false);
 
-  // Setup DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // 8px of movement required before activating
+        delay: 200, // ms to hold before drag starts
+        tolerance: 5, // px movement allowed before drag
       },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
-  // Fetch student's enrolled classrooms
   useEffect(() => {
+    if (!initialized || didFetch.current) return;
     const fetchAndOrderClassrooms = async () => {
-    try {
+      try {
         const response = await api.get('/api/classrooms/');
         let fetchedClassrooms = Array.isArray(response.data) ? response.data : [];
-        
-        // Sort by order field
-        fetchedClassrooms.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        
-        // Ensure all classrooms have valid order values
-        const reorderedClassrooms = fetchedClassrooms.map((classroom, index) => ({
-          ...classroom,
-          order: index
-        }));
-
-        // Update backend if any order values were missing or incorrect
-        const updatePromises = reorderedClassrooms.map((classroom) => 
-          api.patch(`/api/classrooms/${classroom.id}/`, { order: classroom.order })
-        );
-
-        // Set state with ordered classrooms
-        setClassrooms(reorderedClassrooms);
-        
-        // Update backend in background
-        await Promise.all(updatePromises);
-        
+        fetchedClassrooms = sortClassrooms(fetchedClassrooms);
+        setClassrooms(fetchedClassrooms);
         setError(null);
-      } catch (err) {
-        console.error('Error fetching classrooms:', err.response?.data || err);
-      setError('Failed to fetch classrooms');
-      setClassrooms([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+        didFetch.current = true;
+      } catch {
+        setError('Failed to fetch classrooms');
+        setClassrooms([]);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchAndOrderClassrooms();
-  }, []);
+  }, [initialized, sortClassrooms]);
 
   // Handle joining classroom with code
   const handleJoinSuccess = async () => {
@@ -362,19 +330,12 @@ const MyClasses = () => {
   //Handle Color Change
   const handleColorChange = async (classroomId, newColor) => {
     try {
-      await api.patch(`/api/classrooms/${classroomId}/`, {
-        student_color: newColor
-      });
-      setClassrooms(prevClassrooms =>
-      prevClassrooms.map(classroom =>
-          classroom.id === classroomId ? { ...classroom, student_color: newColor } : classroom
-      )
-    );
+      setClassroomColor(classroomId, newColor);
+      setOpenMenuId(null);
     } catch (error) {
       console.error('Error updating classroom color:', error);
       setError('Failed to update classroom color');
     }
-    setOpenMenuId(null); 
   };
 
   //Handle Hide Toggle
@@ -408,45 +369,15 @@ const MyClasses = () => {
   };
 
   // Handle drag end event
-  const handleDragEnd = async (event) => {
+  const handleDragEnd = (event) => {
     const { active, over } = event;
-    
-    // Reset active ID
     setActiveId(null);
-    
     if (over && active.id !== over.id) {
-      try {
-        const oldIndex = classrooms.findIndex(item => item.id.toString() === active.id);
-        const newIndex = classrooms.findIndex(item => item.id.toString() === over.id);
-        
-        // Create the reordered array
-        const reordered = arrayMove(classrooms, oldIndex, newIndex);
-        
-        // Assign new orders
-        const reorderedWithOrder = reordered.map((classroom, index) => ({
-          ...classroom,
-          order: index
-        }));
-
-        // Update state immediately
-        setClassrooms(reorderedWithOrder);
-
-        // Update backend
-        const updatePromises = reorderedWithOrder.map(classroom => 
-          api.patch(`/api/classrooms/${classroom.id}/`, { order: classroom.order })
-        );
-
-        // Wait for all updates to complete
-        await Promise.all(updatePromises);
-
-      } catch (error) {
-        console.error('Error updating classroom order:', error);
-        // Refresh from backend on error
-        const response = await api.get('/api/classrooms/');
-        const fetchedClassrooms = Array.isArray(response.data) ? response.data : [];
-        fetchedClassrooms.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        setClassrooms(fetchedClassrooms);
-      }
+      const oldIndex = classrooms.findIndex(item => item.id.toString() === active.id);
+      const newIndex = classrooms.findIndex(item => item.id.toString() === over.id);
+      const reordered = arrayMove(classrooms, oldIndex, newIndex);
+      setClassrooms(reordered);
+      updateOrder(reordered);
     }
   };
 
@@ -597,7 +528,6 @@ const MyClasses = () => {
         {/* Drag and Drop */}
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
