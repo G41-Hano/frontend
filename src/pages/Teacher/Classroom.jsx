@@ -4,6 +4,7 @@ import api from '../../api';
 import { ACCESS_TOKEN } from '../../constants';
 import MouseTrail2 from "../../components/MouseTrail2"
 import EnrollStudentsModal from './EnrollStudentsModal';
+import ConfirmationModal from './ConfirmationModal';
 
 const DrillCard = ({ title, icon, color, hoverColor }) => (
   <div 
@@ -62,6 +63,8 @@ const Classroom = () => {
   const [availableStudents, setAvailableStudents] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [studentToRemove, setStudentToRemove] = useState(null);
 
   useEffect(() => {
     console.log('Fetching classroom with ID:', id);
@@ -137,13 +140,31 @@ const Classroom = () => {
     }
   }, [activeTab, activeDashboardSection, id]);
 
-  const handleRemoveStudent = async (studentId) => {
+  const handleRemoveClick = (student) => {
+    setStudentToRemove(student);
+    setIsConfirmModalOpen(true);
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!studentToRemove) return;
+
     try {
-      await api.delete(`/api/classrooms/${id}/students/${studentId}/`);
+      console.log('Removing student:', studentToRemove);
+      const response = await api.delete(`/api/classrooms/${id}/students/`, {
+        data: { student_ids: [studentToRemove.id] }
+      });
+      
+      console.log('Remove response:', response);
       fetchEnrolledStudents();
+      setIsConfirmModalOpen(false);
+      setStudentToRemove(null);
     } catch (error) {
-      console.error('Error removing student:', error);
-      setStudentError('Failed to remove student');
+      console.error('Error removing student:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      setStudentError(error.response?.data?.error || 'Failed to remove student. Please try again.');
     }
   };
 
@@ -465,7 +486,7 @@ const Classroom = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                                       <button
-                                        onClick={() => handleRemoveStudent(student.id)}
+                                        onClick={() => handleRemoveClick(student)}
                                         className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-lg transition-all duration-300 transform hover:scale-105"
                                       >
                                         Remove
@@ -505,6 +526,18 @@ const Classroom = () => {
         onClose={() => setIsEnrollModalOpen(false)}
         classroomId={id}
         onEnrollSuccess={handleEnrollSuccess}
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => {
+          setIsConfirmModalOpen(false);
+          setStudentToRemove(null);
+        }}
+        onConfirm={handleConfirmRemove}
+        title="Remove Student"
+        message={`Are you sure you want to remove ${studentToRemove?.name} from the classroom?`}
       />
     </div>
   );

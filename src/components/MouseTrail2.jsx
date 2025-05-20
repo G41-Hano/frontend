@@ -1,150 +1,150 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 const MouseTrail2 = ({ excludeSelector }) => {
-  const [dots, setDots] = useState([]);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [hue, setHue] = useState(0);
+    const canvasRef = useRef(null);                 
+    const particlesRef = useRef([]);                    
+    const mouseRef = useRef({ x: 0, y: 0, isOnScreen: false }); // Mouse position and state
+    const frameRef = useRef();                          
 
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      // Check if the mouse is over excluded elements
-      if (excludeSelector) {
-        const element = document.elementFromPoint(e.clientX, e.clientY);
-        if (element && element.closest(excludeSelector)) {
-          return;
-        }
-      }
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
 
-      setMousePosition({ x: e.clientX, y: e.clientY });
-      setHue(prev => (prev + 2) % 360); // Rotate through colors
-
-      setDots(prevDots => {
-        const newDot = {
-          x: e.clientX,
-          y: e.clientY,
-          opacity: 1,
-          scale: 1,
-          hue: hue,
-          id: Date.now()
+        // Handles canvas resize to match window dimensions
+        const setCanvasSize = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
         };
 
-        // Keep only the last 20 dots for a longer trail
-        const updatedDots = [...prevDots, newDot].slice(-20);
-        return updatedDots;
-      });
-    };
+        setCanvasSize();
+        window.addEventListener('resize', setCanvasSize);
 
-    window.addEventListener('mousemove', handleMouseMove);
+        // Particle class 
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 10 + 3;      // Random size between 3 and 13
+                this.speedX = Math.random() * 1.5 - 0.75; // Random horizontal speed
+                this.speedY = Math.random() * 1.5 - 0.75; // Random vertical speed
+                this.life = 1;                           // Full opacity to start
+                // Randomly select a color from our fun color palette
+                this.color = [
+                    '#FF6B6B', // Bright Pink
+                    '#845EF7', // Purple
+                    '#20C997', // Cyan
+                    '#51CF66', // Lime Green
+                    '#FF922B', // Orange
+                    '#FCC419', // Yellow
+                    '#FF6B6B', // Hot Pink
+                    '#339AF0', // Sky Blue
+                ][Math.floor(Math.random() * 8)];
+            }
 
-    const animationInterval = setInterval(() => {
-      setDots(prevDots =>
-        prevDots
-          .map(dot => ({
-            ...dot,
-            opacity: dot.opacity - 0.05, // Slower fade for longer trail
-            scale: dot.scale - 0.03 // Slower shrink
-          }))
-          .filter(dot => dot.opacity > 0)
-      );
-    }, 50);
+            /**
+             * Updates particle position, size, and life
+             * Called each animation frame
+             */
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.life -= 0.01;  // Gradually reduce opacity
 
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      clearInterval(animationInterval);
-    };
-  }, [excludeSelector, hue]);
+                // Decrease size but keep it above 0
+                this.size = Math.max(this.size - 0.05, 0);
+            }
 
-  // Fun, vibrant colors for children
-  const funColors = [
-    'hsl(350, 100%, 66%)',  // Bright Pink
-    'hsl(280, 100%, 65%)',  // Purple
-    'hsl(190, 100%, 50%)',  // Cyan
-    'hsl(130, 90%, 50%)',   // Lime Green
-    'hsl(40, 100%, 60%)',   // Orange
-    'hsl(60, 100%, 60%)',   // Yellow
-    'hsl(330, 100%, 65%)',  // Hot Pink
-    'hsl(210, 100%, 60%)'   // Sky Blue
-  ];
+            /**
+             * Renders particle on canvas
+             * @param {CanvasRenderingContext2D} ctx - Canvas context
+             */
+            draw(ctx) {
+                if (this.size <= 0) return;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                // Convert hex color to rgba with opacity
+                const r = parseInt(this.color.slice(1, 3), 16);
+                const g = parseInt(this.color.slice(3, 5), 16);
+                const b = parseInt(this.color.slice(5, 7), 16);
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${this.life * 0.5})`;
+                ctx.fill();
+            }
+        }
 
-  return (
-    <div style={{ pointerEvents: 'none', position: 'fixed', inset: 0, zIndex: 9999 }}>
-      {/* Main cursor dot */}
-      <div
-        style={{
-          position: 'fixed',
-          left: mousePosition.x,
-          top: mousePosition.y,
-          width: '15px',
-          height: '15px',
-          background: `hsl(${hue}, 100%, 65%)`,
-          borderRadius: '50%',
-          transform: 'translate(-50%, -50%)',
-          filter: 'blur(2px) brightness(1.2)',
-          boxShadow: `0 0 10px hsl(${hue}, 100%, 70%)`,
-          transition: 'transform 0.15s ease-out',
-        }}
-      />
+        /**
+         * Creates new particles at current mouse position
+         * Called when mouse is moving and not over excluded area
+         */
+        const addParticles = () => {
+            const { x, y } = mouseRef.current;
+            for (let i = 0; i < 2; i++) {
+                particlesRef.current.push(new Particle(x, y));
+            }
+        };
 
-      {/* Trail dots */}
-      {dots.map((dot, index) => {
-        const color = funColors[index % funColors.length];
-        const size = 12 - (index * 0.4); // Gradually decrease size
+        /**
+         * Mouse event handlers
+         * Track mouse position and determine if it's over excluded area
+         */
+        const handleMouseMove = (e) => {
+            const excludeElement = document.querySelector(excludeSelector);
+            const isOverForm = excludeElement?.contains(e.target);
+            
+            mouseRef.current.x = e.clientX;
+            mouseRef.current.y = e.clientY;
+            mouseRef.current.isOnScreen = !isOverForm;
+        };
 
-        return (
-          <div
-            key={dot.id}
-            style={{
-              position: 'fixed',
-              left: dot.x,
-              top: dot.y,
-              width: `${size}px`,
-              height: `${size}px`,
-              background: color,
-              borderRadius: '50%',
-              transform: `translate(-50%, -50%) scale(${dot.scale})`,
-              opacity: dot.opacity,
-              filter: 'blur(3px) brightness(1.2)',
-              boxShadow: `0 0 8px ${color}`,
-              transition: 'transform 0.3s ease-out',
-            }}
-          />
-        );
-      })}
+        const handleMouseEnter = () => {
+            const excludeElement = document.querySelector(excludeSelector);
+            const isOverForm = excludeElement?.contains(document.activeElement);
+            mouseRef.current.isOnScreen = !isOverForm;
+        };
 
-      {/* Enhanced glow effect */}
-      <div
-        style={{
-          position: 'fixed',
-          left: mousePosition.x,
-          top: mousePosition.y,
-          width: '40px',
-          height: '40px',
-          background: `radial-gradient(circle, hsla(${hue}, 100%, 70%, 0.4) 0%, transparent 70%)`,
-          borderRadius: '50%',
-          transform: 'translate(-50%, -50%)',
-          filter: 'blur(2px)',
-          pointerEvents: 'none',
-        }}
-      />
+        const handleMouseLeave = () => {
+            mouseRef.current.isOnScreen = false;
+        };
 
-      {/* Sparkle effect */}
-      <div
-        style={{
-          position: 'fixed',
-          left: mousePosition.x,
-          top: mousePosition.y,
-          width: '20px',
-          height: '20px',
-          background: 'white',
-          borderRadius: '50%',
-          transform: 'translate(-50%, -50%) scale(0.3)',
-          opacity: 0.6,
-          filter: 'blur(1px)',
-          pointerEvents: 'none',
-        }}
-      />
-    </div>
-  );
+        // Main animation loop
+        const animate = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (mouseRef.current.isOnScreen) {
+                addParticles();
+            }
+
+            particlesRef.current = particlesRef.current.filter(p => {
+                p.update();
+                p.draw(ctx);
+                return p.life > 0 && p.size > 0;
+            });
+
+            frameRef.current = requestAnimationFrame(animate);
+        };
+
+        // Event listeners setup
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseenter', handleMouseEnter);
+        document.addEventListener('mouseleave', handleMouseLeave);
+        animate();
+
+        // Cleanup function
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseenter', handleMouseEnter);
+            document.removeEventListener('mouseleave', handleMouseLeave);
+            window.removeEventListener('resize', setCanvasSize);
+            cancelAnimationFrame(frameRef.current);
+        };
+    }, [excludeSelector]);
+
+    return (
+        <canvas
+            ref={canvasRef}
+            className="fixed inset-0 pointer-events-none z-50"
+            style={{ background: 'transparent' }}
+        />
+    );
 };
 
 export default MouseTrail2; 
