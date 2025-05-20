@@ -267,6 +267,36 @@ const TeacherClassroom = () => {
       ))
     : [];
 
+  // Add this function after other handlers
+  const handleArchiveClassroom = async (classroomId, isArchived) => {
+    if (!classroom) return;
+    try {
+      // If currently not archived (isArchived=false), set to true (archive)
+      // If currently archived (isArchived=true), set to false (unarchive)
+      const newArchiveStatus = isArchived ? false : true;
+      
+      console.log('Current archive status:', isArchived);
+      console.log('New archive status to be set:', newArchiveStatus);
+      
+      const response = await api.patch(`/api/classrooms/${classroomId}/`, {
+        is_archived: newArchiveStatus
+      });
+      
+      console.log('API Response:', response.data);
+      
+      // Update local state
+      setClassroom(prev => ({
+        ...prev,
+        is_archived: newArchiveStatus
+      }));
+      
+      navigate('/t/classes'); // Redirect to all classes after archiving/unarchiving
+    } catch (err) {
+      alert('Failed to update archive status.');
+      console.error('Error updating archive status:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
       {/* Header */}
@@ -275,6 +305,7 @@ const TeacherClassroom = () => {
         students={students}
         onEdit={() => setIsUpdateModalOpen(true)}
         onDelete={() => setIsDeleteModalOpen(true)}
+        onArchive={handleArchiveClassroom}
         onBack={() => navigate(-1)}
       />
 

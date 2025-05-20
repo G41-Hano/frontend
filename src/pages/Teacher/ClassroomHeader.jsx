@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ClassroomHeader = ({ classroom, students, onEdit, onDelete, onBack }) => {
+const ClassroomHeader = ({ classroom, students, onEdit, onDelete, onArchive, onBack }) => {
   return (
     <div className="bg-white rounded-3xl shadow-lg w-full max-w-[95%] mx-auto mb-6 p-8">
       <button
@@ -35,7 +35,7 @@ const ClassroomHeader = ({ classroom, students, onEdit, onDelete, onBack }) => {
             </div>
           </div>
         </div>
-        <div className="flex gap-4 w-full md:w-auto justify-end">
+        <div className="flex flex-col gap-2 w-full md:w-auto justify-end">
           <button
             className="flex-1 md:flex-initial px-6 py-3 text-base font-medium text-[#4C53B4] bg-[#EEF1F5] rounded-xl hover:bg-[#4C53B4] hover:text-white transition-all duration-300 flex items-center gap-2 justify-center"
             onClick={onEdit}
@@ -49,6 +49,13 @@ const ClassroomHeader = ({ classroom, students, onEdit, onDelete, onBack }) => {
           >
             <i className="fa-solid fa-trash"></i>
             Delete
+          </button>
+          <button
+            className="flex-1 md:flex-initial px-6 py-3 text-base font-medium text-[#B97A00] bg-[#FFF3D1] rounded-xl hover:bg-[#FBC372] hover:text-white transition-all duration-300 flex items-center gap-2 justify-center"
+            onClick={() => onArchive(classroom.id, classroom.is_archived)}
+          >
+            <i className={`fa-solid ${classroom?.is_archived ? 'fa-box-open' : 'fa-box-archive'}`}></i>
+            {classroom?.is_archived ? 'Unarchive' : 'Archive'}
           </button>
         </div>
       </div>
