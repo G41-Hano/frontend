@@ -1,0 +1,76 @@
+import { createContext, useContext, useState, useEffect } from 'react';
+import api from '../api';
+
+const NotificationContext = createContext();
+
+export const useNotifications = () => {
+  const context = useContext(NotificationContext);
+  if (!context) {
+    throw new Error('useNotifications must be used within a NotificationProvider');
+  }
+  return context;
+};
+
+export const NotificationProvider = ({ children }) => {
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    fetchNotifications();
+    // Set up polling for new notifications every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await api.get('/api/notifications/');
+      setNotifications(response.data);
+      setUnreadCount(response.data.filter(n => !n.is_read).length);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      await api.post(`/api/notifications/${notificationId}/mark-as-read/`);
+      setNotifications(notifications.map(n => 
+        n.id === notificationId ? { ...n, is_read: true } : n
+      ));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await api.post('/api/notifications/mark-all-as-read/');
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const addNotification = (notification) => {
+    setNotifications(prev => [notification, ...prev]);
+    if (!notification.is_read) {
+      setUnreadCount(prev => prev + 1);
+    }
+  };
+
+  return (
+    <NotificationContext.Provider value={{
+      notifications,
+      unreadCount,
+      markAsRead,
+      markAllAsRead,
+      addNotification,
+      refreshNotifications: fetchNotifications
+    }}>
+      {children}
+    </NotificationContext.Provider>
+  );
+}; 
