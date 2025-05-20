@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import { ACCESS_TOKEN } from '../../constants';
-import MouseTrail2 from "../../components/MouseTrail2"
 import EnrollStudentsModal from './EnrollStudentsModal';
 import ConfirmationModal from './ConfirmationModal';
+import UpdateClassroom from './UpdateClassroom';
+import DeleteClassroom from './DeleteClassroom';
+import TransferStudentModal from './TransferStudentModal';
 
 const DrillCard = ({ title, icon, color, hoverColor }) => (
   <div 
@@ -27,7 +29,7 @@ const DrillCard = ({ title, icon, color, hoverColor }) => (
   </div>
 );
 
-const DashboardNavItem = ({ id, label, icon, isActive, onClick }) => (
+const DashboardNavItem = ({ label, icon, isActive, onClick }) => (
   <button
     onClick={onClick}
     className={`
@@ -35,21 +37,21 @@ const DashboardNavItem = ({ id, label, icon, isActive, onClick }) => (
       flex items-center gap-2 transition-all duration-300 text-sm
       transform hover:scale-105 relative overflow-hidden
       ${isActive
-        ? 'bg-[#4C53B4] text-white shadow-lg animate-softBounce'
+        ? 'bg-[#4C53B4] text-white shadow-lg'
         : 'text-gray-600 hover:bg-gray-50'}
     `}
   >
-    <i className={`fa-solid ${icon} ${isActive ? 'animate-bounce' : ''}`}></i>
+    <i className={`fa-solid ${icon}`}></i>
     {label}
     {isActive && (
       <div className="absolute inset-0 bg-white opacity-10">
-        <div className="absolute inset-0 animate-shine"></div>
+        <div className="absolute inset-0"></div>
       </div>
     )}
   </button>
 );
 
-const Classroom = () => {
+const TeacherClassroom = () => {
   const { id } = useParams();
   const [classroom, setClassroom] = useState(null);
   const [error, setError] = useState(null);
@@ -57,88 +59,60 @@ const Classroom = () => {
   const [activeDashboardSection, setActiveDashboardSection] = useState('manage-students');
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
-  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [studentError, setStudentError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [availableStudents, setAvailableStudents] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [studentToRemove, setStudentToRemove] = useState(null);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [studentToTransfer, setStudentToTransfer] = useState(null);
 
-  useEffect(() => {
-    console.log('Fetching classroom with ID:', id);
-    api.get(`/api/classrooms/${id}/`)
-      .then(res => {
-        console.log('Classroom response:', res.data);
-        setClassroom(res.data);
-      })
-      .catch(err => {
-        console.error('Error details:', {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status,
-          url: err.config?.url
-        });
-        setError(err.response?.data?.error || 'Failed to fetch classroom');
-      });
-  }, [id]);
-
-  const fetchAvailableStudents = async () => {
-    setIsLoadingStudents(true);
+  // Combined fetch for classroom and students data
+  const fetchClassroomData = async () => {
     try {
-      const token = localStorage.getItem(ACCESS_TOKEN);
-      console.log('Token:', token);
+      const [classroomResponse, studentsResponse] = await Promise.all([
+        api.get(`/api/classrooms/${id}/`),
+        api.get(`/api/classrooms/${id}/students/`)
+      ]);
 
-      if (!token) {
-        throw new Error('No access token found');
-      }
-
-      const response = await api.get('/api/userlist/', {
-        params: { role: 'student' }
-      });
-
-      console.log('Available Students Response:', response.data);
-
-      if (!response.data) {
-        throw new Error('No data received from API');
-      }
-
-      setAvailableStudents(response.data);
-      setStudentError(null);
-    } catch (error) {
+      setClassroom(classroomResponse.data);
+      const studentData = Array.isArray(studentsResponse.data) ? studentsResponse.data : 
+                       Array.isArray(studentsResponse.data?.students) ? studentsResponse.data.students : [];
+      setStudents(studentData);
+      setError(null);
+    } catch (err) {
       console.error('Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        url: err.config?.url
       });
-      setStudentError(error.response?.data?.error || 'Failed to fetch students');
-      setAvailableStudents([]);
-    } finally {
-      setIsLoadingStudents(false);
+      setError(err.response?.data?.error || 'Failed to fetch classroom');
+      setClassroom(null);
+      setStudents([]);
     }
   };
 
+  // Initial fetch
+  useEffect(() => {
+    fetchClassroomData();
+  }, [id]);
+
+  // Only fetch students when enrolling new ones
   const fetchEnrolledStudents = async () => {
     try {
       const response = await api.get(`/api/classrooms/${id}/students/`);
-      console.log('Enrolled Students Response:', response.data);
       const studentData = Array.isArray(response.data) ? response.data : 
-                         Array.isArray(response.data.students) ? response.data.students : [];
+                       Array.isArray(response.data?.students) ? response.data.students : [];
       setStudents(studentData);
     } catch (error) {
       console.error('Error fetching enrolled students:', error);
       setStudents([]);
     }
   };
-
-  useEffect(() => {
-    if (activeTab === 'dashboard' && activeDashboardSection === 'manage-students') {
-      fetchAvailableStudents();
-      fetchEnrolledStudents();
-    }
-  }, [activeTab, activeDashboardSection, id]);
 
   const handleRemoveClick = (student) => {
     setStudentToRemove(student);
@@ -149,13 +123,11 @@ const Classroom = () => {
     if (!studentToRemove) return;
 
     try {
-      console.log('Removing student:', studentToRemove);
-      const response = await api.delete(`/api/classrooms/${id}/students/`, {
+      await api.delete(`/api/classrooms/${id}/students/`, {
         data: { student_ids: [studentToRemove.id] }
       });
       
-      console.log('Remove response:', response);
-      fetchEnrolledStudents();
+      setStudents(prev => prev.filter(s => s.id !== studentToRemove.id));
       setIsConfirmModalOpen(false);
       setStudentToRemove(null);
     } catch (error) {
@@ -168,8 +140,13 @@ const Classroom = () => {
     }
   };
 
-  const handleTransferStudent = async (studentId) => {
-    console.log('Transfer student:', studentId);
+  const handleTransferClick = (student) => {
+    setStudentToTransfer(student);
+    setIsTransferModalOpen(true);
+  };
+
+  const handleTransferSuccess = () => {
+    fetchEnrolledStudents();
   };
 
   const handleSort = (key) => {
@@ -222,11 +199,8 @@ const Classroom = () => {
   }
 
   if (!classroom) return (
-    <div className="p-8 flex justify-center">
-      <div className="animate-bounce flex items-center gap-2 text-[#4C53B4]">
-        <i className="fa-solid fa-spinner fa-spin"></i>
-        Loading...
-      </div>
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
     </div>
   );
 
@@ -252,8 +226,8 @@ const Classroom = () => {
     { 
       title: 'Animals', 
       icon: 'fa-paw', 
-      color: 'bg-[#4C53B4]',
-      hoverColor: 'bg-[#5C63C4]'
+      color: 'bg-[#FE93AA]',
+      hoverColor: 'bg-[#FF97BE]'
     },
     { 
       title: 'Weather', 
@@ -271,57 +245,76 @@ const Classroom = () => {
 
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
-      <MouseTrail2 excludeSelector=".form-container" />
       {/* Header */}
-      <div className="bg-white rounded-b-3xl p-8 border-b-2 border-gray-100">
-        {/* Back button */}
-        <button
-          onClick={() => navigate(-1)}
-          className="mb-6 text-gray-600 hover:text-[#4C53B4] transition-colors flex items-center gap-2 group"
-        >
-          <i className="fa-solid fa-arrow-left transform group-hover:-translate-x-1 transition-transform"></i>
-          <span>Back</span>
-        </button>
+      <div className="bg-white shadow-lg mt-6 rounded-2xl mx-10 pb-6">
+        <div className="max-w-[95%] mx-auto">
+          {/* Back button */}
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 px-4 py-6 text-gray-600 hover:text-[#4C53B4] transition-colors group"
+          >
+            <i className="fa-solid fa-arrow-left transform group-hover:-translate-x-1 transition-transform"></i>
+            Back to Classes
+          </button>
 
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-6">
-            <div className="w-16 h-16 rounded-2xl bg-[#FFDF9F] flex items-center justify-center">
-              <i className="fa-solid fa-graduation-cap text-[#4C53B4] text-2xl"></i>
-            </div>
-            <div>
-              <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-                {classroom.name}
-                <span className="text-base font-normal text-[#4C53B4] bg-[#EEF1F5] px-3 py-1 rounded-full">
-                  Class Code: {classroom.id}
-                </span>
-              </h2>
-              <div className="flex items-center gap-4 mt-2">
-                <span className="text-gray-500 flex items-center gap-2">
-                  <i className="fa-solid fa-users text-[#4C53B4]"></i>
-                  {students.length} Students
-                </span>
-                <span className="text-gray-500 flex items-center gap-2">
-                  <i className="fa-solid fa-calendar text-[#4C53B4]"></i>
-                  Created {new Date(classroom.created_at).toLocaleDateString()}
-                </span>
+          <div className="px-6">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+              <div className="flex items-start gap-6">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#4C53B4] to-[#6f75d6] flex items-center justify-center shadow-lg">
+                  <i className="fa-solid fa-graduation-cap text-white text-2xl"></i>
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                    {classroom.name}
+                  </h2>
+                  {classroom.description && (
+                    <p className="text-gray-600 mb-4 max-w-2xl">
+                      {classroom.description}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="bg-[#EEF1F5] px-4 py-2 rounded-xl flex items-center gap-2">
+                      <i className="fa-solid fa-key text-[#4C53B4]"></i>
+                      <span className="text-sm font-medium">
+                        Class Code: <span className="font-mono text-[#4C53B4]">{classroom.class_code}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-gray-500 flex items-center gap-2">
+                        <i className="fa-solid fa-users text-[#4C53B4]"></i>
+                        {students.length} {students.length === 1 ? 'Student' : 'Students'}
+                      </span>
+                      <span className="text-gray-500 flex items-center gap-2">
+                        <i className="fa-solid fa-calendar text-[#4C53B4]"></i>
+                        Created {new Date(classroom.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-4 w-full lg:w-auto">
+                <button 
+                  onClick={() => setIsUpdateModalOpen(true)}
+                  className="flex-1 lg:flex-initial px-6 py-3 text-base font-medium text-[#4C53B4] bg-[#EEF1F5] rounded-xl hover:bg-[#4C53B4] hover:text-white transition-all duration-300 flex items-center gap-2 justify-center"
+                >
+                  <i className="fa-solid fa-pen"></i>
+                  Edit
+                </button>
+                <button 
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="flex-1 lg:flex-initial px-6 py-3 text-base font-medium text-red-600 bg-red-50 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-300 flex items-center gap-2 justify-center"
+                >
+                  <i className="fa-solid fa-trash"></i>
+                  Delete
+                </button>
               </div>
             </div>
-          </div>
-          <div className="flex gap-4">
-            <button className="px-6 py-3 text-base font-medium text-[#4C53B4] bg-[#EEF1F5] rounded-xl hover:bg-[#4C53B4] hover:text-white transition-all duration-300 flex items-center gap-2 min-w-[120px] justify-center">
-              <i className="fa-solid fa-pen"></i>
-              Edit
-            </button>
-            <button className="px-6 py-3 text-base font-medium text-red-600 bg-red-50 rounded-xl hover:bg-red-600 hover:text-white transition-all duration-300 flex items-center gap-2 min-w-[120px] justify-center">
-              <i className="fa-solid fa-trash"></i>
-              Delete
-            </button>
           </div>
         </div>
       </div>
 
       {/* Content Area */}
-      <div>
+      <div className="max-w-[95%] mx-auto mt-6">
         {/* Tabs */}
         <div className="bg-[#EEF1F5] rounded-3xl border-2 border-gray-100">
           <nav className="flex justify-center space-x-8 p-2">
@@ -333,11 +326,11 @@ const Classroom = () => {
                   py-4 px-8 rounded-xl inline-flex items-center gap-2 font-medium text-sm 
                   transition-all duration-300 transform hover:scale-105
                   ${activeTab === tab.id 
-                    ? 'bg-[#4C53B4] text-white shadow-lg animate-softBounce' 
+                    ? 'bg-[#4C53B4] text-white shadow-lg' 
                     : 'text-gray-500 hover:bg-gray-50'}
                 `}
               >
-                <i className={`fa-solid ${tab.icon} ${activeTab === tab.id ? 'animate-bounce' : ''}`}></i>
+                <i className={`fa-solid ${tab.icon}`}></i>
                 {tab.label}
               </button>
             ))}
@@ -364,7 +357,6 @@ const Classroom = () => {
                     {dashboardNavItems.map(item => (
                       <DashboardNavItem
                         key={item.id}
-                        id={item.id}
                         label={item.label}
                         icon={item.icon}
                         isActive={activeDashboardSection === item.id}
@@ -391,15 +383,15 @@ const Classroom = () => {
                               value={searchTerm}
                               onChange={(e) => setSearchTerm(e.target.value)}
                               placeholder="Search students..."
-                              className="w-full pl-10 pr-4 py-2 rounded-xl border-2 border-gray-100 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all hover:shadow-md"
+                              className="w-full pl-10 pr-4 py-2 rounded-xl border-2 border-gray-100 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
                             />
                             <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
                           </div>
                           <button 
                             onClick={() => setIsEnrollModalOpen(true)}
-                            className="px-4 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-all duration-300 flex items-center gap-2 transform hover:scale-105 hover:shadow-lg"
+                            className="px-4 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-all duration-300 flex items-center gap-2"
                           >
-                            <i className="fa-solid fa-user-plus animate-bounce"></i>
+                            <i className="fa-solid fa-user-plus"></i>
                             Enroll Students
                           </button>
                         </div>
@@ -407,19 +399,14 @@ const Classroom = () => {
 
                       {/* Students Table */}
                       <div className="p-6 relative">
-                        {isLoadingStudents ? (
+                        {studentError ? (
                           <div className="text-center py-8">
-                            <i className="fa-solid fa-circle-notch animate-spin text-[#4C53B4] text-2xl"></i>
-                            <p className="mt-2 text-gray-500 animate-pulse">Loading students...</p>
-                          </div>
-                        ) : studentError ? (
-                          <div className="text-center py-8">
-                            <p className="text-red-500 animate-bounce">{studentError}</p>
+                            <p className="text-red-500">{studentError}</p>
                           </div>
                         ) : !Array.isArray(students) || students.length === 0 ? (
                           <div className="text-center py-8">
                             <div className="w-16 h-16 mx-auto bg-[#FFDF9F]/20 rounded-full flex items-center justify-center mb-4">
-                              <i className="fa-solid fa-users text-[#4C53B4] text-2xl animate-bounce"></i>
+                              <i className="fa-solid fa-users text-[#4C53B4] text-2xl"></i>
                             </div>
                             <p className="text-gray-500">No students in this classroom yet.</p>
                           </div>
@@ -492,7 +479,7 @@ const Classroom = () => {
                                         Remove
                                       </button>
                                       <button
-                                        onClick={() => handleTransferStudent(student.id)}
+                                        onClick={() => handleTransferClick(student)}
                                         className="text-[#4C53B4] hover:text-[#3a4095] bg-[#EEF1F5] hover:bg-[#E6E9FF] px-3 py-1 rounded-lg transition-all duration-300 transform hover:scale-105"
                                       >
                                         Transfer
@@ -539,40 +526,41 @@ const Classroom = () => {
         title="Remove Student"
         message={`Are you sure you want to remove ${studentToRemove?.name} from the classroom?`}
       />
+
+      {/* Update Classroom Modal */}
+      <UpdateClassroom
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        classroom={classroom}
+        onSuccess={(updatedClassroom) => {
+          setClassroom(updatedClassroom);
+          setIsUpdateModalOpen(false);
+        }}
+      />
+
+      {/* Delete Classroom Modal */}
+      <DeleteClassroom
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        classroom={classroom}
+        onSuccess={() => {
+          navigate('/t/classes');
+        }}
+      />
+
+      {/* Add TransferStudentModal */}
+      <TransferStudentModal
+        isOpen={isTransferModalOpen}
+        onClose={() => {
+          setIsTransferModalOpen(false);
+          setStudentToTransfer(null);
+        }}
+        classroomId={id}
+        studentToTransfer={studentToTransfer}
+        onTransferSuccess={handleTransferSuccess}
+      />
     </div>
   );
 };
 
-// Add these styles to your CSS/Tailwind configuration
-const style = {
-  '.animate-softBounce': {
-    animation: 'softBounce 0.5s ease-out'
-  },
-  '.animate-fadeIn': {
-    animation: 'fadeIn 0.5s ease-out'
-  },
-  '.animate-slideIn': {
-    animation: 'slideIn 0.5s ease-out'
-  },
-  '.animate-shine': {
-    animation: 'shine 2s infinite'
-  },
-  '@keyframes softBounce': {
-    '0%, 100%': { transform: 'scale(1)' },
-    '50%': { transform: 'scale(1.05)' }
-  },
-  '@keyframes fadeIn': {
-    '0%': { opacity: '0' },
-    '100%': { opacity: '1' }
-  },
-  '@keyframes slideIn': {
-    '0%': { transform: 'translateX(-10px)', opacity: '0' },
-    '100%': { transform: 'translateX(0)', opacity: '1' }
-  },
-  '@keyframes shine': {
-    '0%': { transform: 'translateX(-100%) rotate(45deg)' },
-    '100%': { transform: 'translateX(100%) rotate(45deg)' }
-  }
-};
-
-export default Classroom;
+export default TeacherClassroom;
