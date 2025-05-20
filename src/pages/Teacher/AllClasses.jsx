@@ -3,6 +3,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import api from '../../api';
 import pencilBook from '../../assets/pencil_book.png';
 import CreateClassroomModal from './CreateClassroomModal';
+import { useNavigate } from 'react-router-dom';
 
 const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']; //Classroom Colors
 
@@ -13,6 +14,8 @@ const AllClasses = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const navigate = useNavigate();
 
   // Fetch classrooms
   useEffect(() => {
@@ -82,6 +85,10 @@ const AllClasses = () => {
     setClassrooms(items);
   };
 
+  const handleClick = (classroomId) => {
+    navigate(`/t/classes/${classroomId}/`);
+  };  
+
   // Filter classrooms
   const filteredClassrooms = classrooms && Array.isArray(classrooms) ? 
     (filter === 'active' 
@@ -99,7 +106,7 @@ const AllClasses = () => {
   }
 
   return (
-    <div className="space-y-6 px-4 sm:px-6 max-w-full md:max-w-[95%] mx-auto">
+    <div className="space-y-6 px-4 sm:px-6 max-w-full md:max-w-[95%] mx-auto mt-6">
       {/* Header */}
       <div className="bg-[#FFDF9F] rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative overflow-hidden min-h-[180px]">
         <div className="space-y-2 max-w-full sm:max-w-[65%]">
@@ -189,7 +196,7 @@ const AllClasses = () => {
                 {filteredClassrooms.map((classroom, index) => (
                   <Draggable key={classroom.id.toString()} draggableId={classroom.id.toString()} index={index}>
                     {(provided) => (
-                      <div
+                      <div 
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         {...provided.dragHandleProps}
@@ -198,8 +205,8 @@ const AllClasses = () => {
                         }}
                       >
                         {/* Classroom Card */}
-                        <div
-                          style={{ backgroundColor: classroom.color }}
+                        <div onClick={() => handleClick(classroom.id)}
+                          style={{ backgroundColor: classroom.color, cursor: 'pointer' }}
                           className="rounded-3xl p-4 hover:shadow-2xl transition-all duration-300 ease-in-out cursor-pointer relative overflow-hidden min-h-[200px] flex flex-col justify-between group hover:-translate-y-1"
                         >
                           {/* Menu Button */}
