@@ -13,6 +13,7 @@ import TeacherDashboard from './TeacherDashboard';
 import ClassroomHeader from './ClassroomHeader';  
 import ReactDOM from 'react-dom';
 import { useSuccessModal } from '../../contexts/SuccessModalContext';
+import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
 
 const DrillCard = ({ title, icon, color, hoverColor }) => (
   <div 
@@ -78,6 +79,7 @@ const TeacherClassroom = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [openMenuDrillId, setOpenMenuDrillId] = useState(null);
   const { showSuccessModal } = useSuccessModal();
+  const { getClassroomColor } = useClassroomPreferences();
 
   // Combined fetch for classroom and students data
   const fetchClassroomData = useCallback(async () => {
@@ -297,17 +299,22 @@ const TeacherClassroom = () => {
     }
   };
 
+    // Get color when rendering
+  const classroomColor = classroom?.teacher?.id ? getClassroomColor(classroom.teacher.id, id) : '#7D83D7';
+
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
       {/* Header */}
-      <ClassroomHeader
-        classroom={classroom}
-        students={students}
-        onEdit={() => setIsUpdateModalOpen(true)}
-        onDelete={() => setIsDeleteModalOpen(true)}
-        onArchive={handleArchiveClassroom}
-        onBack={() => navigate(-1)}
-      />
+      <div className="bg-white shadow-lg mt-6 rounded-2xl mx-10 pb-6" style={{ borderColor: classroomColor }}>
+        <ClassroomHeader
+          classroom={classroom}
+          students={students}
+          onEdit={() => setIsUpdateModalOpen(true)}
+          onDelete={() => setIsDeleteModalOpen(true)}
+          onArchive={handleArchiveClassroom}
+          onBack={() => navigate(-1)}
+        />
+      </div>
 
       {/* Content Area */}
       <div className="max-w-[95%] mx-auto mt-6">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api';
+import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
 
 // Student List Modal Component
 const StudentListModal = ({ isOpen, onClose, students }) => {
@@ -55,6 +56,7 @@ const StudentClassroom = () => {
   const [drills, setDrills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDrillId, setOpenDrillId] = useState(null);
+  const { getClassroomColor } = useClassroomPreferences();
 
   // Sort drills: older drills first, newer drills last
   const getSortedDrills = (drillsToSort) => {
@@ -110,6 +112,9 @@ const StudentClassroom = () => {
     fetchClassroomData();
   }, [id]);
 
+    // Get color when rendering
+  const classroomColor = classroom?.id ? getClassroomColor(classroom.id, id) : '#7D83D7';
+
   if (error) {
     return (
       <div className="p-4">
@@ -144,7 +149,7 @@ const StudentClassroom = () => {
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
       {/* Header */}
-      <div className="bg-white shadow-lg mt-6 rounded-2xl mx-10 pb-6">
+      <div className="bg-white shadow-lg mt-6 rounded-2xl mx-10 pb-6" style={{ borderColor: classroomColor }}>
         <div className="max-w-[95%] mx-auto">
           {/* Back button */}
           <button

@@ -82,14 +82,7 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
     await createClassroom();
   };
 
-  // Handle skip (create classroom without students)
-  const handleSkip = async () => {
-    setLoading(true);
-    setError(null);
-    await createClassroom(true);
-  };
-
-  // Create classroom helper function
+    // Create classroom helper function
   const createClassroom = async (skipStudents = false) => {
     setLoading(true);
     setError(null);
