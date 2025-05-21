@@ -90,8 +90,8 @@ function App() {
             </Routes>
             <SuccessModal />
           </BrowserRouter>
-        </NotificationProvider>
         </ClassroomPreferencesProvider>
+        </NotificationProvider>
       </UserProvider>
     </SuccessModalProvider>
   )
