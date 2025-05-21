@@ -3,6 +3,8 @@ import api from '../../api';
 import { ACCESS_TOKEN } from '../../constants';
 import TransferConfirmationModal from './TransferConfirmationModal';
 import TransferSuccessModal from './TransferSuccessModal';
+import { useNotifications } from '../../contexts/NotificationContext';
+import { useUser } from '../../contexts/UserContext';
 
 const TransferStudentModal = ({ isOpen, onClose, classroomId, studentToTransfer, onTransferSuccess }) => {
   const [availableClassrooms, setAvailableClassrooms] = useState([]);
@@ -12,14 +14,21 @@ const TransferStudentModal = ({ isOpen, onClose, classroomId, studentToTransfer,
   const [searchTerm, setSearchTerm] = useState('');
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const { refreshNotifications } = useNotifications();
+  const { user } = useUser();
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && studentToTransfer) {
       fetchAvailableClassrooms();
     }
-  }, [isOpen]);
+  }, [isOpen, studentToTransfer]);
 
   const fetchAvailableClassrooms = async () => {
+    if (!studentToTransfer?.id) {
+      setError('Student information is required');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const token = localStorage.getItem(ACCESS_TOKEN);
@@ -27,7 +36,11 @@ const TransferStudentModal = ({ isOpen, onClose, classroomId, studentToTransfer,
         throw new Error('No access token found');
       }
 
-      const response = await api.get('/api/classrooms/');
+      const response = await api.get('/api/transfer-requests/available-classrooms/', {
+        params: {
+          student_id: studentToTransfer.id
+        }
+      });
       
       if (!response.data) {
         throw new Error('No data received from API');
@@ -52,6 +65,28 @@ const TransferStudentModal = ({ isOpen, onClose, classroomId, studentToTransfer,
     }
   };
 
+  const validateTransferRequest = () => {
+    // Check if user is a teacher
+    if (user?.role !== 'teacher') {
+      setError('Only teachers can request student transfers');
+      return false;
+    }
+
+    // Check if target classroom is selected
+    if (!selectedClassroom) {
+      setError('Please select a target classroom');
+      return false;
+    }
+
+    // Check if source and target classrooms are different
+    if (classroomId === selectedClassroom.id) {
+      setError('Source and target classrooms must be different');
+      return false;
+    }
+
+    return true;
+  };
+
   const handleClassroomSelect = (classroom) => {
     setSelectedClassroom(classroom);
     setIsConfirmationOpen(true);
@@ -60,41 +95,52 @@ const TransferStudentModal = ({ isOpen, onClose, classroomId, studentToTransfer,
   const handleConfirmTransfer = async () => {
     if (!selectedClassroom || !studentToTransfer) return;
 
+    // Validate the transfer request
+    if (!validateTransferRequest()) {
+      setIsConfirmationOpen(false);
+      return;
+    }
+
+    // Create transfer request with the exact fields expected by the backend
+    const requestData = {
+      student: parseInt(studentToTransfer.id),
+      from_classroom: parseInt(classroomId),
+      to_classroom: parseInt(selectedClassroom.id),
+      reason: `Transferring ${studentToTransfer?.name || 'Student'}`,
+      requested_by: user.id // Add the current user's ID
+    };
+
     try {
-      console.log('Checking student enrollment:', {
-        studentId: studentToTransfer.id,
-        classroomId: selectedClassroom.id
+      console.log('Sending transfer request:', requestData); // Debug log
+
+      // Make sure we're sending the request with the correct headers
+      const response = await api.post('/api/transfer-requests/', requestData, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
       });
 
-      // First check if student is already in the target classroom
-      const checkResponse = await api.get(`/api/classrooms/${selectedClassroom.id}/students/`);
-      const isAlreadyEnrolled = Array.isArray(checkResponse.data) 
-        ? checkResponse.data.some(student => student.id === studentToTransfer.id)
-        : false;
+      // Log the full response for debugging
+      console.log('Full response:', response);
 
-      console.log('Student enrollment status:', {
-        isAlreadyEnrolled,
-        targetClassroom: selectedClassroom.name
-      });
+      // The response will include additional fields from the serializer
+      const { 
+        student_name, 
+        from_classroom_name, 
+        to_classroom_name, 
+        requested_by_name,
+        status,
+        created_at,
+        updated_at
+      } = response.data;
 
-      if (!isAlreadyEnrolled) {
-        // If student is not in target classroom, remove from current and add to new
-        console.log('Removing student from current classroom:', classroomId);
-        await api.delete(`/api/classrooms/${classroomId}/students/`, {
-          data: { student_ids: [studentToTransfer.id] }
-        });
-
-        console.log('Adding student to new classroom:', selectedClassroom.id);
-        await api.post(`/api/classrooms/${selectedClassroom.id}/students/`, {
-          student_ids: [studentToTransfer.id]
-        });
-      } else {
-        console.log('Student already enrolled in target classroom, skipping transfer');
-      }
+      console.log('Transfer request created:', response.data); // Debug log
 
       setIsConfirmationOpen(false);
       setIsSuccessOpen(true);
       onTransferSuccess();
+      refreshNotifications(); // Refresh notifications after creating request
       
       // Close the main modal after success
       setTimeout(() => {
@@ -102,12 +148,30 @@ const TransferStudentModal = ({ isOpen, onClose, classroomId, studentToTransfer,
         onClose();
       }, 3000);
     } catch (error) {
-      console.error('Error during transfer process:', {
+      // Enhanced error logging
+      console.error('Error during transfer request:', {
         message: error.message,
         response: error.response?.data,
-        status: error.response?.status
+        status: error.response?.status,
+        requestData: requestData,
+        headers: error.response?.headers,
+        config: error.config
       });
-      setError(error.response?.data?.error || 'Failed to process student transfer');
+      
+      // Handle specific validation errors from the backend
+      if (error.response?.data?.non_field_errors) {
+        setError(error.response.data.non_field_errors[0]);
+      } else if (error.response?.data?.error) {
+        setError(error.response.data.error);
+      } else if (error.response?.data) {
+        // Handle field-specific validation errors
+        const errorMessages = Object.entries(error.response.data)
+          .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+          .join('\n');
+        setError(errorMessages);
+      } else {
+        setError('Failed to create transfer request');
+      }
       setIsConfirmationOpen(false);
     }
   };
@@ -132,7 +196,7 @@ const TransferStudentModal = ({ isOpen, onClose, classroomId, studentToTransfer,
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Transfer Student</h2>
+            <h2 className="text-2xl font-bold text-gray-800">Request Student Transfer</h2>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700"

@@ -10,6 +10,7 @@ import DashboardLayout from './components/DashboardLayout'
 import { UserProvider } from './contexts/UserContext'
 import { ClassroomPreferencesProvider } from './contexts/ClassroomPreferencesContext'
 import { SuccessModalProvider } from './contexts/SuccessModalContext'
+import { NotificationProvider } from './contexts/NotificationContext'
 import SuccessModal from './components/SuccessModal'
 
 function Logout() {
@@ -28,6 +29,7 @@ function App() {
   return (
     <SuccessModalProvider>
       <UserProvider>
+        <NotificationProvider>
         <ClassroomPreferencesProvider>
           <BrowserRouter>
             <Routes>
@@ -88,6 +90,7 @@ function App() {
             </Routes>
             <SuccessModal />
           </BrowserRouter>
+        </NotificationProvider>
         </ClassroomPreferencesProvider>
       </UserProvider>
     </SuccessModalProvider>
