@@ -1,76 +1,24 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import Badge from '../assets/Badge.png';
 import Points from '../assets/Points.png';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
-import { useNotifications } from '../contexts/NotificationContext';
 
 const Topbar = ({ onMenuClick }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const navigate = useNavigate();
-  const { user, logout } = useUser();
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { user } = useUser();
   const isTeacher = user?.role === 'teacher';
-  
-  // Refs for modal containers
-  const profileRef = useRef(null);
-  const notificationRef = useRef(null);
 
-  // Handle click outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Close profile dropdown if clicking outside
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-      
-      // Close notification dropdown if clicking outside
-      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
-        setIsNotificationOpen(false);
-      }
-    };
-
-    // Add event listener
-    document.addEventListener('mousedown', handleClickOutside);
-
-    // Cleanup
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
+  //Logout Function
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    setIsDropdownOpen(false);
+    navigate('/logout');
   };
 
   const handleProfileClick = () => {
     setIsDropdownOpen(false);
     navigate('/s/profile');
-  };
-
-  const handleNotificationClick = (notification) => {
-    if (!notification.is_read) {
-      markAsRead(notification.id);
-    }
-
-    // Navigate based on notification type
-    switch (notification.type) {
-      case 'student_transfer':
-        // Navigate to transfer requests page
-        navigate('/t/transfer-requests');
-        break;
-      case 'transfer_approved':
-      case 'transfer_rejected':
-        // Navigate to the classroom
-        navigate(`/t/classes/${notification.data.classroom_id}`);
-        break;
-      default:
-        // Handle other notification types
-        break;
-    }
-    setIsNotificationOpen(false);
   };
 
   return (
@@ -107,66 +55,14 @@ const Topbar = ({ onMenuClick }) => {
         )}
 
         {/* Notification Box */}
-        <div className="relative" ref={notificationRef}>
-          <button 
-            onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-            className="bg-white rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.05)] p-2 relative"
-          >
-            <i className="fa-regular fa-bell text-lg sm:text-xl text-gray-600"></i>
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {unreadCount}
-              </span>
-            )}
+        <div className="bg-white rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.05)] p-2">
+          <button className="text-gray-600 hover:text-gray-800 transition-colors w-6 sm:w-7 h-6 sm:h-7 flex items-center justify-center">
+            <i className="fa-regular fa-bell text-lg sm:text-xl"></i>
           </button>
-
-          {/* Notification Dropdown */}
-          {isNotificationOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl border border-gray-100 shadow-lg py-2 z-50 animate-fadeIn">
-              <div className="px-4 py-2 flex justify-between items-center border-b border-gray-100">
-                <h3 className="font-medium text-gray-800">Notifications</h3>
-                {unreadCount > 0 && (
-                  <button 
-                    onClick={markAllAsRead}
-                    className="text-sm text-[#4C53B4] hover:text-[#4C53B4]/80"
-                  >
-                    Mark all as read
-                  </button>
-                )}
-              </div>
-              
-              <div className="max-h-96 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-gray-500">
-                    No notifications
-                  </div>
-                ) : (
-                  notifications.map(notification => (
-                    <button
-                      key={notification.id}
-                      onClick={() => handleNotificationClick(notification)}
-                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0
-                        ${!notification.is_read ? 'bg-blue-50' : ''}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`w-2 h-2 rounded-full mt-2 ${!notification.is_read ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
-                        <div>
-                          <p className="text-sm text-gray-800">{notification.message}</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {new Date(notification.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Profile */}
-        <div className="relative" ref={profileRef}>
+        <div className="relative">
           <button 
             onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
             className="flex items-center gap-2 sm:gap-3 hover:bg-gray-50 rounded-lg px-2 sm:px-3 py-2 sm:py-3 transition-colors group"
