@@ -41,8 +41,8 @@ const Topbar = ({ onMenuClick }) => {
   }, []);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    setIsDropdownOpen(false);
+    navigate('/logout');
   };
 
   const handleProfileClick = () => {
