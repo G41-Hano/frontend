@@ -175,6 +175,12 @@ const StudentClassroom = () => {
                       {classroom.description}
                     </p>
                   )}
+                  <div className="flex items-center gap-3">
+                    <i className="fa-solid fa-university text-[#4C53B4] group-hover:scale-110 transition-transform"></i>
+                      <span className="text-gray-500 flex items-center gap-2 hover:text-[#4C53B4] transition-colors group">
+                        Teacher: {classroom.teacher_name}
+                      </span>
+                  </div>
                   <div className="flex items-center gap-4">
                     <button 
                       onClick={() => setIsStudentListOpen(true)}
