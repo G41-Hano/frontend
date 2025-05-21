@@ -26,6 +26,10 @@ const emptyQuestion = {
   dragItems: [], // For Drag and Drop questions
   dropZones: [], // For Drag and Drop questions
   memoryCards: [], // For Memory Game questions
+
+  story_title: '',
+  story_context: '',
+  sign_language_instructions: '',
 };
 
 const Stepper = ({ step }) => (
@@ -107,7 +111,21 @@ const FileInput = ({ value, onChange, onPreview }) => {
   );
 };
 
-const MemoryGameCard = ({ card, cards, onRemove, onTextChange, onMediaChange, onPairChange }) => {
+const MemoryGameCard = ({ card, cards, onRemove, onTextChange, onMediaChange, onPairChange, setNotification }) => {
+  const handleMediaChange = (file) => {
+    if (file && !file.type.startsWith('image/')) {
+      setNotification({
+        show: true,
+        message: 'Only image files are allowed for Memory Game cards.',
+        type: 'error'
+      });
+      // Auto-hide notification after a few seconds
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+      return;
+    }
+    onMediaChange(file);
+  };
+
   return (
     <div className="border rounded-lg p-4 bg-white">
       <div className="flex justify-between items-start mb-2">
@@ -128,7 +146,7 @@ const MemoryGameCard = ({ card, cards, onRemove, onTextChange, onMediaChange, on
       </div>
       <FileInput
         value={card.media}
-        onChange={(file) => onMediaChange(file)}
+        onChange={handleMediaChange}
         onPreview={(src, type) => setMediaModal({ open: true, src, type })}
       />
       <div className="mt-2">
@@ -150,7 +168,7 @@ const MemoryGameCard = ({ card, cards, onRemove, onTextChange, onMediaChange, on
   );
 };
 
-const MemoryGameQuestionForm = ({ question, onChange }) => {
+const MemoryGameQuestionForm = ({ question, onChange, setNotification }) => {
   const addCard = () => {
     const newCard = {
       id: `card_${Date.now()}`,
@@ -238,7 +256,7 @@ const MemoryGameQuestionForm = ({ question, onChange }) => {
         <button
           type="button"
           onClick={addCard}
-          className="px-4 py-2 bg-[#4C53B4] text-white rounded hover:bg-[#3a3f8f]"
+          className="px-3 py-1 bg-[#4C53B4] text-white rounded hover:bg-[#3a3f8f]"
         >
           Add Card
         </button>
@@ -253,6 +271,7 @@ const MemoryGameQuestionForm = ({ question, onChange }) => {
             onTextChange={(value) => updateCard(card.id, 'content', value)}
             onMediaChange={(file) => updateCardMedia(card.id, file)}
             onPairChange={(pairId) => updateCardPair(card.id, pairId)}
+            setNotification={setNotification}
           />
         ))}
       </div>
@@ -632,6 +651,30 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       </>
                     : q.text}
                   </div>
+                  {/* Content Display */}
+                  {(q.story_title || q.story_context || q.story_image || q.story_video || q.sign_language_instructions) && (
+                    <div className="mb-4 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
+                      <h4 className="font-medium mb-2">Content</h4>
+                      {q.story_title && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Title:</span>
+                          <p className="font-medium">{q.story_title}</p>
+                        </div>
+                      )}
+                      {q.story_context && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Context:</span>
+                          <p className="whitespace-pre-wrap">{q.story_context}</p>
+                        </div>
+                      )}
+                      {q.sign_language_instructions && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Sign Language Instructions:</span>
+                          <p className="whitespace-pre-wrap">{q.sign_language_instructions}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {q.type === 'M' && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {(q.choices || []).map((c, i) => (
@@ -816,6 +859,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                           )
                         }));
                       }}
+                      setNotification={setNotification}
                     />
                   )}
                 </div>
@@ -908,6 +952,42 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   />
                 </div>
               )}
+              {/* Content Section */}
+              <div className="mb-6 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
+                <h3 className="font-medium mb-3">Content</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Title</label>
+                    <input
+                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                      placeholder="Enter a title for your story"
+                      value={questionDraft.story_title || ''}
+                      onChange={e => setQuestionDraft({ ...questionDraft, story_title: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Context</label>
+                    <textarea
+                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                      placeholder="Set the scene for your story"
+                      rows={3}
+                      value={questionDraft.story_context || ''}
+                      onChange={e => setQuestionDraft({ ...questionDraft, story_context: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Sign Language Instructions</label>
+                    <textarea
+                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                      placeholder="Add sign language instructions for the story"
+                      rows={2}
+                      value={questionDraft.sign_language_instructions || ''}
+                      onChange={e => setQuestionDraft({ ...questionDraft, sign_language_instructions: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+              
               {/* Type-specific form for Drag and Drop and Memory Game */}
               {questionDraft.type === 'D' && (
                 <div className="space-y-4">
@@ -1021,6 +1101,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   onChange={(updatedQuestion) => {
                     setQuestionDraft(updatedQuestion);
                   }}
+                  setNotification={setNotification}
                 />
               )}
               {/* Choices Section - Only show for Multiple Choice */}
@@ -1177,6 +1258,31 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       </>
                     : q.text}
                   </div>
+                  {/* Content Display */}
+                  {(q.story_title || q.story_context || q.story_image || q.story_video || q.sign_language_instructions) && (
+                    <div className="mb-4 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
+                      <h4 className="font-medium mb-2">Content</h4>
+                      {q.story_title && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Title:</span>
+                          <p className="font-medium">{q.story_title}</p>
+                        </div>
+                      )}
+                      {q.story_context && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Context:</span>
+                          <p className="whitespace-pre-wrap">{q.story_context}</p>
+                        </div>
+                      )}
+                      
+                      {q.sign_language_instructions && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Sign Language Instructions:</span>
+                          <p className="whitespace-pre-wrap">{q.sign_language_instructions}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {q.type === 'M' && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {(q.choices || []).map((c, i) => (
@@ -1361,6 +1467,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                           )
                         }));
                       }}
+                      setNotification={setNotification}
                     />
                   )}
                 </div>
