@@ -14,7 +14,7 @@ const initialDrill = {
 
 const emptyQuestion = {
   text: '',
-  type: 'M', // 'M' for Multiple Choice, 'F' for Fill in the Blank, 'D' for Drag and Drop
+  type: 'M', // 'M' for Multiple Choice, 'F' for Fill in the Blank, 'D' for Drag and Drop, 'G' for Memory Game
   choices: [
     { text: '', media: null },
     { text: '', media: null },
@@ -25,6 +25,11 @@ const emptyQuestion = {
   blankPosition: null, // For Fill in the Blank questions
   dragItems: [], // For Drag and Drop questions
   dropZones: [], // For Drag and Drop questions
+  memoryCards: [], // For Memory Game questions
+
+  story_title: '',
+  story_context: '',
+  sign_language_instructions: '',
 };
 
 const Stepper = ({ step }) => (
@@ -106,6 +111,182 @@ const FileInput = ({ value, onChange, onPreview }) => {
   );
 };
 
+const MemoryGameCard = ({ card, cards, onRemove, onTextChange, onMediaChange, onPairChange, setNotification }) => {
+  const handleMediaChange = (file) => {
+    if (file && !file.type.startsWith('image/')) {
+      setNotification({
+        show: true,
+        message: 'Only image files are allowed for Memory Game cards.',
+        type: 'error'
+      });
+      // Auto-hide notification after a few seconds
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+      return;
+    }
+    onMediaChange(file);
+  };
+
+  return (
+    <div className="border rounded-lg p-4 bg-white">
+      <div className="flex justify-between items-start mb-2">
+        <input
+          type="text"
+          value={card.content}
+          onChange={(e) => onTextChange(e.target.value)}
+          placeholder="Enter text content"
+          className="flex-1 mr-2 p-2 border rounded"
+        />
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-red-500 hover:text-red-700"
+        >
+          <i className="fa-solid fa-trash"></i>
+        </button>
+      </div>
+      <FileInput
+        value={card.media}
+        onChange={handleMediaChange}
+        onPreview={(src, type) => setMediaModal({ open: true, src, type })}
+      />
+      <div className="mt-2">
+        <label className="block text-xs text-gray-600 mb-1">Pair With</label>
+        <select
+          className="w-full border rounded p-1"
+          value={card.pairId || ''}
+          onChange={e => onPairChange(e.target.value)}
+        >
+          <option value="">Select a card</option>
+          {cards.filter(c => c.id !== card.id).map(c => (
+            <option key={c.id} value={c.id}>
+              {c.content || c.media?.name || c.media?.url || 'Card'}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+};
+
+const MemoryGameQuestionForm = ({ question, onChange, setNotification }) => {
+  const addCard = () => {
+    const newCard = {
+      id: `card_${Date.now()}`,
+      content: '',
+      pairId: '',
+      media: null
+    };
+    onChange({
+      ...question,
+      memoryCards: [...(question.memoryCards || []), newCard]
+    });
+  };
+
+  const removeCard = (cardId) => {
+    const cards = (question.memoryCards || []).filter(card => card.id !== cardId);
+    // Remove pairings to this card
+    const updatedCards = cards.map(card => {
+      if (card.pairId === cardId) {
+        return { ...card, pairId: '' };
+      }
+      return card;
+    });
+    onChange({
+      ...question,
+      memoryCards: updatedCards
+    });
+  };
+
+  const updateCard = (cardId, field, value) => {
+    const updatedCards = (question.memoryCards || []).map(card => {
+      if (card.id === cardId) {
+        return { ...card, [field]: value };
+      }
+      return card;
+    });
+    onChange({
+      ...question,
+      memoryCards: updatedCards
+    });
+  };
+
+  const updateCardMedia = (cardId, file) => {
+    const updatedCards = (question.memoryCards || []).map(card => {
+      if (card.id === cardId) {
+        return { ...card, media: file };
+      }
+      return card;
+    });
+    onChange({
+      ...question,
+      memoryCards: updatedCards
+    });
+  };
+
+  const updateCardPair = (cardId, pairId) => {
+    let updatedCards = (question.memoryCards || []).map(card => {
+      if (card.id === cardId) {
+        return { ...card, pairId };
+      }
+      // If this card was previously paired with cardId, clear it if the new pairId is not this card
+      if (card.pairId === cardId && pairId !== card.id) {
+        return { ...card, pairId: '' };
+      }
+      return card;
+    });
+    // Make the pairing mutual
+    if (pairId) {
+      updatedCards = updatedCards.map(card => {
+        if (card.id === pairId) {
+          return { ...card, pairId: cardId };
+        }
+        return card;
+      });
+    }
+    onChange({
+      ...question,
+      memoryCards: updatedCards
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Memory Game Cards</h3>
+        <button
+          type="button"
+          onClick={addCard}
+          className="px-3 py-1 bg-[#4C53B4] text-white rounded hover:bg-[#3a3f8f]"
+        >
+          Add Card
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {(question.memoryCards || []).map((card, index) => (
+          <MemoryGameCard
+            key={card.id}
+            card={card}
+            cards={question.memoryCards}
+            onRemove={() => removeCard(card.id)}
+            onTextChange={(value) => updateCard(card.id, 'content', value)}
+            onMediaChange={(file) => updateCardMedia(card.id, file)}
+            onPairChange={(pairId) => updateCardPair(card.id, pairId)}
+            setNotification={setNotification}
+          />
+        ))}
+      </div>
+      {(question.memoryCards || []).length > 0 && (
+        <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            <i className="fa-solid fa-info-circle mr-2"></i>
+            Make sure to add an even number of cards for matching pairs. Each card should have either text or media content. Use the 'Pair With' dropdown to set matching pairs. Each pair must be unique and mutual.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   const [step, setStep] = useState(0);
   const [drill, setDrill] = useState(initialDrill);
@@ -173,7 +354,27 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           }
         }
       }
+      if (q.type === 'G') {
+        if (!q.memoryCards || q.memoryCards.length < 2) {
+          alert('Memory game must have at least 2 cards.');
+          setSubmittingAction(null);
+          return;
+        }
+        if (q.memoryCards.length % 2 !== 0) {
+          alert('Memory game must have an even number of cards for matching pairs.');
+          setSubmittingAction(null);
+          return;
+        }
+        for (const card of q.memoryCards) {
+          if (!card.content && !card.media) {
+            alert('Each memory game card must have either text or media content.');
+            setSubmittingAction(null);
+            return;
+          }
+        }
+      }
     }
+
     try {
       const formData = new FormData();
       const questions = drill.questions.map((q, qIdx) => {
@@ -186,20 +387,41 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                 const key = `media_${qIdx}_${cIdx}`;
                 formData.append(key, c.media);
                 choice.media = key;
+              } else if (c.media && c.media.url) {
+                // Keep existing media URL
+                choice.media = c.media.url;
               }
               return choice;
             }),
           };
         }
-        // handle other types similarly if needed
+        if (q.type === 'G') {
+          return {
+            ...q,
+            memoryCards: q.memoryCards.map((card, cIdx) => {
+              let updatedCard = { ...card };
+              if (card.media instanceof File) {
+                const key = `media_${qIdx}_${cIdx}`;
+                formData.append(key, card.media);
+                updatedCard.media = key;
+              } else if (card.media && card.media.url) {
+                // Keep existing media URL
+                updatedCard.media = card.media.url;
+              }
+              return updatedCard;
+            }),
+          };
+        }
         return q;
       });
+
       formData.append('title', drill.title);
       formData.append('description', drill.description);
       formData.append('deadline', drill.dueDate);
       formData.append('classroom', classroom.id);
-      formData.append('questions_input', JSON.stringify(questions)); // NOTE: use questions_input for backend
+      formData.append('questions_input', JSON.stringify(questions));
       formData.append('status', status);
+
       await api.post('/api/drills/', formData);
       setDrill(prev => ({ ...prev, status }));
       setSuccessMsg('Drill created successfully!');
@@ -429,6 +651,30 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       </>
                     : q.text}
                   </div>
+                  {/* Content Display */}
+                  {(q.story_title || q.story_context || q.story_image || q.story_video || q.sign_language_instructions) && (
+                    <div className="mb-4 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
+                      <h4 className="font-medium mb-2">Content</h4>
+                      {q.story_title && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Title:</span>
+                          <p className="font-medium">{q.story_title}</p>
+                        </div>
+                      )}
+                      {q.story_context && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Context:</span>
+                          <p className="whitespace-pre-wrap">{q.story_context}</p>
+                        </div>
+                      )}
+                      {q.sign_language_instructions && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Sign Language Instructions:</span>
+                          <p className="whitespace-pre-wrap">{q.sign_language_instructions}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {q.type === 'M' && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {(q.choices || []).map((c, i) => (
@@ -497,32 +743,124 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     </div>
                   )}
                   {q.type === 'D' && (
-                    <div className="mt-2">
-                      <div className="mb-2 font-semibold">Drag and Drop Mapping:</div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="font-medium mb-1">Drag Items</div>
-                          <ul className="space-y-1">
-                            {(q.dragItems || []).map((item, i) => (
-                              <li key={i} className="px-2 py-1 bg-white border rounded">{item.text}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <div className="font-medium mb-1">Drop Zones</div>
-                          <ul className="space-y-1">
-                            {(q.dropZones || []).map((zone, i) => (
-                              <li key={i} className="px-2 py-1 bg-white border rounded flex items-center gap-2">
-                                <span>{zone.text}</span>
-                                {zone.correctItemIndex !== null && (q.dragItems || []).length > 0 && (q.dragItems || [])[zone.correctItemIndex] && (
-                                  <span className="ml-2 text-xs text-gray-500">→ {(q.dragItems || []).length > 0 && (q.dragItems || [])[zone.correctItemIndex].text}</span>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                    <div className="space-y-4">
+                      {/* Drag Items Section */}
+                      <div className="space-y-2">
+                        <label className="block font-medium">Drag Items (What students will drag)</label>
+                        <div className="text-sm text-gray-500 mb-2">Example: Countries, dates, names, etc.</div>
+                        {(q.dragItems || []).map((item, index) => (
+                          <div key={index} className="flex gap-2">
+                            <input
+                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                              placeholder={`Drag Item ${index + 1}`}
+                              value={item.text}
+                              onChange={e => {
+                                const newItems = [...q.dragItems];
+                                newItems[index] = { ...newItems[index], text: e.target.value };
+                                setDrill(prev => ({ ...prev, dragItems: newItems }));
+                              }}
+                            />
+                            <button
+                              className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
+                              onClick={() => {
+                                const newItems = q.dragItems.filter((_, i) => i !== index);
+                                setDrill(prev => ({ ...prev, dragItems: newItems }));
+                              }}
+                            >
+                              <i className="fa-solid fa-trash"></i>
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
+                          onClick={() => {
+                            setDrill(prev => ({
+                              ...prev,
+                              dragItems: [...prev.dragItems, { text: '', isCorrect: false }]
+                            }));
+                          }}
+                        >
+                          <i className="fa-solid fa-plus mr-2"></i> Add Drag Item
+                        </button>
+                      </div>
+                      {/* Drop Zones Section */}
+                      <div className="space-y-2">
+                        <label className="block font-medium">Drop Zones (Where students will drop items)</label>
+                        <div className="text-sm text-gray-500 mb-2">Example: Capitals, definitions, answers, etc.</div>
+                        {(q.dropZones || []).map((zone, index) => (
+                          <div key={index} className="flex flex-col gap-2">
+                            <div className="flex gap-2">
+                              <input
+                                className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                                placeholder={`Drop Zone ${index + 1}`}
+                                value={zone.text}
+                                onChange={e => {
+                                  const newZones = [...q.dropZones];
+                                  newZones[index] = { ...newZones[index], text: e.target.value };
+                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
+                                }}
+                              />
+                              <button
+                                className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
+                                onClick={() => {
+                                  const newZones = q.dropZones.filter((_, i) => i !== index);
+                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
+                                }}
+                              >
+                                <i className="fa-solid fa-trash"></i>
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <label className="text-sm text-gray-600">Correct Answer:</label>
+                              <select
+                                className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                                value={zone.correctItemIndex ?? ''}
+                                onChange={e => {
+                                  const newZones = [...q.dropZones];
+                                  newZones[index] = { 
+                                    ...newZones[index], 
+                                    correctItemIndex: e.target.value === '' ? null : parseInt(e.target.value)
+                                  };
+                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
+                                }}
+                              >
+                                <option value="">Select correct answer</option>
+                                {(q.dragItems || []).map((item, i) => (
+                                  <option key={i} value={i}>
+                                    {item.text || `Drag Item ${i + 1}`}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
+                          onClick={() => {
+                            setDrill(prev => ({
+                              ...prev,
+                              dropZones: [...prev.dropZones, { text: '', correctItemIndex: null }]
+                            }));
+                          }}
+                        >
+                          <i className="fa-solid fa-plus mr-2"></i> Add Drop Zone
+                        </button>
                       </div>
                     </div>
+                  )}
+                  {q.type === 'G' && (
+                    <MemoryGameQuestionForm
+                      question={q}
+                      onChange={(updatedQuestion) => {
+                        setDrill(prev => ({
+                          ...prev,
+                          questions: prev.questions.map((q, idx) =>
+                            idx === q.id ? updatedQuestion : q
+                          )
+                        }));
+                      }}
+                      setNotification={setNotification}
+                    />
                   )}
                 </div>
               ))}
@@ -546,174 +884,65 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       answer: 0,
                       dragItems: newType === 'D' ? [] : [],
                       dropZones: newType === 'D' ? [] : [],
+                      memoryCards: newType === 'G' ? [] : [],
                     });
                   }}
                 >
                   <option value="M">Multiple Choice</option>
                   <option value="F">Fill in the Blank</option>
                   <option value="D">Drag and Drop</option>
+                  <option value="G">Memory Game</option>
                 </select>
               </div>
               {/* Question Text Input */}
-              <div className="mb-4">
-                <label className="block mb-1 font-medium">Question Text</label>
-                {questionDraft.type === 'F' ? (
-                  <>
-                    <div className="flex items-center gap-2 mb-4">
-                      <input
-                        className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                        placeholder="Enter text before the blank"
-                        value={questionDraft.text.split('_')[0] || ''}
-                        onChange={e => {
-                          const parts = questionDraft.text.split('_');
-                          setQuestionDraft({
-                            ...questionDraft,
-                            text: e.target.value + '_' + (parts[1] || '')
-                          });
-                        }}
-                      />
-                      <span className="text-gray-500">_</span>
-                      <input
-                        className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                        placeholder="Enter text after the blank"
-                        value={questionDraft.text.split('_')[1] || ''}
-                        onChange={e => {
-                          const parts = questionDraft.text.split('_');
-                          setQuestionDraft({
-                            ...questionDraft,
-                            text: (parts[0] || '') + '_' + e.target.value
-                          });
-                        }}
-                      />
-                    </div>
-                    <div className="mb-4">
-                      <label className="block mb-1 font-medium">Possible Answers</label>
-                      <div className="flex gap-2 mb-2">
-                        {questionDraft.choices.map((c, i) => (
-                          <div key={i} className="flex-1 flex flex-col gap-1">
-                            <input
-                              className="w-full border-2 border-gray-100 rounded-xl px-2 py-1 focus:border-[#4C53B4]"
-                              placeholder={`Answer ${i+1}`}
-                              value={c.text}
-                              onChange={e => handleChoiceChange(i, 'text', e.target.value)}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                ) : questionDraft.type === 'D' ? (
-                  <div className="space-y-4">
+              <label className="block mb-1 font-medium">Question Text</label>
+              {questionDraft.type === 'F' ? (
+                <>
+                  <div className="flex items-center gap-2 mb-4">
                     <input
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Question text"
-                      value={questionDraft.text}
-                      onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
+                      className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                      placeholder="Enter text before the blank"
+                      value={questionDraft.text.split('_')[0] || ''}
+                      onChange={e => {
+                        const parts = questionDraft.text.split('_');
+                        setQuestionDraft({
+                          ...questionDraft,
+                          text: e.target.value + '_' + (parts[1] || '')
+                        });
+                      }}
                     />
-                    {/* Drag Items Section */}
-                    <div className="space-y-2">
-                      <label className="block font-medium">Drag Items (What students will drag)</label>
-                      <div className="text-sm text-gray-500 mb-2">Example: Countries, dates, names, etc.</div>
-                      {(questionDraft.dragItems || []).map((item, index) => (
-                        <div key={index} className="flex gap-2">
+                    <span className="text-gray-500">_</span>
+                    <input
+                      className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                      placeholder="Enter text after the blank"
+                      value={questionDraft.text.split('_')[1] || ''}
+                      onChange={e => {
+                        const parts = questionDraft.text.split('_');
+                        setQuestionDraft({
+                          ...questionDraft,
+                          text: (parts[0] || '') + '_' + e.target.value
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block mb-1 font-medium">Possible Answers</label>
+                    <div className="flex gap-2 mb-2">
+                      {questionDraft.choices.map((c, i) => (
+                        <div key={i} className="flex-1 flex flex-col gap-1">
                           <input
-                            className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                            placeholder={`Drag Item ${index + 1}`}
-                            value={item.text}
-                            onChange={e => {
-                              const newItems = [...questionDraft.dragItems];
-                              newItems[index] = { ...newItems[index], text: e.target.value };
-                              setQuestionDraft({ ...questionDraft, dragItems: newItems });
-                            }}
+                            className="w-full border-2 border-gray-100 rounded-xl px-2 py-1 focus:border-[#4C53B4]"
+                            placeholder={`Answer ${i+1}`}
+                            value={c.text}
+                            onChange={e => handleChoiceChange(i, 'text', e.target.value)}
                           />
-                          <button
-                            className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
-                            onClick={() => {
-                              const newItems = questionDraft.dragItems.filter((_, i) => i !== index);
-                              setQuestionDraft({ ...questionDraft, dragItems: newItems });
-                            }}
-                          >
-                            <i className="fa-solid fa-trash"></i>
-                          </button>
                         </div>
                       ))}
-                      <button
-                        className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
-                        onClick={() => {
-                          setQuestionDraft({
-                            ...questionDraft,
-                            dragItems: [...questionDraft.dragItems, { text: '', isCorrect: false }]
-                          });
-                        }}
-                      >
-                        <i className="fa-solid fa-plus mr-2"></i> Add Drag Item
-                      </button>
-                    </div>
-                    {/* Drop Zones Section */}
-                    <div className="space-y-2">
-                      <label className="block font-medium">Drop Zones (Where students will drop items)</label>
-                      <div className="text-sm text-gray-500 mb-2">Example: Capitals, definitions, answers, etc.</div>
-                      {(questionDraft.dropZones || []).map((zone, index) => (
-                        <div key={index} className="flex flex-col gap-2">
-                          <div className="flex gap-2">
-                            <input
-                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                              placeholder={`Drop Zone ${index + 1}`}
-                              value={zone.text}
-                              onChange={e => {
-                                const newZones = [...questionDraft.dropZones];
-                                newZones[index] = { ...newZones[index], text: e.target.value };
-                                setQuestionDraft({ ...questionDraft, dropZones: newZones });
-                              }}
-                            />
-                            <button
-                              className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
-                              onClick={() => {
-                                const newZones = questionDraft.dropZones.filter((_, i) => i !== index);
-                                setQuestionDraft({ ...questionDraft, dropZones: newZones });
-                              }}
-                            >
-                              <i className="fa-solid fa-trash"></i>
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <label className="text-sm text-gray-600">Correct Answer:</label>
-                            <select
-                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                              value={zone.correctItemIndex ?? ''}
-                              onChange={e => {
-                                const newZones = [...questionDraft.dropZones];
-                                newZones[index] = { 
-                                  ...newZones[index], 
-                                  correctItemIndex: e.target.value === '' ? null : parseInt(e.target.value)
-                                };
-                                setQuestionDraft({ ...questionDraft, dropZones: newZones });
-                              }}
-                            >
-                              <option value="">Select correct answer</option>
-                              {(questionDraft.dragItems || []).map((item, i) => (
-                                <option key={i} value={i}>
-                                  {item.text || `Drag Item ${i + 1}`}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      ))}
-                      <button
-                        className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
-                        onClick={() => {
-                          setQuestionDraft({
-                            ...questionDraft,
-                            dropZones: [...questionDraft.dropZones, { text: '', correctItemIndex: null }]
-                          });
-                        }}
-                      >
-                        <i className="fa-solid fa-plus mr-2"></i> Add Drop Zone
-                      </button>
                     </div>
                   </div>
-                ) : (
+                </>
+              ) : (
+                <div className="mb-4">  
                   <input
                     className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
                     placeholder="Question text"
@@ -721,8 +950,160 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
                     id="question-text-input"
                   />
-                )}
+                </div>
+              )}
+              {/* Content Section */}
+              <div className="mb-6 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
+                <h3 className="font-medium mb-3">Content</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Title</label>
+                    <input
+                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                      placeholder="Enter a title for your story"
+                      value={questionDraft.story_title || ''}
+                      onChange={e => setQuestionDraft({ ...questionDraft, story_title: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Context</label>
+                    <textarea
+                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                      placeholder="Set the scene for your story"
+                      rows={3}
+                      value={questionDraft.story_context || ''}
+                      onChange={e => setQuestionDraft({ ...questionDraft, story_context: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Sign Language Instructions</label>
+                    <textarea
+                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                      placeholder="Add sign language instructions for the story"
+                      rows={2}
+                      value={questionDraft.sign_language_instructions || ''}
+                      onChange={e => setQuestionDraft({ ...questionDraft, sign_language_instructions: e.target.value })}
+                    />
+                  </div>
+                </div>
               </div>
+              
+              {/* Type-specific form for Drag and Drop and Memory Game */}
+              {questionDraft.type === 'D' && (
+                <div className="space-y-4">
+                  {/* Drag Items Section */}
+                  <div className="space-y-2">
+                    <label className="block font-medium">Drag Items (What students will drag)</label>
+                    <div className="text-sm text-gray-500 mb-2">Example: Countries, dates, names, etc.</div>
+                    {(questionDraft.dragItems || []).map((item, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                          placeholder={`Drag Item ${index + 1}`}
+                          value={item.text}
+                          onChange={e => {
+                            const newItems = [...questionDraft.dragItems];
+                            newItems[index] = { ...newItems[index], text: e.target.value };
+                            setQuestionDraft({ ...questionDraft, dragItems: newItems });
+                          }}
+                        />
+                        <button
+                          className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
+                          onClick={() => {
+                            const newItems = questionDraft.dragItems.filter((_, i) => i !== index);
+                            setQuestionDraft({ ...questionDraft, dragItems: newItems });
+                          }}
+                        >
+                          <i className="fa-solid fa-trash"></i>
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
+                      onClick={() => {
+                        setQuestionDraft({
+                          ...questionDraft,
+                          dragItems: [...questionDraft.dragItems, { text: '', isCorrect: false }]
+                        });
+                      }}
+                    >
+                      <i className="fa-solid fa-plus mr-2"></i> Add Drag Item
+                    </button>
+                  </div>
+                  {/* Drop Zones Section */}
+                  <div className="space-y-2">
+                    <label className="block font-medium">Drop Zones (Where students will drop items)</label>
+                    <div className="text-sm text-gray-500 mb-2">Example: Capitals, definitions, answers, etc.</div>
+                    {(questionDraft.dropZones || []).map((zone, index) => (
+                      <div key={index} className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <input
+                            className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                            placeholder={`Drop Zone ${index + 1}`}
+                            value={zone.text}
+                            onChange={e => {
+                              const newZones = [...questionDraft.dropZones];
+                              newZones[index] = { ...newZones[index], text: e.target.value };
+                              setQuestionDraft({ ...questionDraft, dropZones: newZones });
+                            }}
+                          />
+                          <button
+                            className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
+                            onClick={() => {
+                              const newZones = questionDraft.dropZones.filter((_, i) => i !== index);
+                              setQuestionDraft({ ...questionDraft, dropZones: newZones });
+                            }}
+                          >
+                            <i className="fa-solid fa-trash"></i>
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm text-gray-600">Correct Answer:</label>
+                          <select
+                            className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                            value={zone.correctItemIndex ?? ''}
+                            onChange={e => {
+                              const newZones = [...questionDraft.dropZones];
+                              newZones[index] = { 
+                                ...newZones[index], 
+                                correctItemIndex: e.target.value === '' ? null : parseInt(e.target.value)
+                              };
+                              setQuestionDraft({ ...questionDraft, dropZones: newZones });
+                            }}
+                          >
+                            <option value="">Select correct answer</option>
+                            {(questionDraft.dragItems || []).map((item, i) => (
+                              <option key={i} value={i}>
+                                {item.text || `Drag Item ${i + 1}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
+                      onClick={() => {
+                        setQuestionDraft({
+                          ...questionDraft,
+                          dropZones: [...questionDraft.dropZones, { text: '', correctItemIndex: null }]
+                        });
+                      }}
+                    >
+                      <i className="fa-solid fa-plus mr-2"></i> Add Drop Zone
+                    </button>
+                  </div>
+                </div>
+              )}
+              {questionDraft.type === 'G' && (
+                <MemoryGameQuestionForm
+                  question={questionDraft}
+                  onChange={(updatedQuestion) => {
+                    setQuestionDraft(updatedQuestion);
+                  }}
+                  setNotification={setNotification}
+                />
+              )}
               {/* Choices Section - Only show for Multiple Choice */}
               {questionDraft.type === 'M' && (
                 <div className="mb-4">
@@ -807,7 +1188,29 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     !questionDraft.text || 
                     (questionDraft.type === 'M' && questionDraft.choices.some(c => !c.text && !c.media)) ||
                     (questionDraft.type === 'F' && questionDraft.choices.some(c => !c.text)) ||
-                    (questionDraft.type === 'D' && ((questionDraft.dragItems || []).length === 0 || (questionDraft.dropZones || []).length === 0))
+                    (questionDraft.type === 'D' && ((questionDraft.dragItems || []).length === 0 || (questionDraft.dropZones || []).length === 0)) ||
+                    (questionDraft.type === 'G' && (
+                      !questionDraft.memoryCards || 
+                      questionDraft.memoryCards.length < 2 || 
+                      questionDraft.memoryCards.length % 2 !== 0 ||
+                      questionDraft.memoryCards.some(card => !card.content && !card.media) ||
+                      (() => {
+                        const cards = questionDraft.memoryCards || [];
+                        const paired = new Set();
+                        for (const card of cards) {
+                          if (!card.pairId) return true;
+                          if (card.pairId === card.id) return true;
+                          const pair = cards.find(c => c.id === card.pairId);
+                          if (!pair || pair.pairId !== card.id) return true;
+                          // Only allow each pair once
+                          const pairKey = [card.id, card.pairId].sort().join('-');
+                          if (paired.has(pairKey)) continue;
+                          paired.add(pairKey);
+                        }
+                        // Each card must be in exactly one pair
+                        return paired.size !== cards.length / 2;
+                      })()
+                    ))
                   }
                 >
                   {questionEditIdx !== null ? 'Save' : 'Add'} Question
@@ -855,6 +1258,31 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       </>
                     : q.text}
                   </div>
+                  {/* Content Display */}
+                  {(q.story_title || q.story_context || q.story_image || q.story_video || q.sign_language_instructions) && (
+                    <div className="mb-4 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
+                      <h4 className="font-medium mb-2">Content</h4>
+                      {q.story_title && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Title:</span>
+                          <p className="font-medium">{q.story_title}</p>
+                        </div>
+                      )}
+                      {q.story_context && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Context:</span>
+                          <p className="whitespace-pre-wrap">{q.story_context}</p>
+                        </div>
+                      )}
+                      
+                      {q.sign_language_instructions && (
+                        <div className="mb-2">
+                          <span className="text-sm text-gray-600">Sign Language Instructions:</span>
+                          <p className="whitespace-pre-wrap">{q.sign_language_instructions}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {q.type === 'M' && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {(q.choices || []).map((c, i) => (
@@ -923,32 +1351,124 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     </div>
                   )}
                   {q.type === 'D' && (
-                    <div className="mt-2">
-                      <div className="mb-2 font-semibold">Drag and Drop Mapping:</div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="font-medium mb-1">Drag Items</div>
-                          <ul className="space-y-1">
-                            {(q.dragItems || []).map((item, i) => (
-                              <li key={i} className="px-2 py-1 bg-white border rounded">{item.text}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <div className="font-medium mb-1">Drop Zones</div>
-                          <ul className="space-y-1">
-                            {(q.dropZones || []).map((zone, i) => (
-                              <li key={i} className="px-2 py-1 bg-white border rounded flex items-center gap-2">
-                                <span>{zone.text}</span>
-                                {zone.correctItemIndex !== null && (q.dragItems || []).length > 0 && (q.dragItems || [])[zone.correctItemIndex] && (
-                                  <span className="ml-2 text-xs text-gray-500">→ {(q.dragItems || []).length > 0 && (q.dragItems || [])[zone.correctItemIndex].text}</span>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                    <div className="space-y-4">
+                      {/* Drag Items Section */}
+                      <div className="space-y-2">
+                        <label className="block font-medium">Drag Items (What students will drag)</label>
+                        <div className="text-sm text-gray-500 mb-2">Example: Countries, dates, names, etc.</div>
+                        {(q.dragItems || []).map((item, index) => (
+                          <div key={index} className="flex gap-2">
+                            <input
+                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                              placeholder={`Drag Item ${index + 1}`}
+                              value={item.text}
+                              onChange={e => {
+                                const newItems = [...q.dragItems];
+                                newItems[index] = { ...newItems[index], text: e.target.value };
+                                setDrill(prev => ({ ...prev, dragItems: newItems }));
+                              }}
+                            />
+                            <button
+                              className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
+                              onClick={() => {
+                                const newItems = q.dragItems.filter((_, i) => i !== index);
+                                setDrill(prev => ({ ...prev, dragItems: newItems }));
+                              }}
+                            >
+                              <i className="fa-solid fa-trash"></i>
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
+                          onClick={() => {
+                            setDrill(prev => ({
+                              ...prev,
+                              dragItems: [...prev.dragItems, { text: '', isCorrect: false }]
+                            }));
+                          }}
+                        >
+                          <i className="fa-solid fa-plus mr-2"></i> Add Drag Item
+                        </button>
+                      </div>
+                      {/* Drop Zones Section */}
+                      <div className="space-y-2">
+                        <label className="block font-medium">Drop Zones (Where students will drop items)</label>
+                        <div className="text-sm text-gray-500 mb-2">Example: Capitals, definitions, answers, etc.</div>
+                        {(q.dropZones || []).map((zone, index) => (
+                          <div key={index} className="flex flex-col gap-2">
+                            <div className="flex gap-2">
+                              <input
+                                className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                                placeholder={`Drop Zone ${index + 1}`}
+                                value={zone.text}
+                                onChange={e => {
+                                  const newZones = [...q.dropZones];
+                                  newZones[index] = { ...newZones[index], text: e.target.value };
+                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
+                                }}
+                              />
+                              <button
+                                className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
+                                onClick={() => {
+                                  const newZones = q.dropZones.filter((_, i) => i !== index);
+                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
+                                }}
+                              >
+                                <i className="fa-solid fa-trash"></i>
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <label className="text-sm text-gray-600">Correct Answer:</label>
+                              <select
+                                className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                                value={zone.correctItemIndex ?? ''}
+                                onChange={e => {
+                                  const newZones = [...q.dropZones];
+                                  newZones[index] = { 
+                                    ...newZones[index], 
+                                    correctItemIndex: e.target.value === '' ? null : parseInt(e.target.value)
+                                  };
+                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
+                                }}
+                              >
+                                <option value="">Select correct answer</option>
+                                {(q.dragItems || []).map((item, i) => (
+                                  <option key={i} value={i}>
+                                    {item.text || `Drag Item ${i + 1}`}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
+                          onClick={() => {
+                            setDrill(prev => ({
+                              ...prev,
+                              dropZones: [...prev.dropZones, { text: '', correctItemIndex: null }]
+                            }));
+                          }}
+                        >
+                          <i className="fa-solid fa-plus mr-2"></i> Add Drop Zone
+                        </button>
                       </div>
                     </div>
+                  )}
+                  {q.type === 'G' && (
+                    <MemoryGameQuestionForm
+                      question={q}
+                      onChange={(updatedQuestion) => {
+                        setDrill(prev => ({
+                          ...prev,
+                          questions: prev.questions.map((q, idx) =>
+                            idx === q.id ? updatedQuestion : q
+                          )
+                        }));
+                      }}
+                      setNotification={setNotification}
+                    />
                   )}
                 </div>
               ))}

@@ -8,18 +8,20 @@ import PasswordReset from './pages/PasswordReset'
 import NewPassword from './pages/NewPassword'
 import DashboardLayout from './components/DashboardLayout'
 import { UserProvider } from './contexts/UserContext'
+import { ClassroomPreferencesProvider } from './contexts/ClassroomPreferencesContext'
 import { SuccessModalProvider } from './contexts/SuccessModalContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import SuccessModal from './components/SuccessModal'
 
-
 function Logout() {
-  localStorage.clear()
+  localStorage.removeItem('access');
+  localStorage.removeItem('refresh');
   return <Navigate to="/login" />
 }
 
 function RegisterAndLogout() {
-  localStorage.clear()
+  localStorage.removeItem('access');
+  localStorage.removeItem('refresh');
   return <Register />
 }
 
@@ -28,6 +30,7 @@ function App() {
     <SuccessModalProvider>
       <UserProvider>
         <NotificationProvider>
+        <ClassroomPreferencesProvider>
           <BrowserRouter>
             <Routes>
               {/* Public Routes */}
@@ -88,6 +91,7 @@ function App() {
             <SuccessModal />
           </BrowserRouter>
         </NotificationProvider>
+        </ClassroomPreferencesProvider>
       </UserProvider>
     </SuccessModalProvider>
   )

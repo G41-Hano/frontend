@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Body -->
+  <circle cx="100" cy="100" r="80" fill="#8E44AD"/>
+  
+  <!-- Eyes -->
+  <circle cx="70" cy="80" r="12" fill="white"/>
+  <circle cx="130" cy="80" r="12" fill="white"/>
+  <circle cx="70" cy="80" r="6" fill="#4C53B4"/>
+  <circle cx="130" cy="80" r="6" fill="#4C53B4"/>
+  
+  <!-- Smile -->
+  <path d="M70 120 Q100 140 130 120" stroke="white" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Blush -->
+  <circle cx="60" cy="100" r="8" fill="#FF69B4" opacity="0.5"/>
+  <circle cx="140" cy="100" r="8" fill="#FF69B4" opacity="0.5"/>
+  
+  <!-- Antenna -->
+  <path d="M100 20 L100 40" stroke="#8E44AD" stroke-width="4"/>
+  <circle cx="100" cy="20" r="6" fill="#FFD700"/>
+  
+  <!-- Arms -->
+  <path d="M40 100 L20 80" stroke="#8E44AD" stroke-width="8" stroke-linecap="round"/>
+  <path d="M160 100 L180 80" stroke="#8E44AD" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- Legs -->
+  <path d="M80 160 L80 180" stroke="#8E44AD" stroke-width="8" stroke-linecap="round"/>
+  <path d="M120 160 L120 180" stroke="#8E44AD" stroke-width="8" stroke-linecap="round"/>
+</svg> 

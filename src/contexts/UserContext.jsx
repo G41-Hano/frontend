@@ -1,9 +1,5 @@
-import { createContext, useContext, useState, useEffect } from "react"
-import { jwtDecode } from "jwt-decode"
-import { ACCESS_TOKEN } from "../constants"
-import { Navigate } from "react-router-dom"
+import { createContext, useContext, useState } from "react"
 import api from "../api"
-
 const UserContext = createContext()
 
 export const UserProvider = ({ children }) => {
@@ -12,7 +8,6 @@ export const UserProvider = ({ children }) => {
   const loginUser = async (token) => {
     if (token) {
       try {
-        const decoded = jwtDecode(token)
         // Fetch user profile data from API
         const response = await api.get('/api/profile/', {
           headers: {
