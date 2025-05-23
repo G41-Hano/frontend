@@ -221,11 +221,10 @@ const TeacherClassroom = () => {
   // Drill sub-page logic (do this AFTER all hooks)
   const drillMode = searchParams.get('drill');
   const drillId = searchParams.get('drillId');
-  if (drillMode === 'create') return <CreateDrill
-    onDrillCreated={fetchDrills}
-    classroom={classroom}
-    students={students}
-  />;
+  if (drillMode === 'create') return <CreateDrill onDrillCreated={() => {
+    fetchDrills();
+    setSearchParams({});
+  }} classroom={classroom} students={students} />;
   if (drillMode === 'edit' && drillId) return <EditDrill />;
   if (drillMode === 'results' && drillId) return <ViewDrillResults />;
 
@@ -305,16 +304,14 @@ const TeacherClassroom = () => {
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
       {/* Header */}
-      <div className="bg-white shadow-lg mt-6 rounded-2xl mx-10 pb-6" style={{ borderColor: classroomColor }}>
-        <ClassroomHeader
-          classroom={classroom}
-          students={students}
-          onEdit={() => setIsUpdateModalOpen(true)}
-          onDelete={() => setIsDeleteModalOpen(true)}
-          onArchive={handleArchiveClassroom}
-          onBack={() => navigate(-1)}
-        />
-      </div>
+      <ClassroomHeader
+        classroom={classroom}
+        students={students}
+        onEdit={() => setIsUpdateModalOpen(true)}
+        onDelete={() => setIsDeleteModalOpen(true)}
+        onArchive={handleArchiveClassroom}
+        onBack={() => navigate(-1)}
+      />
 
       {/* Content Area */}
       <div className="max-w-[95%] mx-auto mt-6">
