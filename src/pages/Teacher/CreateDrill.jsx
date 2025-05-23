@@ -10,6 +10,11 @@ const initialDrill = {
   dueDate: '',
   questions: [],
   status: 'draft',
+  wordlistType: '', // 'builtin' or 'custom'
+  wordlistName: '',
+  word: '',
+  definition: '',
+  customWordList: [], // For custom word lists
 };
 
 const emptyQuestion = {
@@ -32,15 +37,38 @@ const emptyQuestion = {
   sign_language_instructions: '',
 };
 
-const Stepper = ({ step }) => (
+const Stepper = ({ step, setStep }) => (
   <div className="flex justify-center gap-4 mb-8">
-    {["Overview", "Add Questions", "Review"].map((label, i) => (
-      <div key={label} className={`flex items-center gap-2 ${step === i ? 'font-bold text-[#4C53B4]' : 'text-gray-400'}`}>
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-300 bg-white'}`}>{i+1}</div>
-        <span>{label}</span>
-        {i < 2 && <div className="w-8 h-1 bg-gray-200 rounded-full" />}
+    {["Overview", "Word List", "Add Questions", "Review"].map((label, i) => {
+      const isClickable = i < step;
+      return (
+        <div
+          key={label}
+          className={`flex items-center gap-2 ${step === i ? 'font-bold text-[#4C53B4]' : 'text-gray-400'}`}
+        >
+          <button
+            type="button"
+            disabled={!isClickable}
+            onClick={() => isClickable && setStep(i)}
+            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition
+              ${step === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-300 bg-white'}
+              ${isClickable ? 'cursor-pointer hover:border-[#4C53B4] hover:bg-[#EEF1F5]' : 'cursor-default'}
+            `}
+            style={{ outline: 'none', border: 'none', padding: 0 }}
+            tabIndex={isClickable ? 0 : -1}
+          >
+            {i + 1}
+          </button>
+          <span
+            className={isClickable ? 'cursor-pointer hover:text-[#4C53B4]' : ''}
+            onClick={() => isClickable && setStep(i)}
+          >
+            {label}
+          </span>
+          {i < 3 && <div className="w-8 h-1 bg-gray-200 rounded-full" />}
       </div>
-    ))}
+      );
+    })}
   </div>
 );
 
@@ -111,7 +139,20 @@ const FileInput = ({ value, onChange, onPreview }) => {
   );
 };
 
-const MemoryGameCard = ({ card, cards, onRemove, onTextChange, onMediaChange, onPairChange, setNotification }) => {
+// New component for AI generation button
+const AiGenerateButton = ({ onClick, loading, className = '' }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={loading}
+    className={`px-3 py-1 rounded-lg border border-[#4C53B4] text-[#4C53B4] hover:bg-[#EEF1F5] transition ${loading ? 'opacity-50' : ''} ${className}`}
+    title="Generate with AI"
+  >
+    <i className={`fa-solid ${loading ? 'fa-spinner fa-spin' : 'fa-wand-magic-sparkles'}`}></i>
+  </button>
+);
+
+const MemoryGameCard = ({ card, cards, onRemove, onTextChange, onMediaChange, onPairChange, setNotification, setMediaModal }) => {
   const handleMediaChange = (file) => {
     if (file && !file.type.startsWith('image/')) {
       setNotification({
@@ -168,7 +209,7 @@ const MemoryGameCard = ({ card, cards, onRemove, onTextChange, onMediaChange, on
   );
 };
 
-const MemoryGameQuestionForm = ({ question, onChange, setNotification }) => {
+const MemoryGameQuestionForm = ({ question, onChange, setNotification, setMediaModal }) => {
   const addCard = () => {
     const newCard = {
       id: `card_${Date.now()}`,
@@ -262,7 +303,7 @@ const MemoryGameQuestionForm = ({ question, onChange, setNotification }) => {
         </button>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        {(question.memoryCards || []).map((card, index) => (
+        {(question.memoryCards || []).map((card) => (
           <MemoryGameCard
             key={card.id}
             card={card}
@@ -272,6 +313,7 @@ const MemoryGameQuestionForm = ({ question, onChange, setNotification }) => {
             onMediaChange={(file) => updateCardMedia(card.id, file)}
             onPairChange={(pairId) => updateCardPair(card.id, pairId)}
             setNotification={setNotification}
+            setMediaModal={setMediaModal}
           />
         ))}
       </div>
@@ -382,13 +424,35 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   const [drill, setDrill] = useState(initialDrill);
   const [questionEditIdx, setQuestionEditIdx] = useState(null);
   const [questionDraft, setQuestionDraft] = useState(emptyQuestion);
+  const [selectedQuestionWord, setSelectedQuestionWord] = useState('');
+  const [selectedQuestionWordData, setSelectedQuestionWordData] = useState({});
+  const [builtinWords, setBuiltinWords] = useState([]); // <-- for builtin words
   const navigate = useNavigate();
   const [, setSearchParams] = useSearchParams();
   const [successMsg, setSuccessMsg] = useState('');
   const [mediaModal, setMediaModal] = useState({ open: false, src: '', type: '' });
-  const [submittingAction, setSubmittingAction] = useState(null); // null, 'draft', or 'published'
+  const [submittingAction, setSubmittingAction] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const questionFormRef = useRef(null);
+  const [aiLoading, setAiLoading] = useState({ definition: false, question: false });
+
+  // New: Built-in word lists state
+  const [builtinWordLists, setBuiltinWordLists] = useState([]);
+  const [customListDesc, setCustomListDesc] = useState('');
+  const [aiLoadingListDesc, setAiLoadingListDesc] = useState(false);
+
+  // Fetch built-in word lists when needed
+  useEffect(() => {
+    if (step === 1 && drill.wordlistType === 'builtin') {
+      api.get('/api/builtin-wordlist/')
+        .then(res => {
+          setBuiltinWordLists(res.data);
+        })
+        .catch(() => {
+          setNotification({ show: true, message: 'Failed to load word lists', type: 'error' });
+        });
+    }
+  }, [step, drill.wordlistType]);
 
   useEffect(() => {
     if (!drill.openDate) return;
@@ -399,6 +463,141 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       setDrill(d => ({ ...d, dueDate: minDue }));
     }
   }, [drill.openDate, drill.dueDate]);
+
+  // New function for AI definition generation
+  const generateDefinition = async () => {
+    setAiLoading(prev => ({ ...prev, definition: true }));
+    try {
+      // TODO: Replace with actual AI API call
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API delay
+      const fakeDefinition = `A ${drill.word} is an important object used for various purposes.`;
+      setDrill(prev => ({ ...prev, definition: fakeDefinition }));
+      setNotification({
+        show: true,
+        message: 'Definition generated successfully!',
+        type: 'success'
+      });
+    } catch (err) {
+      console.error('Failed to generate definition:', err);
+      setNotification({
+        show: true,
+        message: 'Failed to generate definition: ' + (err.message || 'Unknown error'),
+        type: 'error'
+      });
+    } finally {
+      setAiLoading(prev => ({ ...prev, definition: false }));
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    }
+  };
+
+  // New function for AI question generation
+  const generateQuestion = async () => {
+    setAiLoading(prev => ({ ...prev, question: true }));
+    try {
+      // TODO: Replace with actual AI API call
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API delay
+      const fakeQuestion = {
+        ...emptyQuestion,
+        text: `What is the main purpose of a ${drill.word}?`,
+        choices: [
+          { text: drill.definition, media: null },
+          { text: 'Wrong answer 1', media: null },
+          { text: 'Wrong answer 2', media: null },
+          { text: 'Wrong answer 3', media: null },
+        ],
+        answer: 0,
+      };
+      setQuestionDraft(fakeQuestion);
+      setNotification({
+        show: true,
+        message: 'Question generated successfully!',
+        type: 'success'
+      });
+    } catch (err) {
+      console.error('Failed to generate question:', err);
+      setNotification({
+        show: true,
+        message: 'Failed to generate question: ' + (err.message || 'Unknown error'),
+        type: 'error'
+      });
+    } finally {
+      setAiLoading(prev => ({ ...prev, question: false }));
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    }
+  };
+
+  // New function for word list selection
+  const handleWordListChange = (type) => {
+    setDrill(prev => ({
+      ...prev,
+      wordlistType: type,
+      wordlistName: '',
+      word: '',
+      definition: '',
+      customWordList: type === 'custom' ? [] : prev.customWordList,
+    }));
+  };
+
+  // New function for built-in word list selection
+  const handleBuiltinListChange = (listId) => {
+    setDrill(prev => ({
+      ...prev,
+      wordlistName: listId,
+      word: '',
+      definition: '',
+    }));
+
+    // Fetch words for the selected built-in word list
+    if (listId) {
+      api.get(`/api/builtin-wordlist/${listId}/`)
+        .then(res => {
+          const words = res.data.words || [];
+          setDrill(prev => ({
+            ...prev,
+            builtinWords: words,
+          }));
+          console.log('Updated builtinWords:', words); // Debugging line
+        })
+        .catch(err => {
+          console.error('Error fetching words:', err); // Debugging line
+          setNotification({ show: true, message: 'Failed to load words', type: 'error' });
+        });
+    }
+  };
+
+  
+
+  // New function to add custom word
+  const handleAddCustomWord = () => {
+    const newWord = {
+      word: '',
+      definition: '',
+    };
+    setDrill(prev => ({
+      ...prev,
+      customWordList: [...prev.customWordList, newWord],
+    }));
+  };
+
+  // New function to update custom word
+  const handleUpdateCustomWord = (index, field, value) => {
+    setDrill(prev => ({
+      ...prev,
+      customWordList: prev.customWordList.map((w, i) =>
+        i === index ? { ...w, [field]: value } : w
+      ),
+    }));
+  };
+
+  // New function to remove custom word
+  const handleRemoveCustomWord = (index) => {
+    setDrill(prev => ({
+      ...prev,
+      customWordList: prev.customWordList.filter((_, i) => i !== index),
+      word: prev.word === prev.customWordList[index].word ? '' : prev.word,
+      definition: prev.word === prev.customWordList[index].word ? '' : prev.definition,
+    }));
+  };
 
   // Step 1: Overview
   const handleOverviewChange = e => {
@@ -492,40 +691,42 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
     try {
       const formData = new FormData();
       const questions = drill.questions.map((q, qIdx) => {
+        // Sanitize question object for backend
+        const base = {
+          text: q.text,
+          type: q.type,
+          story_title: q.story_title,
+          story_context: q.story_context,
+          sign_language_instructions: q.sign_language_instructions,
+        };
         if (q.type === 'M' || q.type === 'F') {
-          return {
-            ...q,
-            choices: q.choices.map((c, cIdx) => {
+          base.choices = (q.choices || []).map((c, cIdx) => {
               let choice = { ...c, is_correct: q.answer === cIdx };
               if (c.media instanceof File) {
                 const key = `media_${qIdx}_${cIdx}`;
                 formData.append(key, c.media);
                 choice.media = key;
               } else if (c.media && c.media.url) {
-                // Keep existing media URL
                 choice.media = c.media.url;
               }
+            // Remove undefined/null
+            Object.keys(choice).forEach(k => (choice[k] == null) && delete choice[k]);
               return choice;
-            }),
-          };
+          });
+        }
+        if (q.type === 'D') {
+          base.dragItems = Array.isArray(q.dragItems) ? q.dragItems : [];
+          base.dropZones = Array.isArray(q.dropZones) ? q.dropZones : [];
         }
         if (q.type === 'G') {
-          return {
-            ...q,
-            memoryCards: q.memoryCards.map((card, cIdx) => {
-              let updatedCard = { ...card };
-              if (card.media instanceof File) {
-                const key = `media_${qIdx}_${cIdx}`;
-                formData.append(key, card.media);
-                updatedCard.media = key;
-              } else if (card.media && card.media.url) {
-                // Keep existing media URL
-                updatedCard.media = card.media.url;
-              }
-              return updatedCard;
-            }),
-          };
+          base.memoryCards = Array.isArray(q.memoryCards) ? q.memoryCards.map(card => ({
+            id: card.id,
+            content: card.content,
+            pairId: card.pairId,
+            media: card.media,
+          })) : [];
         }
+
         if (q.type === 'P') {
           return {
             ...q,
@@ -544,7 +745,12 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           };
         }
         return q;
+        
+        // Remove undefined/null from base
+        Object.keys(base).forEach(k => (base[k] == null) && delete base[k]);
+        return base;
       });
+      console.log('Submitting questions:', questions);
 
       formData.append('title', drill.title);
       formData.append('description', drill.description);
@@ -595,6 +801,76 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
     return open.toISOString().slice(0, 16);
   };
 
+  // AI generate for custom list description
+  const generateListDescription = async () => {
+    setAiLoadingListDesc(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setCustomListDesc(`This is a vocabulary list about ${drill.wordlistName || 'your topic'}.`);
+      setNotification({
+        show: true,
+        message: 'Description generated!',
+        type: 'success'
+      });
+    } catch {
+      setNotification({
+        show: true,
+        message: 'Failed to generate description.',
+        type: 'error'
+      });
+    } finally {
+      setAiLoadingListDesc(false);
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    }
+  };
+
+  const validateCustomWordList = () => {
+    if (!drill.wordlistName || !customListDesc) return false;
+    if (drill.customWordList.length < 3) return false;
+    for (const w of drill.customWordList) {
+      if (!w.word || !w.definition) return false;
+    }
+    return true;
+  };
+
+  // Fetch words for selected builtin wordlist
+  useEffect(() => {
+    if (drill.wordlistType === 'builtin' && drill.wordlistName) {
+      api.get(`/api/builtin-wordlist/${drill.wordlistName}/`)
+        .then(res => setBuiltinWords(res.data.words || []))
+        .catch(error => {
+          console.error('Failed to load words:', error);
+          setNotification({ show: true, message: 'Failed to load words', type: 'error' });
+        });
+    } else {
+      setBuiltinWords([]);
+    }
+  }, [drill.wordlistType, drill.wordlistName]);
+
+  // Add Questions step: select word first
+  const getAvailableWords = () => {
+    if (drill.wordlistType === 'builtin') return builtinWords;
+    if (drill.wordlistType === 'custom') return drill.customWordList;
+    return [];
+  };
+
+  // When a word is selected for a question, auto-fill definition/image/video
+  useEffect(() => {
+    const words = getAvailableWords();
+    const w = words.find(w => w.word === selectedQuestionWord);
+    setSelectedQuestionWordData(w || {});
+    // Only reset if NOT editing (i.e., questionEditIdx === null)
+    if (w && questionEditIdx === null) {
+      setQuestionDraft(q => ({
+        ...q,
+        text: '',
+        choices: emptyQuestion.choices.map(() => ({ text: '', media: null })),
+        answer: 0,
+        // Optionally, you can prefill question text or content here
+      }));
+    }
+  }, [selectedQuestionWord, questionEditIdx]);
+
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
       {/* Media Modal */}
@@ -639,7 +915,9 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       />
       {/* Drill Creation Form */}
       <div className="bg-white rounded-3xl shadow-lg p-8 w-full max-w-[95%] mx-auto">
-        <Stepper step={step} />
+        <Stepper step={step} setStep={setStep} />
+        
+        {/* Word List Step */}
         {step === 0 && (
           <div>
             <h2 className="text-2xl font-bold mb-6">Drill Overview</h2>
@@ -705,6 +983,195 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
         )}
         {step === 1 && (
           <div>
+            <h2 className="text-2xl font-bold mb-6">Select Word List</h2>
+            {/* Word List Type Selection */}
+            <div className="mb-6">
+              <label className="block mb-2 font-medium">Word List Type</label>
+              <div className="flex gap-4">
+                <button
+                  className={`flex-1 py-3 px-4 rounded-xl border-2 ${
+                    drill.wordlistType === 'builtin'
+                      ? 'border-[#4C53B4] bg-[#EEF1F5] text-[#4C53B4]'
+                      : 'border-gray-200 hover:border-[#4C53B4] hover:bg-[#EEF1F5]'
+                  }`}
+                  onClick={() => handleWordListChange('builtin')}
+                >
+                  <i className="fa-solid fa-book mr-2"></i>
+                  Built-in Word List
+                </button>
+                <button
+                  className={`flex-1 py-3 px-4 rounded-xl border-2 ${
+                    drill.wordlistType === 'custom'
+                      ? 'border-[#4C53B4] bg-[#EEF1F5] text-[#4C53B4]'
+                      : 'border-gray-200 hover:border-[#4C53B4] hover:bg-[#EEF1F5]'
+                  }`}
+                  onClick={() => handleWordListChange('custom')}
+                >
+                  <i className="fa-solid fa-pencil mr-2"></i>
+                  Custom Word List
+                </button>
+              </div>
+            </div>
+            {drill.wordlistType === 'builtin' && (
+              <div className="mb-6">
+                <label className="block mb-2 font-medium">Select Word List <span className="text-red-500">*</span></label>
+                <select
+                  className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                  value={drill.wordlistName}
+                  onChange={(e) => handleBuiltinListChange(e.target.value)}
+                >
+                  <option value="">Select a list</option>
+                  {builtinWordLists.length === 0 && <option disabled>No wordlists found</option>}
+                  {builtinWordLists.map(list => (
+                    <option key={list.id} value={list.id}>{list.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {drill.wordlistType === 'custom' && (
+              <>
+                {/* Custom Word List Name */}
+                <div className="mb-4">
+                  <label className="block mb-2 font-medium">Custom Word List Name <span className="text-red-500">*</span></label>
+                  <input
+                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                    value={drill.wordlistName}
+                    onChange={e => setDrill(prev => ({ ...prev, wordlistName: e.target.value }))}
+                    placeholder="e.g. Fruits"
+                  />
+                </div>
+                {/* Custom Word List Description */}
+            <div className="mb-6">
+                  <label className="block mb-2 font-medium">Description <span className="text-red-500">*</span></label>
+                  <div className="flex gap-2">
+                    <textarea
+                      className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                      value={customListDesc}
+                      onChange={e => setCustomListDesc(e.target.value)}
+                      placeholder="Describe this word list"
+                    />
+                    <AiGenerateButton
+                      onClick={generateListDescription}
+                      loading={aiLoadingListDesc}
+                    />
+                  </div>
+                </div>
+                {/* Add Words */}
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="font-medium">Add Vocabulary Words</label>
+                  </div>
+                  {drill.customWordList.map((word, index) => (
+                    <div key={index} className="mb-4 p-4 rounded-xl border-2 border-gray-100 flex flex-col gap-2">
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <label className="block text-sm text-gray-600 mb-1">Word <span className="text-red-500">*</span></label>
+                          <input
+                            className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                            value={word.word}
+                            onChange={e => handleUpdateCustomWord(index, 'word', e.target.value)}
+                            placeholder="Enter word"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-sm text-gray-600 mb-1">Definition <span className="text-red-500">*</span></label>
+                          <div className="flex gap-2">
+                            <input
+                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                              value={word.definition}
+                              onChange={e => handleUpdateCustomWord(index, 'definition', e.target.value)}
+                              placeholder="Enter definition"
+                            />
+                            <AiGenerateButton
+                      onClick={() => {
+                                handleUpdateCustomWord(index, 'word', word.word);
+                                generateDefinition();
+                              }}
+                              loading={aiLoading.definition}
+                            />
+                          </div>
+                        </div>
+                        <button
+                          className="text-red-500 hover:text-red-700 px-2"
+                          onClick={() => handleRemoveCustomWord(index)}
+                        >
+                          <i className="fa-solid fa-trash"></i>
+                    </button>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <label className="block text-sm text-gray-600 mb-1">Image</label>
+                          <FileInput
+                            value={word.image}
+                            onChange={file => handleUpdateCustomWord(index, 'image', file)}
+                            onPreview={(src, type) => setMediaModal({ open: true, src, type })}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-sm text-gray-600 mb-1">Sign Language Video</label>
+                          <FileInput
+                            value={word.signVideo}
+                            onChange={file => handleUpdateCustomWord(index, 'signVideo', file)}
+                            onPreview={(src, type) => setMediaModal({ open: true, src, type })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                    <button
+                    className="px-3 py-1 rounded-lg bg-[#4C53B4] text-white hover:bg-[#3a4095]"
+                    onClick={handleAddCustomWord}
+                  >
+                    <i className="fa-solid fa-plus mr-1"></i> Add Word
+                  </button>
+                </div>
+              </>
+            )}
+            {/* Navigation */}
+            <div className="flex items-center justify-between gap-4">
+              {drill.wordlistType === 'custom' && (
+                <div className="text-sm" style={{ color: validateCustomWordList() ? '#22c55e' : '#ef4444', minWidth: 260 }}>
+                  {validateCustomWordList()
+                    ? 'Ready!'
+                    : 'Add at least 3 words and fill all required fields to proceed.'}
+                </div>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <button
+                  className="px-6 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105 transition"
+                  onClick={() => setStep(0)}
+                >
+                  Back
+                </button>
+                <button
+                  className="px-6 py-2 rounded-xl bg-[#4C53B4] text-white hover:bg-[#3a4095] hover:scale-105 transition"
+                      onClick={() => {
+                    if (drill.wordlistType === 'custom' && !validateCustomWordList()) {
+                      setNotification({
+                        show: true,
+                        message: 'Add at least 3 words and fill all required fields to proceed.',
+                        type: 'error',
+                      });
+                      return;
+                    }
+                    if (drill.wordlistType === 'builtin' && (!drill.wordlistName || builtinWords.length === 0)) {
+                        setNotification({
+                          show: true,
+                        message: 'Select a word list with at least 1 word.',
+                        type: 'error',
+                      });
+                      return;
+                    }
+                    setStep(2);
+                  }}
+                  disabled={drill.wordlistType === 'custom' ? !validateCustomWordList() : (!drill.wordlistName || builtinWords.length === 0)}
+                >Continue</button>
+                  </div>
+                  </div>
+                        </div>
+                      )}
+        {step === 2 && (
+          <div>
             <h2 className="text-2xl font-bold mb-6">Add Questions</h2>
             {notification.show && (
               <div className={`mb-4 p-3 rounded-xl text-center font-semibold animate-fadeIn ${
@@ -714,18 +1181,129 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                 'bg-blue-100 text-blue-800'
               }`}>
                 {notification.message}
-              </div>
-            )}
+                        </div>
+                      )}
             <div className="mb-6">
               {drill.questions.length === 0 && <div className="text-gray-400 mb-2">No questions yet.</div>}
               {drill.questions.map((q, idx) => (
                 <div key={idx} className="mb-4 p-4 rounded-xl border-2 border-gray-100 bg-[#F7F9FC] relative">
+                  <div className="font-medium mb-2">Word: {q.word}</div>
+                  <div className="text-gray-600 mb-2">Definition: {q.definition}</div>
+                  {q.image && <img src={typeof q.image === 'string' ? q.image : URL.createObjectURL(q.image)} alt="preview" className="max-h-32 rounded mb-2" />}
+                  {q.signVideo && <video src={typeof q.signVideo === 'string' ? q.signVideo : URL.createObjectURL(q.signVideo)} controls className="max-h-32 rounded mb-2" />}
+                  {/* Preview for question types */}
+                        <div className="mb-2">
+                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Multiple Choice' : q.type === 'F' ? 'Fill in the Blank' : q.type === 'D' ? 'Drag and Drop' : q.type === 'G' ? 'Memory Game' : ''}
+                        </div>
+                  <div className="mb-2">
+                    <span className="font-semibold">Question:</span> {q.type === 'F' ? (
+                      <span>{(q.text || '').split('_')[0]}<span className="inline-block w-16 border-b-2 border-gray-400 mx-2 align-middle" />{(q.text || '').split('_')[1]}</span>
+                    ) : q.text}
+                    </div>
+                  {q.type === 'M' && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {(q.choices || []).map((c, i) => (
+                        <div key={i} className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}>
+                          {c.media ? (
+                            (() => {
+                              let src = null;
+                              let type = '';
+                              if (c.media instanceof File) {
+                                src = URL.createObjectURL(c.media);
+                                type = c.media.type;
+                              } else if (c.media && c.media.url) {
+                                src = c.media.url;
+                                type = c.media.type || '';
+                              }
+                              if (type.startsWith('image/')) {
+                                return <img src={src} alt="preview" className="rounded w-full h-full object-contain border cursor-pointer" onClick={() => setMediaModal({ open: true, src, type })} />;
+                              } else if (type.startsWith('video/')) {
+                                return <video src={src} className="rounded w-full h-full object-contain border cursor-pointer" controls onClick={e => { e.stopPropagation(); setMediaModal({ open: true, src, type }); }} />;
+                              }
+                              return null;
+                            })()
+                          ) : c.text ? (
+                            <span className="text-center break-words w-full text-xs">{c.text}</span>
+                          ) : (
+                            <i className="fa-regular fa-image text-lg text-gray-200"></i>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {q.type === 'F' && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {(q.choices || []).map((c, i) => (
+                        <div key={i} className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}>
+                          {c.text ? (
+                            <span className="text-center break-words w-full text-xs">{c.text}</span>
+                          ) : (
+                            <span className="text-gray-300 text-xs">No content</span>
+                          )}
+                        </div>
+                      ))}
+                      <div className="w-full text-xs text-gray-500 mt-2">Correct: Choice {q.answer + 1}</div>
+                    </div>
+                  )}
+                  {q.type === 'D' && (
+                    <div className="mt-2">
+                      <div className="mb-2 font-semibold">Drag and Drop Mapping:</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="font-medium mb-1">Drag Items</div>
+                          <ul className="space-y-1">
+                            {(q.dragItems || []).map((item, i) => (
+                              <li key={i} className="px-2 py-1 bg-white border rounded">{item.text}</li>
+                            ))}
+                          </ul>
+                          </div>
+                        <div>
+                          <div className="font-medium mb-1">Drop Zones</div>
+                          <ul className="space-y-1">
+                            {(q.dropZones || []).map((zone, i) => (
+                              <li key={i} className="px-2 py-1 bg-white border rounded flex items-center gap-2">
+                                <span>{zone.text}</span>
+                                {zone.correctItemIndex !== null && (q.dragItems || []).length > 0 && (q.dragItems || [])[zone.correctItemIndex] && (
+                                  <span className="ml-2 text-xs text-gray-500">→ {(q.dragItems || [])[zone.correctItemIndex].text}</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                      </div>
+                      </div>
+                    </div>
+                  )}
+                  {q.type === 'G' && (
+                    <div className="mt-2">
+                      <div className="font-semibold mb-1">Memory Cards:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {(q.memoryCards || []).map((card, i) => {
+                          // Find the paired card's content or index
+                          let pairContent = null;
+                          if (card.pairId) {
+                            const pairCard = (q.memoryCards || []).find(c => c.id === card.pairId);
+                            pairContent = pairCard ? (pairCard.content || (pairCard.media && pairCard.media.name) || `Card ${q.memoryCards.indexOf(pairCard)+1}`) : card.pairId;
+                          }
+                          return (
+                            <div key={i} className="w-32 h-24 border rounded flex flex-col items-center justify-center bg-white p-1">
+                              {card.media ? (
+                                <img src={typeof card.media === 'string' ? card.media : URL.createObjectURL(card.media)} alt="card" className="max-h-16 max-w-full mb-1" />
+                              ) : null}
+                              <span className="text-xs text-center">{card.content}</span>
+                              <span className="text-xs text-gray-400">Pair: {pairContent || <span className="text-gray-300">None</span>}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   <div className="absolute top-4 right-4 flex gap-2">
-                    <button
+                              <button
                       className="text-[#4C53B4] hover:bg-[#EEF1F5] hover:scale-110 transition p-1 rounded"
-                      onClick={() => {
+                                onClick={() => {
                         setQuestionDraft(q);
                         setQuestionEditIdx(idx);
+                        setSelectedQuestionWord(q.word); // <-- add this line
                         
                         // Show notification
                         setNotification({
@@ -745,12 +1323,12 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       title="Edit"
                     >
                       <i className="fa-solid fa-pen"></i>
-                    </button>
-                    <button
+                              </button>
+                        <button
                       className="text-red-500 hover:bg-red-100 hover:scale-110 transition p-1 rounded"
-                      onClick={() => {
-                        setDrill(prev => ({
-                          ...prev,
+                          onClick={() => {
+                            setDrill(prev => ({
+                              ...prev,
                           questions: prev.questions.filter((_, i) => i !== idx)
                         }));
                         
@@ -769,227 +1347,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                         // Auto-hide notification after a few seconds
                         setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
                       }}
-                      title="Delete"
-                    >
-                      <i className="fa-solid fa-trash"></i>
-                    </button>
-                  </div>
-                  <div className="font-medium mb-2">Q{idx+1}: {q.type === 'F'
-                    ? <>
-                        {(q.text || '').split('_')[0]}
-                        <span className="inline-block w-16 border-b-2 border-gray-400 mx-2 align-middle" />
-                        {(q.text || '').split('_')[1]}
-                      </>
-                    : q.text}
-                  </div>
-                  {/* Content Display */}
-                  {(q.story_title || q.story_context || q.story_image || q.story_video || q.sign_language_instructions) && (
-                    <div className="mb-4 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
-                      <h4 className="font-medium mb-2">Content</h4>
-                      {q.story_title && (
-                        <div className="mb-2">
-                          <span className="text-sm text-gray-600">Title:</span>
-                          <p className="font-medium">{q.story_title}</p>
-                        </div>
-                      )}
-                      {q.story_context && (
-                        <div className="mb-2">
-                          <span className="text-sm text-gray-600">Context:</span>
-                          <p className="whitespace-pre-wrap">{q.story_context}</p>
-                        </div>
-                      )}
-                      {q.sign_language_instructions && (
-                        <div className="mb-2">
-                          <span className="text-sm text-gray-600">Sign Language Instructions:</span>
-                          <p className="whitespace-pre-wrap">{q.sign_language_instructions}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {q.type === 'M' && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {(q.choices || []).map((c, i) => (
-                        <div
-                          key={i}
-                          className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}
-                        >
-                          {c.media ? (
-                            (() => {
-                              let src = null;
-                              let type = '';
-                              if (c.media instanceof File) {
-                                src = URL.createObjectURL(c.media);
-                                type = c.media.type;
-                              } else if (c.media && c.media.url) {
-                                src = c.media.url;
-                                type = c.media.type || '';
-                              }
-                              if (type.startsWith('image/')) {
-                                return (
-                                  <img
-                                    src={src}
-                                    alt="preview"
-                                    className="rounded w-full h-full object-contain border cursor-pointer"
-                                    onClick={() => setMediaModal({ open: true, src, type })}
-                                  />
-                                );
-                              } else if (type.startsWith('video/')) {
-                                return (
-                                  <video
-                                    src={src}
-                                    className="rounded w-full h-full object-contain border cursor-pointer"
-                                    controls
-                                    onClick={e => { e.stopPropagation(); setMediaModal({ open: true, src, type }); }}
-                                  />
-                                );
-                              }
-                              return null;
-                            })()
-                          ) : c.text ? (
-                            <span className="text-center break-words w-full text-xs">{c.text}</span>
-                          ) : (
-                            <i className="fa-regular fa-image text-lg text-gray-200"></i>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {q.type === 'F' && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {(q.choices || []).map((c, i) => (
-                        <div
-                          key={i}
-                          className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}
-                        >
-                          {c.text ? (
-                            <span className="text-center break-words w-full text-xs">{c.text}</span>
-                          ) : (
-                            <span className="text-gray-300 text-xs">No content</span>
-                          )}
-                        </div>
-                      ))}
-                      <div className="w-full text-xs text-gray-500 mt-2">
-                        Correct: Choice {q.answer + 1}
-                      </div>
-                    </div>
-                  )}
-                  {q.type === 'D' && (
-                    <div className="space-y-4">
-                      {/* Drag Items Section */}
-                      <div className="space-y-2">
-                        <label className="block font-medium">Drag Items (What students will drag)</label>
-                        <div className="text-sm text-gray-500 mb-2">Example: Countries, dates, names, etc.</div>
-                        {(q.dragItems || []).map((item, index) => (
-                          <div key={index} className="flex gap-2">
-                            <input
-                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                              placeholder={`Drag Item ${index + 1}`}
-                              value={item.text}
-                              onChange={e => {
-                                const newItems = [...q.dragItems];
-                                newItems[index] = { ...newItems[index], text: e.target.value };
-                                setDrill(prev => ({ ...prev, dragItems: newItems }));
-                              }}
-                            />
-                            <button
-                              className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
-                              onClick={() => {
-                                const newItems = q.dragItems.filter((_, i) => i !== index);
-                                setDrill(prev => ({ ...prev, dragItems: newItems }));
-                              }}
-                            >
-                              <i className="fa-solid fa-trash"></i>
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
-                          onClick={() => {
-                            setDrill(prev => ({
-                              ...prev,
-                              dragItems: [...prev.dragItems, { text: '', isCorrect: false }]
-                            }));
-                          }}
-                        >
-                          <i className="fa-solid fa-plus mr-2"></i> Add Drag Item
-                        </button>
-                      </div>
-                      {/* Drop Zones Section */}
-                      <div className="space-y-2">
-                        <label className="block font-medium">Drop Zones (Where students will drop items)</label>
-                        <div className="text-sm text-gray-500 mb-2">Example: Capitals, definitions, answers, etc.</div>
-                        {(q.dropZones || []).map((zone, index) => (
-                          <div key={index} className="flex flex-col gap-2">
-                            <div className="flex gap-2">
-                              <input
-                                className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                                placeholder={`Drop Zone ${index + 1}`}
-                                value={zone.text}
-                                onChange={e => {
-                                  const newZones = [...q.dropZones];
-                                  newZones[index] = { ...newZones[index], text: e.target.value };
-                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
-                                }}
-                              />
-                              <button
-                                className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
-                                onClick={() => {
-                                  const newZones = q.dropZones.filter((_, i) => i !== index);
-                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
-                                }}
-                              >
-                                <i className="fa-solid fa-trash"></i>
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-sm text-gray-600">Correct Answer:</label>
-                              <select
-                                className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                                value={zone.correctItemIndex ?? ''}
-                                onChange={e => {
-                                  const newZones = [...q.dropZones];
-                                  newZones[index] = { 
-                                    ...newZones[index], 
-                                    correctItemIndex: e.target.value === '' ? null : parseInt(e.target.value)
-                                  };
-                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
-                                }}
-                              >
-                                <option value="">Select correct answer</option>
-                                {(q.dragItems || []).map((item, i) => (
-                                  <option key={i} value={i}>
-                                    {item.text || `Drag Item ${i + 1}`}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                        <button
-                          className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
-                          onClick={() => {
-                            setDrill(prev => ({
-                              ...prev,
-                              dropZones: [...prev.dropZones, { text: '', correctItemIndex: null }]
-                            }));
-                          }}
-                        >
-                          <i className="fa-solid fa-plus mr-2"></i> Add Drop Zone
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {q.type === 'G' && (
-                    <MemoryGameQuestionForm
-                      question={q}
-                      onChange={(updatedQuestion) => {
-                        setDrill(prev => ({
-                          ...prev,
-                          questions: prev.questions.map((q, idx) =>
-                            idx === q.id ? updatedQuestion : q
-                          )
-                        }));
-                      }}
+
                       setNotification={setNotification}
                     />
                   )}
@@ -1036,15 +1394,43 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       </div>
                     </div>
                   )}
+                      title="Delete"
+                    >
+                      <i className="fa-solid fa-trash"></i>
+                        </button>
+                      </div>
                 </div>
               ))}
             </div>
             {/* Add/Edit Question Form */}
             <div className="mb-6 p-6 rounded-xl border-2 border-gray-100 bg-[#F7F9FC]" ref={questionFormRef}>
-              <div className="mb-2 font-bold text-lg">{questionEditIdx !== null ? 'Edit' : 'Add'} Question</div>
+              <div className="mb-4">
+                <div className="font-bold text-lg mb-2">
+                  {questionEditIdx !== null ? 'Edit' : 'Add'} Question
+                </div>
+                {/* Select Word */}
+                <div className="mb-4">
+                  <label className="block mb-1 font-medium">Select Word <span className="text-red-500">*</span></label>
+                  <select
+                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                    value={selectedQuestionWord}
+                    onChange={e => setSelectedQuestionWord(e.target.value)}
+                  >
+                    <option value="">Select a word</option>
+                    {getAvailableWords().map((w, i) => (
+                      <option key={i} value={w.word}>{w.word}</option>
+                    ))}
+                  </select>
+                  {selectedQuestionWordData && selectedQuestionWordData.definition && (
+                    <div className="mt-2 text-gray-600">Definition: {selectedQuestionWordData.definition}</div>
+                  )}
+                </div>
+                {/* Disable rest of form if no word selected */}
+                {selectedQuestionWord && (
+                  <>
               {/* Question Type Selection */}
               <div className="mb-4">
-                <label className="block mb-1 font-medium">Question Type</label>
+                      <label className="block mb-1 font-medium">Question Type <span className="text-red-500">*</span></label>
                 <select
                   className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
                   value={questionDraft.type}
@@ -1070,10 +1456,10 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   <option value="P">Four Pics One Word</option>
                 </select>
               </div>
-              {/* Question Text Input */}
-              <label className="block mb-1 font-medium">Question Text</label>
+                    {/* Question Text with AI Generation */}
+                    <div className="mb-4">
+                      <label className="block mb-1 font-medium">Question Text <span className="text-red-500">*</span></label>
               {questionDraft.type === 'F' ? (
-                <>
                   <div className="flex items-center gap-2 mb-4">
                     <input
                       className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
@@ -1101,6 +1487,24 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       }}
                     />
                   </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input
+                            className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                            placeholder="Question text"
+                            value={questionDraft.text}
+                            onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
+                            id="question-text-input"
+                          />
+                          <AiGenerateButton
+                            onClick={generateQuestion}
+                            loading={aiLoading.question}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {/* Choices for Fill in the Blank */}
+                    {questionDraft.type === 'F' && (
                   <div className="mb-4">
                     <label className="block mb-1 font-medium">Possible Answers</label>
                     <div className="flex gap-2 mb-2">
@@ -1115,17 +1519,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                         </div>
                       ))}
                     </div>
-                  </div>
-                </>
-              ) : (
-                <div className="mb-4">  
-                  <input
-                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                    placeholder="Question text"
-                    value={questionDraft.text}
-                    onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
-                    id="question-text-input"
-                  />
                 </div>
               )}
               {/* Content Section */}
@@ -1163,7 +1556,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   </div>
                 </div>
               </div>
-              
               {/* Type-specific form for Drag and Drop and Memory Game */}
               {questionDraft.type === 'D' && (
                 <div className="space-y-4">
@@ -1278,6 +1670,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     setQuestionDraft(updatedQuestion);
                   }}
                   setNotification={setNotification}
+                        setMediaModal={setMediaModal}
                 />
               )}
               {/* Add Picture Word Question Form */}
@@ -1338,39 +1731,30 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   onClick={() => {
                     const newQ = {
                       ...questionDraft,
+                            word: selectedQuestionWord,
+                            definition: selectedQuestionWordData.definition,
+                            image: selectedQuestionWordData.image,
+                            signVideo: selectedQuestionWordData.signVideo,
                       choices: questionDraft.choices.map(c => ({ ...c }))
                     };
                     if (questionEditIdx !== null) {
                       const updatedQuestions = [...drill.questions];
                       updatedQuestions[questionEditIdx] = newQ;
                       setDrill(prev => ({ ...prev, questions: updatedQuestions }));
-                      
-                      // Show notification for edit
-                      setNotification({
-                        show: true,
-                        message: `Question ${questionEditIdx+1} updated successfully`,
-                        type: 'success'
-                      });
+                            setNotification({ show: true, message: `Question ${questionEditIdx+1} updated successfully`, type: 'success' });
                     } else {
                       setDrill(prev => ({ ...prev, questions: [...prev.questions, newQ] }));
-                      
-                      // Show notification for add
-                      setNotification({
-                        show: true,
-                        message: `New question added successfully`,
-                        type: 'success'
-                      });
+                            setNotification({ show: true, message: `New question added successfully`, type: 'success' });
                     }
                     setQuestionDraft({ ...emptyQuestion, choices: emptyQuestion.choices.map(() => ({ text: '', media: null })) });
                     setQuestionEditIdx(null);
-                    
-                    // Auto-hide notification after a few seconds
+                          setSelectedQuestionWord('');
+                          setSelectedQuestionWordData({});
                     setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
-                    
-                    // Scroll back to questions list
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   disabled={
+                          !selectedQuestionWord ||
                     !questionDraft.text || 
                     (questionDraft.type === 'M' && questionDraft.choices.some(c => !c.text && !c.media)) ||
                     (questionDraft.type === 'F' && questionDraft.choices.some(c => !c.text)) ||
@@ -1379,46 +1763,32 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       !questionDraft.memoryCards || 
                       questionDraft.memoryCards.length < 2 || 
                       questionDraft.memoryCards.length % 2 !== 0 ||
-                      questionDraft.memoryCards.some(card => !card.content && !card.media) ||
-                      (() => {
-                        const cards = questionDraft.memoryCards || [];
-                        const paired = new Set();
-                        for (const card of cards) {
-                          if (!card.pairId) return true;
-                          if (card.pairId === card.id) return true;
-                          const pair = cards.find(c => c.id === card.pairId);
-                          if (!pair || pair.pairId !== card.id) return true;
-                          // Only allow each pair once
-                          const pairKey = [card.id, card.pairId].sort().join('-');
-                          if (paired.has(pairKey)) continue;
-                          paired.add(pairKey);
+                            questionDraft.memoryCards.some(card => !card.content && !card.media)
+                          ))
                         }
-                        // Each card must be in exactly one pair
-                        return paired.size !== cards.length / 2;
-                      })()
-                    ))
-                  }
-                >
-                  {questionEditIdx !== null ? 'Save' : 'Add'} Question
+                      >
+                        {questionEditIdx !== null ? 'Save' : 'Add Question'}
                 </button>
               </div>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="flex justify-between">
-              <button className="px-6 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105 transition" onClick={() => setStep(0)}>Back</button>
-              {drill.questions.length < 3 && (
-                <div className="text-xs text-red-500 mb-2">You must add at least 3 questions to continue.</div>
-              )}
+            {/* Continue to Review button */}
+            <div className="flex justify-end">
               <button
                 className="px-6 py-2 rounded-xl bg-[#4C53B4] text-white hover:bg-[#3a4095] hover:scale-105 transition font-bold"
-                onClick={() => setStep(2)}
-                disabled={drill.questions.length < 3}
+
+                onClick={() => setStep(3)}
+                disabled={drill.questions.length < 1}
+
               >
                 Continue
               </button>
             </div>
           </div>
         )}
-        {step === 2 && (
+        {step === 3 && (
           <div>
             <h2 className="text-2xl font-bold mb-6">Review & Submit</h2>
             {successMsg && (
@@ -1435,47 +1805,24 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
             </div>
             <div className="mb-6">
               {drill.questions.map((q, idx) => (
-                <div key={idx} className="mb-4 p-4 rounded-xl border-2 border-gray-100 bg-[#F7F9FC]">
-                  <div className="font-medium mb-2">Q{idx+1}: {q.type === 'F'
-                    ? <>
-                        {(q.text || '').split('_')[0]}
-                        <span className="inline-block w-16 border-b-2 border-gray-400 mx-2 align-middle" />
-                        {(q.text || '').split('_')[1]}
-                      </>
-                    : q.text}
-                  </div>
-                  {/* Content Display */}
-                  {(q.story_title || q.story_context || q.story_image || q.story_video || q.sign_language_instructions) && (
-                    <div className="mb-4 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
-                      <h4 className="font-medium mb-2">Content</h4>
-                      {q.story_title && (
+                <div key={idx} className="mb-4 p-4 rounded-xl border-2 border-gray-100 bg-[#F7F9FC] relative">
+                  <div className="font-medium mb-2">Word: {q.word}</div>
+                  <div className="text-gray-600 mb-2">Definition: {q.definition}</div>
+                  {q.image && <img src={typeof q.image === 'string' ? q.image : URL.createObjectURL(q.image)} alt="preview" className="max-h-32 rounded mb-2" />}
+                  {q.signVideo && <video src={typeof q.signVideo === 'string' ? q.signVideo : URL.createObjectURL(q.signVideo)} controls className="max-h-32 rounded mb-2" />}
+                  {/* Preview for question types */}
                         <div className="mb-2">
-                          <span className="text-sm text-gray-600">Title:</span>
-                          <p className="font-medium">{q.story_title}</p>
+                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Multiple Choice' : q.type === 'F' ? 'Fill in the Blank' : q.type === 'D' ? 'Drag and Drop' : q.type === 'G' ? 'Memory Game' : ''}
                         </div>
-                      )}
-                      {q.story_context && (
                         <div className="mb-2">
-                          <span className="text-sm text-gray-600">Context:</span>
-                          <p className="whitespace-pre-wrap">{q.story_context}</p>
+                    <span className="font-semibold">Question:</span> {q.type === 'F' ? (
+                      <span>{(q.text || '').split('_')[0]}<span className="inline-block w-16 border-b-2 border-gray-400 mx-2 align-middle" />{(q.text || '').split('_')[1]}</span>
+                    ) : q.text}
                         </div>
-                      )}
-                      
-                      {q.sign_language_instructions && (
-                        <div className="mb-2">
-                          <span className="text-sm text-gray-600">Sign Language Instructions:</span>
-                          <p className="whitespace-pre-wrap">{q.sign_language_instructions}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
                   {q.type === 'M' && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {(q.choices || []).map((c, i) => (
-                        <div
-                          key={i}
-                          className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}
-                        >
+                        <div key={i} className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}>
                           {c.media ? (
                             (() => {
                               let src = null;
@@ -1488,23 +1835,9 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                                 type = c.media.type || '';
                               }
                               if (type.startsWith('image/')) {
-                                return (
-                                  <img
-                                    src={src}
-                                    alt="preview"
-                                    className="rounded w-full h-full object-contain border cursor-pointer"
-                                    onClick={() => setMediaModal({ open: true, src, type })}
-                                  />
-                                );
+                                return <img src={src} alt="preview" className="rounded w-full h-full object-contain border cursor-pointer" onClick={() => setMediaModal({ open: true, src, type })} />;
                               } else if (type.startsWith('video/')) {
-                                return (
-                                  <video
-                                    src={src}
-                                    className="rounded w-full h-full object-contain border cursor-pointer"
-                                    controls
-                                    onClick={e => { e.stopPropagation(); setMediaModal({ open: true, src, type }); }}
-                                  />
-                                );
+                                return <video src={src} className="rounded w-full h-full object-contain border cursor-pointer" controls onClick={e => { e.stopPropagation(); setMediaModal({ open: true, src, type }); }} />;
                               }
                               return null;
                             })()
@@ -1520,10 +1853,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   {q.type === 'F' && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {(q.choices || []).map((c, i) => (
-                        <div
-                          key={i}
-                          className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}
-                        >
+                        <div key={i} className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}>
                           {c.text ? (
                             <span className="text-center break-words w-full text-xs">{c.text}</span>
                           ) : (
@@ -1531,128 +1861,112 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                           )}
                         </div>
                       ))}
-                      <div className="w-full text-xs text-gray-500 mt-2">
-                        Correct: Choice {q.answer + 1}
-                      </div>
+                      <div className="w-full text-xs text-gray-500 mt-2">Correct: Choice {q.answer + 1}</div>
                     </div>
                   )}
                   {q.type === 'D' && (
-                    <div className="space-y-4">
-                      {/* Drag Items Section */}
-                      <div className="space-y-2">
-                        <label className="block font-medium">Drag Items (What students will drag)</label>
-                        <div className="text-sm text-gray-500 mb-2">Example: Countries, dates, names, etc.</div>
-                        {(q.dragItems || []).map((item, index) => (
-                          <div key={index} className="flex gap-2">
-                            <input
-                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                              placeholder={`Drag Item ${index + 1}`}
-                              value={item.text}
-                              onChange={e => {
-                                const newItems = [...q.dragItems];
-                                newItems[index] = { ...newItems[index], text: e.target.value };
-                                setDrill(prev => ({ ...prev, dragItems: newItems }));
-                              }}
-                            />
-                            <button
-                              className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
-                              onClick={() => {
-                                const newItems = q.dragItems.filter((_, i) => i !== index);
-                                setDrill(prev => ({ ...prev, dragItems: newItems }));
-                              }}
-                            >
-                              <i className="fa-solid fa-trash"></i>
-                            </button>
+                    <div className="mt-2">
+                      <div className="mb-2 font-semibold">Drag and Drop Mapping:</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="font-medium mb-1">Drag Items</div>
+                          <ul className="space-y-1">
+                            {(q.dragItems || []).map((item, i) => (
+                              <li key={i} className="px-2 py-1 bg-white border rounded">{item.text}</li>
+                            ))}
+                          </ul>
                           </div>
-                        ))}
-                        <button
-                          className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
-                          onClick={() => {
-                            setDrill(prev => ({
-                              ...prev,
-                              dragItems: [...prev.dragItems, { text: '', isCorrect: false }]
-                            }));
-                          }}
-                        >
-                          <i className="fa-solid fa-plus mr-2"></i> Add Drag Item
-                        </button>
+                        <div>
+                          <div className="font-medium mb-1">Drop Zones</div>
+                          <ul className="space-y-1">
+                            {(q.dropZones || []).map((zone, i) => (
+                              <li key={i} className="px-2 py-1 bg-white border rounded flex items-center gap-2">
+                                <span>{zone.text}</span>
+                                {zone.correctItemIndex !== null && (q.dragItems || []).length > 0 && (q.dragItems || [])[zone.correctItemIndex] && (
+                                  <span className="ml-2 text-xs text-gray-500">→ {(q.dragItems || [])[zone.correctItemIndex].text}</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
                       </div>
-                      {/* Drop Zones Section */}
-                      <div className="space-y-2">
-                        <label className="block font-medium">Drop Zones (Where students will drop items)</label>
-                        <div className="text-sm text-gray-500 mb-2">Example: Capitals, definitions, answers, etc.</div>
-                        {(q.dropZones || []).map((zone, index) => (
-                          <div key={index} className="flex flex-col gap-2">
-                            <div className="flex gap-2">
-                              <input
-                                className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                                placeholder={`Drop Zone ${index + 1}`}
-                                value={zone.text}
-                                onChange={e => {
-                                  const newZones = [...q.dropZones];
-                                  newZones[index] = { ...newZones[index], text: e.target.value };
-                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
-                                }}
-                              />
-                              <button
-                                className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
-                                onClick={() => {
-                                  const newZones = q.dropZones.filter((_, i) => i !== index);
-                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
-                                }}
-                              >
-                                <i className="fa-solid fa-trash"></i>
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-sm text-gray-600">Correct Answer:</label>
-                              <select
-                                className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                                value={zone.correctItemIndex ?? ''}
-                                onChange={e => {
-                                  const newZones = [...q.dropZones];
-                                  newZones[index] = { 
-                                    ...newZones[index], 
-                                    correctItemIndex: e.target.value === '' ? null : parseInt(e.target.value)
-                                  };
-                                  setDrill(prev => ({ ...prev, dropZones: newZones }));
-                                }}
-                              >
-                                <option value="">Select correct answer</option>
-                                {(q.dragItems || []).map((item, i) => (
-                                  <option key={i} value={i}>
-                                    {item.text || `Drag Item ${i + 1}`}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                        <button
-                          className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
-                          onClick={() => {
-                            setDrill(prev => ({
-                              ...prev,
-                              dropZones: [...prev.dropZones, { text: '', correctItemIndex: null }]
-                            }));
-                          }}
-                        >
-                          <i className="fa-solid fa-plus mr-2"></i> Add Drop Zone
-                        </button>
                       </div>
                     </div>
                   )}
                   {q.type === 'G' && (
-                    <MemoryGameQuestionForm
-                      question={q}
-                      onChange={(updatedQuestion) => {
-                        setDrill(prev => ({
-                          ...prev,
-                          questions: prev.questions.map((q, idx) =>
-                            idx === q.id ? updatedQuestion : q
-                          )
-                        }));
+                    <div className="mt-2">
+                      <div className="font-semibold mb-1">Memory Cards:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {(q.memoryCards || []).map((card, i) => {
+                          // Find the paired card's content or index
+                          let pairContent = null;
+                          if (card.pairId) {
+                            const pairCard = (q.memoryCards || []).find(c => c.id === card.pairId);
+                            pairContent = pairCard ? (pairCard.content || (pairCard.media && pairCard.media.name) || `Card ${q.memoryCards.indexOf(pairCard)+1}`) : card.pairId;
+                          }
+                          return (
+                            <div key={i} className="w-32 h-24 border rounded flex flex-col items-center justify-center bg-white p-1">
+                              {card.media ? (
+                                <img src={typeof card.media === 'string' ? card.media : URL.createObjectURL(card.media)} alt="card" className="max-h-16 max-w-full mb-1" />
+                              ) : null}
+                              <span className="text-xs text-center">{card.content}</span>
+                              <span className="text-xs text-gray-400">Pair: {pairContent || <span className="text-gray-300">None</span>}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute top-4 right-4 flex gap-2">
+                              <button
+                      className="text-[#4C53B4] hover:bg-[#EEF1F5] hover:scale-110 transition p-1 rounded"
+                                onClick={() => {
+                        setQuestionDraft(q);
+                        setQuestionEditIdx(idx);
+                        setSelectedQuestionWord(q.word); // <-- add this line
+                        
+                        // Show notification
+                        setNotification({
+                          show: true,
+                          message: `Editing question ${idx+1}`,
+                          type: 'info'
+                        });
+                        
+                        // Scroll to the question form
+                        setTimeout(() => {
+                          questionFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          // Auto-hide notification after a few seconds
+                          setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+                          document.getElementById('question-text-input')?.focus();
+                        }, 100);
                       }}
+                      title="Edit"
+                    >
+                      <i className="fa-solid fa-pen"></i>
+                              </button>
+                        <button
+                      className="text-red-500 hover:bg-red-100 hover:scale-110 transition p-1 rounded"
+                          onClick={() => {
+                            setDrill(prev => ({
+                              ...prev,
+                          questions: prev.questions.filter((_, i) => i !== idx)
+                        }));
+                        
+                        if (questionEditIdx === idx) {
+                          setQuestionDraft(emptyQuestion);
+                          setQuestionEditIdx(null);
+                        }
+                        
+                        // Show notification
+                        setNotification({
+                          show: true,
+                          message: `Question ${idx+1} deleted`,
+                          type: 'warning'
+                        });
+                        
+                        // Auto-hide notification after a few seconds
+                        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+                      }}
+
                       setNotification={setNotification}
                     />
                   )}
@@ -1699,11 +2013,16 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       </div>
                     </div>
                   )}
+                      title="Delete"
+                    >
+                      <i className="fa-solid fa-trash"></i>
+                        </button>
+                      </div>
                 </div>
               ))}
             </div>
             <div className="flex justify-between">
-              <button className="px-6 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105 transition" onClick={() => setStep(1)}>Back</button>
+              <button className="px-6 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105 transition" onClick={() => setStep(2)}>Back</button>
               <div className="flex gap-2">
                 <button
                   className="px-6 py-2 rounded-xl bg-yellow-400 text-white hover:bg-yellow-500 hover:scale-105 transition font-bold"
