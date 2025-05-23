@@ -113,6 +113,8 @@ const EditDrill = () => {
     blankPosition: null,
     dragItems: [],
     dropZones: [],
+    memoryCards: [],
+    pictureWord: [],
   };
 
   const getAbsoluteUrl = (url) => {
@@ -185,6 +187,8 @@ const EditDrill = () => {
       blankPosition: null,
       dragItems: [],
       dropZones: [],
+      memoryCards: [],
+      pictureWord: [],
     });
     setQuestionEditIdx(null);
   };
@@ -300,6 +304,263 @@ const EditDrill = () => {
   const validateOverviewFields = () => {
     if (!drill?.title || !drill?.deadline) return false;
     return true;
+  };
+
+  const MemoryGameCard = ({ card, cards, onRemove, onTextChange, onMediaChange, onPairChange, setNotification }) => {
+    const handleMediaChange = (file) => {
+      if (file && !file.type.startsWith('image/')) {
+        setNotification({
+          show: true,
+          message: 'Only image files are allowed for Memory Game cards.',
+          type: 'error'
+        });
+        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+        return;
+      }
+      onMediaChange(file);
+    };
+
+    return (
+      <div className="border rounded-lg p-4 bg-white">
+        <div className="flex justify-between items-start mb-2">
+          <input
+            type="text"
+            value={card.content}
+            onChange={(e) => onTextChange(e.target.value)}
+            placeholder="Enter text content"
+            className="flex-1 mr-2 p-2 border rounded"
+          />
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-red-500 hover:text-red-700"
+          >
+            <i className="fa-solid fa-trash"></i>
+          </button>
+        </div>
+        <FileInput
+          value={card.media}
+          onChange={handleMediaChange}
+          onPreview={(src, type) => setMediaModal({ open: true, src, type })}
+        />
+        <div className="mt-2">
+          <label className="block text-xs text-gray-600 mb-1">Pair With</label>
+          <select
+            className="w-full border rounded p-1"
+            value={card.pairId || ''}
+            onChange={e => onPairChange(e.target.value)}
+          >
+            <option value="">Select a card</option>
+            {cards.filter(c => c.id !== card.id).map(c => (
+              <option key={c.id} value={c.id}>
+                {c.content || c.media?.name || c.media?.url || 'Card'}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    );
+  };
+
+  const MemoryGameQuestionForm = ({ question, onChange, setNotification }) => {
+    const addCard = () => {
+      const newCard = {
+        id: `card_${Date.now()}`,
+        content: '',
+        pairId: '',
+        media: null
+      };
+      onChange({
+        ...question,
+        memoryCards: [...(question.memoryCards || []), newCard]
+      });
+    };
+
+    const removeCard = (cardId) => {
+      const cards = (question.memoryCards || []).filter(card => card.id !== cardId);
+      // Remove pairings to this card
+      const updatedCards = cards.map(card => {
+        if (card.pairId === cardId) {
+          return { ...card, pairId: '' };
+        }
+        return card;
+      });
+      onChange({
+        ...question,
+        memoryCards: updatedCards
+      });
+    };
+
+    const updateCard = (cardId, field, value) => {
+      const updatedCards = (question.memoryCards || []).map(card => {
+        if (card.id === cardId) {
+          return { ...card, [field]: value };
+        }
+        return card;
+      });
+      onChange({
+        ...question,
+        memoryCards: updatedCards
+      });
+    };
+
+    const updateCardMedia = (cardId, file) => {
+      const updatedCards = (question.memoryCards || []).map(card => {
+        if (card.id === cardId) {
+          return { ...card, media: file };
+        }
+        return card;
+      });
+      onChange({
+        ...question,
+        memoryCards: updatedCards
+      });
+    };
+
+    const updateCardPair = (cardId, pairId) => {
+      let updatedCards = (question.memoryCards || []).map(card => {
+        if (card.id === cardId) {
+          return { ...card, pairId };
+        }
+        // If this card was previously paired with cardId, clear it if the new pairId is not this card
+        if (card.pairId === cardId && pairId !== card.id) {
+          return { ...card, pairId: '' };
+        }
+        return card;
+      });
+      // Make the pairing mutual
+      if (pairId) {
+        updatedCards = updatedCards.map(card => {
+          if (card.id === pairId) {
+            return { ...card, pairId: cardId };
+          }
+          return card;
+        });
+      }
+      onChange({
+        ...question,
+        memoryCards: updatedCards
+      });
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold">Memory Game Cards</h3>
+          <button
+            type="button"
+            onClick={addCard}
+            className="px-3 py-1 bg-[#4C53B4] text-white rounded hover:bg-[#3a3f8f]"
+          >
+            Add Card
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {(question.memoryCards || []).map((card, index) => (
+            <MemoryGameCard
+              key={card.id}
+              card={card}
+              cards={question.memoryCards}
+              onRemove={() => removeCard(card.id)}
+              onTextChange={(value) => updateCard(card.id, 'content', value)}
+              onMediaChange={(file) => updateCardMedia(card.id, file)}
+              onPairChange={(pairId) => updateCardPair(card.id, pairId)}
+              setNotification={setNotification}
+            />
+          ))}
+        </div>
+        {(question.memoryCards || []).length > 0 && (
+          <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <i className="fa-solid fa-info-circle mr-2"></i>
+              Make sure to add an even number of cards for matching pairs. Each card should have either text or media content. Use the 'Pair With' dropdown to set matching pairs. Each pair must be unique and mutual.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const PictureWordQuestionForm = ({ question, onChange, setNotification }) => {
+    const addPicture = () => {
+      const newPicture = {
+        id: `pic_${Date.now()}`,
+        media: null
+      };
+      onChange({
+        ...question,
+        pictureWord: [...(question.pictureWord || []), newPicture]
+      });
+    };
+
+    const removePicture = (picId) => {
+      const pictures = (question.pictureWord || []).filter(pic => pic.id !== picId);
+      onChange({
+        ...question,
+        pictureWord: pictures
+      });
+    };
+
+    const updatePicture = (picId, file) => {
+      const updatedPictures = (question.pictureWord || []).map(pic => {
+        if (pic.id === picId) {
+          return { ...pic, media: file };
+        }
+        return pic;
+      });
+      onChange({
+        ...question,
+        pictureWord: updatedPictures
+      });
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold">Four Pics One Word</h3>
+          <button
+            type="button"
+            onClick={addPicture}
+            className="px-3 py-1 bg-[#4C53B4] text-white rounded hover:bg-[#3a3f8f]"
+            disabled={(question.pictureWord || []).length >= 4}
+          >
+            Add Picture
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {(question.pictureWord || []).map((pic, index) => (
+            <div key={pic.id} className="border rounded-lg p-4 bg-white">
+              <div className="flex justify-between items-start mb-2">
+                <span className="text-sm text-gray-600">Picture {index + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => removePicture(pic.id)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <i className="fa-solid fa-trash"></i>
+                </button>
+              </div>
+              <FileInput
+                value={pic.media}
+                onChange={(file) => updatePicture(pic.id, file)}
+                onPreview={(src, type) => setMediaModal({ open: true, src, type })}
+              />
+            </div>
+          ))}
+        </div>
+        {/* Correct answer field */}
+        <div className="mt-4">
+          <label className="block mb-1 font-medium">Correct Answer</label>
+          <input
+            type="text"
+            className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+            placeholder="Enter the correct word that connects all pictures"
+            value={question.answer || ''}
+            onChange={(e) => onChange({ ...question, answer: e.target.value })}
+          />
+        </div>
+      </div>
+    );
   };
 
   if (!drill || !classroom) {
@@ -559,6 +820,56 @@ const EditDrill = () => {
                       </div>
                     </div>
                   )}
+                  {q.type === 'G' && (
+                    <div className="mt-2">
+                      <div className="mb-2 font-semibold">Memory Game Cards:</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {(q.memoryCards || []).map((card, i) => (
+                          <div key={i} className="border rounded-lg p-4 bg-white">
+                            {card.content && <div className="mb-2">{card.content}</div>}
+                            {card.media && (
+                              <div className="relative">
+                                <img
+                                  src={card.media instanceof File ? URL.createObjectURL(card.media) : card.media && card.media.url ? getAbsoluteUrl(card.media.url) : ''}
+                                  alt="card"
+                                  className="w-full h-32 object-cover rounded"
+                                />
+                              </div>
+                            )}
+                            {card.pairId && (
+                              <div className="mt-2 text-sm text-gray-500">
+                                Paired with: {q.memoryCards.find(c => c.id === card.pairId)?.content || 'Unknown'}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {q.type === 'P' && (
+                    <div className="mt-2">
+                      <div className="mb-2 font-semibold">Four Pics One Word:</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {(q.pictureWord || []).map((pic, i) => (
+                          <div key={i} className="border rounded-lg p-4 bg-white">
+                            {pic.media && (
+                              <div className="relative">
+                                <img
+                                  src={pic.media instanceof File ? URL.createObjectURL(pic.media) : pic.media && pic.media.url ? getAbsoluteUrl(pic.media.url) : ''}
+                                  alt={`picture ${i + 1}`}
+                                  className="w-full h-32 object-cover rounded"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 p-4 bg-[#EEF1F5] rounded-lg border border-[#4C53B4]">
+                        <span className="text-sm text-gray-600">Correct Answer:</span>
+                        <p className="font-medium text-[#4C53B4]">{q.answer}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -582,12 +893,16 @@ const EditDrill = () => {
                         answer: 0,
                         dragItems: newType === 'D' ? [] : [],
                         dropZones: newType === 'D' ? [] : [],
+                        memoryCards: newType === 'G' ? [] : [],
+                        pictureWord: newType === 'P' ? [] : [],
                       });
                     }}
                   >
-                    <option value="M">Multiple Choice</option>
-                    <option value="F">Fill in the Blank</option>
+                    <option value="M">Smart Select</option>
+                    <option value="F">Blank Busters</option>
                     <option value="D">Drag and Drop</option>
+                    <option value="G">Memory Game</option>
+                    <option value="P">Four Pics One Word</option>
                   </select>
                 </div>
 
@@ -790,6 +1105,28 @@ const EditDrill = () => {
                   </div>
                 )}
 
+                {/* Add Memory Game Question Form */}
+                {questionDraft?.type === 'G' && (
+                  <MemoryGameQuestionForm
+                    question={questionDraft}
+                    onChange={(updatedQuestion) => {
+                      setQuestionDraft(updatedQuestion);
+                    }}
+                    setNotification={setNotification}
+                  />
+                )}
+
+                {/* Add Picture Word Question Form */}
+                {questionDraft?.type === 'P' && (
+                  <PictureWordQuestionForm
+                    question={questionDraft}
+                    onChange={(updatedQuestion) => {
+                      setQuestionDraft(updatedQuestion);
+                    }}
+                    setNotification={setNotification}
+                  />
+                )}
+
                 {/* Add/Edit Question Buttons */}
                 {(questionDraft?.type === 'M' || questionDraft?.type === 'F') && (
                   <div className="mb-4">
@@ -970,6 +1307,56 @@ const EditDrill = () => {
                             ))}
                           </ul>
                         </div>
+                      </div>
+                    </div>
+                  )}
+                  {q.type === 'G' && (
+                    <div className="mt-2">
+                      <div className="mb-2 font-semibold">Memory Game Cards:</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {(q.memoryCards || []).map((card, i) => (
+                          <div key={i} className="border rounded-lg p-4 bg-white">
+                            {card.content && <div className="mb-2">{card.content}</div>}
+                            {card.media && (
+                              <div className="relative">
+                                <img
+                                  src={card.media instanceof File ? URL.createObjectURL(card.media) : card.media && card.media.url ? getAbsoluteUrl(card.media.url) : ''}
+                                  alt="card"
+                                  className="w-full h-32 object-cover rounded"
+                                />
+                              </div>
+                            )}
+                            {card.pairId && (
+                              <div className="mt-2 text-sm text-gray-500">
+                                Paired with: {q.memoryCards.find(c => c.id === card.pairId)?.content || 'Unknown'}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {q.type === 'P' && (
+                    <div className="mt-2">
+                      <div className="mb-2 font-semibold">Four Pics One Word:</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {(q.pictureWord || []).map((pic, i) => (
+                          <div key={i} className="border rounded-lg p-4 bg-white">
+                            {pic.media && (
+                              <div className="relative">
+                                <img
+                                  src={pic.media instanceof File ? URL.createObjectURL(pic.media) : pic.media && pic.media.url ? getAbsoluteUrl(pic.media.url) : ''}
+                                  alt={`picture ${i + 1}`}
+                                  className="w-full h-32 object-cover rounded"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 p-4 bg-[#EEF1F5] rounded-lg border border-[#4C53B4]">
+                        <span className="text-sm text-gray-600">Correct Answer:</span>
+                        <p className="font-medium text-[#4C53B4]">{q.answer || 'Not set'}</p>
                       </div>
                     </div>
                   )}
