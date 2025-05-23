@@ -10,7 +10,7 @@ const Topbar = ({ onMenuClick }) => {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const navigate = useNavigate();
   const { user, logout } = useUser();
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
   const isTeacher = user?.role === 'teacher';
   
   // Refs for modal containers
@@ -142,22 +142,35 @@ const Topbar = ({ onMenuClick }) => {
                   </div>
                 ) : (
                   notifications.map(notification => (
-                    <button
+                    <div
                       key={notification.id}
-                      onClick={() => handleNotificationClick(notification)}
-                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0
-                        ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                      className="group relative"
                     >
-                      <div className="flex items-start gap-3">
-                        <div className={`w-2 h-2 rounded-full mt-2 ${!notification.is_read ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
-                        <div>
-                          <p className="text-sm text-gray-800">{notification.message}</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {new Date(notification.created_at).toLocaleDateString()}
-                          </p>
+                      <button
+                        onClick={() => handleNotificationClick(notification)}
+                        className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0
+                          ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-2 h-2 rounded-full mt-2 ${!notification.is_read ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+                          <div>
+                            <p className="text-sm text-gray-800">{notification.message}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(notification.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </button>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNotification(notification.id);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                      >
+                        <i className="fa-solid fa-trash text-xs"></i>
+                      </button>
+                    </div>
                   ))
                 )}
               </div>

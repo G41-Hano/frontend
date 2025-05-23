@@ -49,6 +49,17 @@ const TransferRequestList = () => {
     }
   };
 
+  const handleDelete = async (requestId) => {
+    try {
+      await api.delete(`/api/transfer-requests/${requestId}/`);
+      await fetchTransferRequests();
+      refreshNotifications();
+    } catch (error) {
+      console.error('Error deleting transfer request:', error);
+      setError('Failed to delete transfer request');
+    }
+  };
+
   const filteredRequests = transferRequests.filter(request => {
     const matchesFilter = filter === 'all' || request.status === filter;
     const matchesSearch = searchTerm === '' || 
@@ -204,6 +215,15 @@ const TransferRequestList = () => {
                     </button>
                   </div>
                 )}
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => handleDelete(request.id)}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <i className="fa-solid fa-trash"></i>
+                    Delete Request
+                  </button>
+                </div>
               </div>
             </div>
           ))}

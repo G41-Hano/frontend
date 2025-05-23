@@ -54,6 +54,20 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
+  const deleteNotification = async (notificationId) => {
+    try {
+      await api.delete(`/api/notifications/${notificationId}/`);
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      // Update unread count if the deleted notification was unread
+      const deletedNotification = notifications.find(n => n.id === notificationId);
+      if (deletedNotification && !deletedNotification.is_read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
   const addNotification = (notification) => {
     setNotifications(prev => [notification, ...prev]);
     if (!notification.is_read) {
@@ -68,7 +82,8 @@ export const NotificationProvider = ({ children }) => {
       markAsRead,
       markAllAsRead,
       addNotification,
-      refreshNotifications: fetchNotifications
+      refreshNotifications: fetchNotifications,
+      deleteNotification
     }}>
       {children}
     </NotificationContext.Provider>
