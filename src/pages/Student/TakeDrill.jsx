@@ -3,15 +3,30 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import drillBg from '../../assets/drill_bg.png';
 import '../../styles/animations.css';
+import HippoIdle from '../../assets/HippoIdle.gif';
+import HippoCurious from '../../assets/MascotHippoCurious.gif';
+import HippoHappy from '../../assets/MascotHippoHappy.gif';
+import HippoSad from '../../assets/MascotHippoSad.gif';
+import HippoWaiting from '../../assets/MascotHippoWaiting.gif';
 
-const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer }) => {
+const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer, answerStatus, wrongAnswers }) => {
   return (
     <div className="animate-fadeIn">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 max-w-4xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mx-auto">
         {question.choices.map((choice, index) => {
           const isSelected = currentAnswer === index;
+          const isWrong = wrongAnswers.includes(index);
+          const isCorrect = answerStatus === 'correct' && isSelected;
           
-          // Handle media (image/video)
+          let buttonClass = 'p-6 rounded-2xl text-center transition-all transform hover:scale-105 ';
+          if (isCorrect) {
+            buttonClass += 'bg-green-500 text-white shadow-lg scale-105';
+          } else if (isWrong) {
+            buttonClass += 'bg-red-500 text-white shadow-lg scale-105';
+          } else {
+            buttonClass += 'bg-white text-gray-800 shadow-md hover:shadow-lg';
+          }
+
           let mediaElement = null;
           if (choice.image) {
             mediaElement = (
@@ -34,20 +49,17 @@ const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer }) => {
           return (
             <button
               key={index}
-              className={`p-6 rounded-2xl text-center transition-all transform hover:scale-105 ${
-                isSelected 
-                  ? 'bg-[#8e44ad] text-white shadow-lg scale-105' 
-                  : 'bg-white text-gray-800 shadow-md hover:shadow-lg'
-              }`}
-              onClick={() => onAnswer(index)}
+              className={buttonClass}
+              onClick={() => !isCorrect && onAnswer(index)}
+              disabled={isCorrect}
             >
-              <div className="flex items-center justify-center">
+              <div className="flex items-center">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl mr-4 ${
                   isSelected ? 'bg-white text-[#8e44ad]' : 'bg-[#f1f2f6] text-[#8e44ad]'
                 }`}>
                   {String.fromCharCode(65 + index)}
                 </div>
-                <div className="flex-1 text-left">
+                <div className="flex-1">
                   {mediaElement}
                   {choice.text && <div className="text-lg font-medium">{choice.text}</div>}
                 </div>
@@ -445,7 +457,19 @@ const StoryDisplay = ({ story }) => {
               <div className="bg-white rounded-2xl p-4 shadow-lg max-w-xs animate-bounce">
                 <p className="text-lg font-medium text-gray-800">{thoughtMessage}</p>
               </div>
-              <div className="absolute -bottom-4 -right-4 w-8 h-8 bg-white transform rotate-45"></div>
+              <div style={{
+                position: 'absolute',
+                left: '-18px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 0,
+                height: 0,
+                borderTop: '18px solid transparent',
+                borderBottom: '18px solid transparent',
+                borderRight: '18px solid #fff',
+                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.10))',
+                zIndex: 1
+              }}></div>
             </div>
           </div>
         </div>
@@ -499,61 +523,249 @@ const StoryDisplay = ({ story }) => {
   );
 };
 
+// Helper: Group questions by word
+const groupQuestionsByWord = (questions) => {
+  const map = {};
+  questions.forEach(q => {
+    if (!map[q.word]) map[q.word] = { word: q.word, definition: q.definition, image: q.image, signVideo: q.signVideo, questions: [] };
+    map[q.word].questions.push(q);
+  });
+  return Object.values(map);
+};
+
+// Helper: Progress bar
+const ProgressBar = ({ progress }) => (
+  <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden mb-6">
+    <div className="bg-[#f39c12] h-4 rounded-full transition-all" style={{ width: `${progress}%` }}></div>
+  </div>
+);
+
+// Helper: Intro bubble
+const IntroBubble = ({ mascot, text, image, video }) => (
+  <div className="w-full max-w-5xl mx-auto flex items-center justify-center animate-fadeIn" style={{ minHeight: 500, position: 'relative' }}>
+    <div className="flex flex-col items-center justify-center mr-5">
+      <img src={mascot} alt="Hippo Mascot" className="w-[34rem] h-[32rem] mb-5 mt-10" />
+    </div>
+    <div className="flex-1 flex flex-col items-start justify-center relative">
+      <div
+        style={{
+          position: 'relative',
+          background: '#fff',
+          borderRadius: '2rem',
+          padding: '2rem 2.5rem',
+          boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10)',
+          fontSize: '1.5rem',
+          fontWeight: 600,
+          color: '#222',
+          marginBottom: '2rem',
+          maxWidth: '700px',
+          minWidth: '320px',
+          minHeight: '120px',
+          display: 'flex',
+          alignItems: 'center',
+          zIndex: 2,
+          marginTop: !(image || video) ? '-20rem' : undefined,
+          transition: 'margin-top 0.3s'
+        }}
+      >
+        <span>{text}</span>
+        {/* Arrow points left */}
+        <div style={{
+          position: 'absolute',
+          left: '-16px',
+          top: '70%',
+          transform: 'translateY(-50%)',
+          width: 0,
+          height: 0,
+          borderTop: '18px solid transparent',
+          borderBottom: '18px solid transparent',
+          borderRight: '18px solid #fff',
+          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.10))',
+          zIndex: 1
+        }}></div>
+      </div>
+      {(image || video) && (
+        <div
+          className="flex items-center justify-center bg-white rounded-2xl shadow-lg mt-2 mb-2"
+          style={{
+            minHeight: '18rem',
+            minWidth: '18rem',
+            maxWidth: '28rem',
+            maxHeight: '22rem',
+            width: '100%',
+            alignSelf: 'center',
+            padding: image && video ? '1rem 1rem 0.25rem 1rem' : '1rem'
+          }}
+        >
+          {image && (
+            <img
+              src={image.startsWith('http') ? image : `http://127.0.0.1:8000${image}`}
+              alt="Word"
+              className="object-contain rounded-xl max-h-72 max-w-full mx-auto"
+              style={{ width: '100%', height: 'auto' }}
+            />
+          )}
+          {video && (
+            <video
+              src={video.startsWith('http') ? video : `http://127.0.0.1:8000${video}`}
+              controls
+              className="rounded-xl max-h-72 max-w-full mx-auto"
+              style={{ width: '100%', height: 'auto' }}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+const transitions = [
+  "Now let's test your knowledge!",
+  "Ready for a challenge?",
+  "Let's see what you remember!",
+  "Time to play a game!",
+];
+
+// Calculate total steps for the entire drill
+const calculateTotalSteps = (wordGroups) => {
+  // 1 for global intro
+  // For each word: intro + definition + sign + transition = 4 steps per word
+  // Plus all questions
+  return 1 + (wordGroups.length * 4) + wordGroups.reduce((acc, group) => acc + group.questions.length, 0);
+};
+
+// Calculate current step number
+const calculateCurrentStep = (introStep, currentWordIdx, currentQuestionIdx, wordGroups) => {
+  if (introStep === 0) return 1; // Global intro
+  
+  const stepsPerWord = 4; // word intro + definition + sign + transition
+  const completedWordSteps = currentWordIdx * stepsPerWord;
+  
+  if (introStep < 5) {
+    // Still in word intro steps
+    return 1 + completedWordSteps + introStep;
+  } else {
+    // In questions phase
+    const previousWordsQuestions = wordGroups
+      .slice(0, currentWordIdx)
+      .reduce((acc, group) => acc + group.questions.length, 0);
+    
+    // 1 (global intro) + all completed word intros + current word intro + questions so far
+    return 1 + (currentWordIdx + 1) * stepsPerWord + previousWordsQuestions + currentQuestionIdx + 1;
+  }
+};
+
 const TakeDrill = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [drill, setDrill] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isTeacherPreview, setIsTeacherPreview] = useState(false);
-  
-  // Fetch the drill data
+  const [introStep, setIntroStep] = useState(0);
+  const [currentWordIdx, setCurrentWordIdx] = useState(0);
+  const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
+  const [attempts, setAttempts] = useState({});
+  const [timeSpent, setTimeSpent] = useState({});
+  const [points, setPoints] = useState({});
+  const [answerStatus, setAnswerStatus] = useState(null);
+  const [timer, setTimer] = useState(null);
+  const [wordGroups, setWordGroups] = useState([]);
+  const [currentAnswer, setCurrentAnswer] = useState(null);
+  const [wrongAnswers, setWrongAnswers] = useState([]);
+
+  // Timer logic
   useEffect(() => {
-    const fetchDrill = async () => {
+    if (introStep === 5) {
+      setTimer(setInterval(() => {
+        const key = `${currentWordIdx}_${currentQuestionIdx}`;
+        setTimeSpent(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+      }, 1000));
+    } else {
+      if (timer) clearInterval(timer);
+    }
+    return () => { if (timer) clearInterval(timer); };
+  }, [introStep, currentWordIdx, currentQuestionIdx, timer]);
+
+  // Fetch drill and wordlist
+  useEffect(() => {
+    const fetchDrillAndWordlist = async () => {
       try {
-        setLoading(true);
-        const response = await api.get(`/api/drills/${id}/`);
-        setDrill(response.data);
-        
-        // Check if this is a teacher preview (draft drill accessed from teacher routes)
-        const isDraft = response.data.status === 'draft';
-        const isTeacherRoute = window.location.pathname.startsWith('/t/');
-        setIsTeacherPreview(isDraft && isTeacherRoute);
-        
+        const drillRes = await api.get(`/api/drills/${id}/`);
+        const drillData = drillRes.data;
+        let mergedQuestions = [];
+
+        if (drillData.custom_wordlist) {
+          const wordlistRes = await api.get(`/api/wordlist/${drillData.custom_wordlist}/`);
+          const words = wordlistRes.data.words || [];
+          mergedQuestions = (drillData.questions || []).map((q, idx) => ({
+            ...q,
+            word: words[idx]?.word || `Word ${idx + 1}`,
+            definition: words[idx]?.definition || '',
+            image: words[idx]?.image_url || null,
+            signVideo: words[idx]?.video_url || null,
+          }));
+        } else {
+          mergedQuestions = drillData.questions || [];
+        }
+
+        setDrill({ ...drillData, questions: mergedQuestions });
+        const groups = groupQuestionsByWord(mergedQuestions);
+        setWordGroups(groups);
         setLoading(false);
-      } catch (err) {
-        setError(err.response?.data?.error || 'Failed to fetch drill');
+      } catch (error) {
+        console.error('Failed to load drill:', error);
+        setError('Failed to load drill. Please try again.');
         setLoading(false);
       }
     };
-    
-    fetchDrill();
+
+    fetchDrillAndWordlist();
   }, [id]);
-  
-  if (loading) {
+
+  // Show full screen layout immediately with loading state
+  if (loading || !drill || wordGroups.length === 0) {
     return (
-      <div className="min-h-screen fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover' }}>
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f39c12]"></div>
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
+        <div className="w-full flex items-center px-8 pt-6 mb-2 gap-6">
+          <button
+            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
+            onClick={() => navigate(-1)}
+            style={{ minWidth: 48, minHeight: 48 }}
+          >
+            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
+          </button>
+          
+          <div className="flex-1 flex justify-center">
+            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div className="bg-[#f39c12] h-full rounded-full animate-pulse" style={{ width: '5%' }} />
+            </div>
+          </div>
+          
+          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
+            Points: 0
+          </div>
+        </div>
+
+        <div className="w-full flex flex-col items-center justify-center h-[calc(100vh-180px)]">
+          <div className="flex items-center gap-4">
+            <img src={HippoWaiting} alt="Loading..." className="w-32 h-32" />
+            <div className="text-xl font-semibold text-[#8e44ad]">Loading your drill...</div>
+          </div>
+        </div>
       </div>
     );
   }
-  
+
   if (error) {
     return (
-      <div className="min-h-screen fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover' }}>
-        <div className="bg-white rounded-3xl shadow-lg p-8 max-w-md w-full mx-4">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full mx-auto flex items-center justify-center mb-4">
-              <i className="fa-solid fa-exclamation text-red-500 text-2xl"></i>
-            </div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">Error</h2>
-            <p className="text-gray-600">{error}</p>
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
+        <div className="w-full h-full flex flex-col items-center justify-center">
+          <div className="bg-white rounded-xl p-8 shadow-lg max-w-md text-center">
+            <img src={HippoSad} alt="Error" className="w-32 h-32 mx-auto mb-4" />
+            <div className="text-xl font-semibold text-red-500 mb-4">{error}</div>
             <button
+              className="px-6 py-2 bg-[#8e44ad] text-white rounded-lg hover:bg-[#6f3381]"
               onClick={() => navigate(-1)}
-              className="mt-6 px-4 py-2 bg-[#f39c12] text-white rounded-lg hover:bg-[#e67e22] transition"
             >
               Go Back
             </button>
@@ -562,112 +774,365 @@ const TakeDrill = () => {
       </div>
     );
   }
-  
-  if (!drill) {
+
+  // Calculate progress once
+  const totalSteps = wordGroups.length > 0 ? calculateTotalSteps(wordGroups) : 1;
+  const currentStep = wordGroups.length > 0 
+    ? calculateCurrentStep(introStep, currentWordIdx, currentQuestionIdx, wordGroups) 
+    : 1;
+  const progress = (currentStep / totalSteps) * 100;
+
+  // Current word/question
+  const currentWord = wordGroups[currentWordIdx];
+  const currentQuestions = currentWord.questions;
+  const currentQuestion = currentQuestions[currentQuestionIdx];
+
+  // --- FLOW ---
+  if (introStep === 0) {
+    // Global intro
     return (
-      <div className="min-h-screen fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover' }}>
-        <div className="bg-white rounded-3xl shadow-lg p-8 max-w-md w-full mx-4">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-yellow-100 rounded-full mx-auto flex items-center justify-center mb-4">
-              <i className="fa-solid fa-question text-yellow-500 text-2xl"></i>
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
+        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
+          {/* Back button */}
+          <button
+            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
+            onClick={() => navigate(-1)}
+            aria-label="Exit drill"
+            style={{ minWidth: 48, minHeight: 48 }}
+          >
+            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
+          </button>
+          {/* Progress bar */}
+          <div className="flex-1 flex justify-center">
+            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div 
+                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
+                style={{ width: `${progress}%` }}
+              />
             </div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">Drill Not Found</h2>
-            <p className="text-gray-600">The drill you're looking for doesn't exist or you don't have permission to access it.</p>
-            <button
-              onClick={() => navigate(-1)}
-              className="mt-6 px-4 py-2 bg-[#f39c12] text-white rounded-lg hover:bg-[#e67e22] transition"
-            >
-              Go Back
-            </button>
+          </div>
+          {/* Points */}
+          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
+            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
           </div>
         </div>
+        <IntroBubble
+          mascot={HippoIdle}
+          text={`Hi I'm Hano, and today we'll learn about ${drill.wordlist_name || drill.title}. Are you ready to learn? Click Next to start!`}
+        />
+        <button
+          className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
+          onClick={() => setIntroStep(1)}
+        >
+          Next
+        </button>
       </div>
     );
   }
-  
-  const questions = drill.questions || [];
-  const currentQuestion = questions[currentQuestionIndex] || null;
-  
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    }
-  };
-  
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
-    }
-  };
+  if (introStep === 1) {
+    // Word intro
+    return (
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
+        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
+          {/* Back button */}
+          <button
+            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
+            onClick={() => navigate(-1)}
+            aria-label="Exit drill"
+            style={{ minWidth: 48, minHeight: 48 }}
+          >
+            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
+          </button>
+          {/* Progress bar */}
+          <div className="flex-1 flex justify-center">
+            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div 
+                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+          {/* Points */}
+          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
+            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
+          </div>
+        </div>
+        <IntroBubble
+          mascot={HippoIdle}
+          text={`This is a ${currentWord.word}`}
+          image={currentWord.image}
+        />
+            <button
+          className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
+          onClick={() => setIntroStep(2)}
+        >
+          Next
+        </button>
+      </div>
+    );
+  }
+  if (introStep === 2) {
+    // Definition
+    return (
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
+        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
+          {/* Back button */}
+          <button
+            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
+              onClick={() => navigate(-1)}
+            aria-label="Exit drill"
+            style={{ minWidth: 48, minHeight: 48 }}
+            >
+            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
+            </button>
+          {/* Progress bar */}
+          <div className="flex-1 flex justify-center">
+            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div 
+                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+          {/* Points */}
+          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
+            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
+          </div>
+        </div>
+        <IntroBubble
+          mascot={HippoIdle}
+          text={currentWord.definition}
+          image={currentWord.image}
+        />
+        <button
+          className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
+          onClick={() => setIntroStep(3)}
+        >
+          Next
+        </button>
+      </div>
+    );
+  }
+  if (introStep === 3) {
+    // Sign language
+    return (
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
+        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
+          {/* Back button */}
+          <button
+            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
+            onClick={() => navigate(-1)}
+            aria-label="Exit drill"
+            style={{ minWidth: 48, minHeight: 48 }}
+          >
+            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
+          </button>
+          {/* Progress bar */}
+          <div className="flex-1 flex justify-center">
+            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div 
+                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+          {/* Points */}
+          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
+            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
+          </div>
+        </div>
+        <IntroBubble
+          mascot={HippoIdle}
+          text={`This is the sign language for ${currentWord.word}. Can you sign it with me? Play the video to see how!`}
+          video={currentWord.signVideo}
+        />
+            <button
+          className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
+          onClick={() => setIntroStep(4)}
+        >
+          Next
+        </button>
+      </div>
+    );
+  }
+  if (introStep === 4) {
+    // Transition
+    return (
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
+        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
+          {/* Back button */}
+          <button
+            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
+              onClick={() => navigate(-1)}
+            aria-label="Exit drill"
+            style={{ minWidth: 48, minHeight: 48 }}
+            >
+            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
+            </button>
+          {/* Progress bar */}
+          <div className="flex-1 flex justify-center">
+            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div 
+                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+          {/* Points */}
+          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
+            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
+          </div>
+        </div>
+        <IntroBubble
+          mascot={HippoIdle}
+          text={transitions[Math.floor(Math.random() * transitions.length)]}
+        />
+        <button
+          className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
+          onClick={() => setIntroStep(5)}
+        >
+          Next
+        </button>
+      </div>
+    );
+  }
+  if (introStep === 5) {
+    let mascot = HippoCurious;
+    if (answerStatus === 'correct') mascot = HippoHappy;
+    if (answerStatus === 'wrong') mascot = HippoSad;
   
   const handleAnswer = (answer) => {
-    setAnswers({
-      ...answers,
-      [currentQuestionIndex]: answer
-    });
-  };
-  
-  const handleSubmit = async () => {
-    try {
-      setIsSubmitting(true);
+      let isCorrect = false;
       
-      // For teacher preview, just go back
-      if (isTeacherPreview) {
-        navigate(-1);
-        return;
+      // Check answer based on question type
+      if (currentQuestion.type === 'M') {
+        isCorrect = parseInt(answer) === parseInt(currentQuestion.answer);
+      } else if (currentQuestion.type === 'F') {
+        isCorrect = parseInt(answer) === parseInt(currentQuestion.answer);
+      } else if (currentQuestion.type === 'P') {
+        isCorrect = (answer || '').toLowerCase().trim() === (currentQuestion.answer || '').toLowerCase().trim();
+      } else if (currentQuestion.type === 'D') {
+        isCorrect = currentQuestion.dropZones.every((zone, idx) => answer[idx] === zone.correctItemIndex);
+      } else if (currentQuestion.type === 'G') {
+        isCorrect = Array.isArray(answer) && answer.length === (currentQuestion.memoryCards?.length || 0);
       }
-      
-      // TODO: Submit answers to API
-      // This will depend on your backend API design
-      
-      // For now, let's just show some feedback
-      alert('Drill completed successfully!');
-      
-      // Navigate back to classroom
-      navigate(-1);
-    } catch (error) {
-      console.error('Error submitting drill answers:', error);
-      alert(`Failed to submit answers: ${error.message || 'Unknown error'}`);
-      setIsSubmitting(false);
-    }
-  };
-  
-  const isQuestionAnswered = (questionIndex) => {
-    // If teacher is previewing a draft drill, consider all questions as answered
-    if (isTeacherPreview) {
-      return true;
-    }
-    return answers[questionIndex] !== undefined;
-  };
-  
-  const currentAnswer = answers[currentQuestionIndex];
-  
-  const renderQuestion = () => {
-    if (!currentQuestion) return null;
-    
 
+      setCurrentAnswer(answer);
+      
+      if (isCorrect) {
+        setAnswerStatus('correct');
+        const key = `${currentWordIdx}_${currentQuestionIdx}`;
+        const wrong = (attempts[key] || 0);
+        const time = timeSpent[key] || 0;
+        // Points: 100 - 20 per wrong attempt - 1 point per 5 seconds, minimum 30
+        const earned = Math.max(30, 100 - wrong * 20 - Math.floor(time / 5));
+        setPoints(prev => ({ ...prev, [key]: earned }));
+      } else {
+        setAnswerStatus('wrong');
+        if (currentQuestion.type === 'M') {
+          setWrongAnswers(prev => prev.includes(answer) ? prev : [...prev, answer]);
+        }
+        const key = `${currentWordIdx}_${currentQuestionIdx}`;
+        setAttempts(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+        // Don't clear wrong status - it will stay until correct answer is found
+      }
+    };
+    const handleNext = () => {
+      setCurrentAnswer(null);
+      setWrongAnswers([]);
+      if (currentQuestionIdx < currentQuestions.length - 1) {
+        setCurrentQuestionIdx(currentQuestionIdx + 1);
+        setAnswerStatus(null);
+      } else if (currentWordIdx < wordGroups.length - 1) {
+        setCurrentWordIdx(currentWordIdx + 1);
+        setCurrentQuestionIdx(0);
+        setIntroStep(1);
+        setAnswerStatus(null);
+      } else {
+        setIntroStep(6);
+    }
+  };
+  
     return (
-      <div className="w-full max-w-4xl mx-auto">
-        {/* Story Display */}
-        <StoryDisplay story={currentQuestion} />
-        
-        {/* Question Content */}
-        <div className="mt-8">
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
+        {/* Header - Reduced bottom margin */}
+        <div className="w-full flex items-center px-8 pt-6 mb-2 gap-6">
+          {/* Back button */}
+          <button
+            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
+            onClick={() => navigate(-1)}
+            aria-label="Exit drill"
+            style={{ minWidth: 48, minHeight: 48 }}
+          >
+            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
+          </button>
+          
+          {/* Progress bar */}
+          <div className="flex-1 flex justify-center">
+            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div 
+                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+          
+          {/* Points */}
+          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
+            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
+          </div>
+        </div>
+
+        {/* Main content - Reduced top margin */}
+        <div className="w-full flex flex-col items-center justify-start mt-2">
+          {/* Mascot and Speech Bubble Container */}
+          <div className="w-full max-w-6xl px-10">
+            <div className="flex items-center gap-8">
+              {/* Mascot */}
+              <div className="w-64 flex-shrink-0 ml-10">
+                <img 
+                  src={mascot} 
+                  alt="Hippo" 
+                  className="w-full h-auto object-contain"
+                />
+              </div>
+
+              {/* Speech Bubble */}
+              <div className="relative bg-white rounded-3xl p-6 shadow-lg" style={{ width: '600px' }}>
+                <div className="text-xl font-semibold">{currentQuestion.text}</div>
+                {/* Arrow */}
+                <div 
+                  className="absolute left-[-16px] top-1/2 -translate-y-1/2 w-0 h-0"
+                  style={{
+                    borderTop: '16px solid transparent',
+                    borderBottom: '16px solid transparent',
+                    borderRight: '16px solid white'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Question Choices */}
+          <div className="w-full px-8 mt-8">
+            <div className="max-w-4xl mx-auto">
           {(() => {
             switch (currentQuestion.type) {
               case 'M':
                 return (
                   <MultipleChoiceQuestion 
                     question={currentQuestion} 
-                    onAnswer={handleAnswer} 
+                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
                     currentAnswer={currentAnswer}
+                        answerStatus={answerStatus}
+                        wrongAnswers={wrongAnswers}
                   />
                 );
               case 'F':
                 return (
                   <FillInBlankQuestion 
                     question={currentQuestion} 
-                    onAnswer={handleAnswer} 
+                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
                     currentAnswer={currentAnswer}
                   />
                 );
@@ -675,15 +1140,15 @@ const TakeDrill = () => {
                 return (
                   <DragDropQuestion 
                     question={currentQuestion} 
-                    onAnswer={handleAnswer} 
-                    currentAnswers={currentAnswer}
+                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
+                        currentAnswers={{}}
                   />
                 );
               case 'G':
                 return (
                   <MemoryGameQuestion
                     question={currentQuestion}
-                    onAnswer={handleAnswer}
+                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
                     currentAnswer={currentAnswer}
                   />
                 );
@@ -691,223 +1156,79 @@ const TakeDrill = () => {
                 return (
                   <PictureWordQuestion
                     question={currentQuestion}
-                    onAnswer={handleAnswer}
+                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
                     currentAnswer={currentAnswer}
                   />
                 );
               default:
-                return <div>Unsupported question type: {currentQuestion.type}</div>;
+                    return <div>Unsupported question type</div>;
             }
           })()}
         </div>
       </div>
-    );
-  };
-  
-  return (
-    <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
-      <div className="py-8 px-4 h-full flex flex-col max-w-6xl mx-auto">
-        {/* Back button at top left */}
-        <div className="absolute top-4 left-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="bg-white p-4 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-            aria-label="Go back to classroom"
-          >
-            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
-          </button>
         </div>
         
-        {/* Question Text at Top - No Container */}
-        <div className="mt-4 mb-8">
-          {currentQuestion && (
-            <h2 className="text-4xl font-bold text-[#e67e22] text-center drop-shadow-lg">
-              {currentQuestion.type === 'F' ? 'Fill in the blank' : currentQuestion.text}
-            </h2>
-          )}
-        </div>
-        
-        {/* Question Content */}
-        <div className="flex-1 flex flex-col items-center justify-center">
-          {/* Question Content (without the text) */}
-          <div className="w-full">
-            {renderQuestion()}
-          </div>
-        </div>
-        
-        {/* Bottom Navigation */}
-        <div className="mt-auto">
-          {/* Navigation Buttons with inline question indicators - Fixed Layout */}
-          <div className="flex items-center">
-            {/* Fixed width container for Previous button */}
-            {currentQuestionIndex > 0 ? (
+        {/* Next button */}
+        {answerStatus === 'correct' && (
               <button
-                onClick={handlePreviousQuestion}
-                className="px-6 py-3 rounded-xl font-bold bg-white text-[#8e44ad] hover:bg-gray-100 shadow-md"
+            className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg transition-all hover:scale-105"
+            onClick={handleNext}
               >
-                Previous
+            Next
               </button>
-            ) : (
-              <div className="w-[120px]">{/* Empty spacer div when no Previous button */}</div>
-            )}
-            
-            {/* Question indicators - always centered */}
-            <div className="flex-1 flex justify-center">
-              <div className="flex gap-2 justify-center">
-                {(() => {
-                  // Logic to determine which indicators to show (max 10)
-                  const totalQuestions = questions.length;
-                  
-                  // If 10 or fewer questions, show all
-                  if (totalQuestions <= 10) {
-                    return questions.map((_, idx) => (
-                      <button
-                        key={idx}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
-                          idx === currentQuestionIndex 
-                            ? 'bg-[#f39c12] text-white border-2 border-[#f39c12]' 
-                            : isQuestionAnswered(idx) 
-                              ? 'bg-white text-[#f39c12] border-2 border-[#f39c12]' 
-                              : 'bg-white text-gray-500 border-2 border-white'
-                        }`}
-                        onClick={() => setCurrentQuestionIndex(idx)}
-                      >
-                        {idx + 1}
-                      </button>
-                    ));
-                  }
-                  
-                  // For more than 10 questions, use a smarter display strategy
-                  const indicators = [];
-                  
-                  // Always show the first indicator
-                  if (currentQuestionIndex > 3) {
-                    indicators.push(
-                      <button
-                        key={0}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all
-                          ${isQuestionAnswered(0) 
-                            ? 'bg-white text-[#f39c12] border-2 border-[#f39c12]' 
-                            : 'bg-white text-gray-500 border-2 border-white'}`}
-                        onClick={() => setCurrentQuestionIndex(0)}
-                      >
-                        1
-                      </button>
-                    );
-                    
-                    // Add ellipsis if not showing question 1
-                    if (currentQuestionIndex > 4) {
-                      indicators.push(
-                        <div key="ellipsis1" className="flex items-center px-1">
-                          <span className="text-white font-bold">...</span>
+        )}
                         </div>
                       );
                     }
-                  }
-                  
-                  // Calculate range around current question
-                  let startIdx = Math.max(0, currentQuestionIndex - 2);
-                  let endIdx = Math.min(totalQuestions - 1, currentQuestionIndex + 2);
-                  
-                  // Adjust to show more questions ahead if we're near the start
-                  if (currentQuestionIndex < 3) {
-                    endIdx = Math.min(totalQuestions - 1, 4);
-                  }
-                  
-                  // Adjust to show more questions behind if we're near the end
-                  if (currentQuestionIndex > totalQuestions - 4) {
-                    startIdx = Math.max(0, totalQuestions - 5);
-                  }
-                  
-                  // Add the range of indicators
-                  for (let i = startIdx; i <= endIdx; i++) {
-                    indicators.push(
+  if (introStep === 6) {
+    // Summary
+    return (
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
+        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
+          {/* Back button */}
                       <button
-                        key={i}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
-                          i === currentQuestionIndex 
-                            ? 'bg-[#f39c12] text-white border-2 border-[#f39c12]' 
-                            : isQuestionAnswered(i) 
-                              ? 'bg-white text-[#f39c12] border-2 border-[#f39c12]' 
-                              : 'bg-white text-gray-500 border-2 border-white'
-                        }`}
-                        onClick={() => setCurrentQuestionIndex(i)}
-                      >
-                        {i + 1}
+            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
+            onClick={() => navigate(-1)}
+            aria-label="Exit drill"
+            style={{ minWidth: 48, minHeight: 48 }}
+          >
+            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
                       </button>
-                    );
-                  }
-                  
-                  // Add ellipsis and last question if needed
-                  if (endIdx < totalQuestions - 2) {
-                    indicators.push(
-                      <div key="ellipsis2" className="flex items-center px-1">
-                        <span className="text-white font-bold">...</span>
+          {/* Progress bar */}
+          <div className="flex-1 flex justify-center">
+            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div className="bg-[#f39c12] h-4 rounded-full transition-all" style={{ width: `100%` }}></div>
                       </div>
-                    );
-                  }
-                  
-                  // Always show the last indicator if we're not already showing it
-                  if (endIdx < totalQuestions - 1) {
-                    indicators.push(
-                      <button
-                        key={totalQuestions - 1}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all
-                          ${isQuestionAnswered(totalQuestions - 1) 
-                            ? 'bg-white text-[#f39c12] border-2 border-[#f39c12]' 
-                            : 'bg-white text-gray-500 border-2 border-white'}`}
-                        onClick={() => setCurrentQuestionIndex(totalQuestions - 1)}
-                      >
-                        {totalQuestions}
-                      </button>
-                    );
-                  }
-                  
-                  return indicators;
-                })()}
               </div>
+          {/* Points */}
+          <div className="text-lg font-bold text-[#4C53B4] min-w-[90px] text-right">
+            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
             </div>
-            
-            {/* Fixed width container for Next/Submit button */}
-            <div className="w-[120px] flex justify-end">
-              {currentQuestionIndex < questions.length - 1 ? (
-                <button
-                  onClick={handleNextQuestion}
-                  className={`px-6 py-3 rounded-xl font-bold shadow-md ${
-                    !isQuestionAnswered(currentQuestionIndex) 
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                      : 'bg-[#f39c12] text-white hover:bg-[#e67e22]'
-                  }`}
-                  disabled={!isQuestionAnswered(currentQuestionIndex)}
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  onClick={handleSubmit}
-                  className={`px-6 py-3 rounded-xl font-bold shadow-md ${
-                    !isQuestionAnswered(currentQuestionIndex) || isSubmitting
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                      : 'bg-green-500 text-white hover:bg-green-600'
-                  }`}
-                  disabled={!isQuestionAnswered(currentQuestionIndex) || isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <i className="fa-solid fa-spinner fa-spin mr-2"></i>
-                      Submitting...
-                    </>
-                  ) : (
-                    isTeacherPreview ? 'Close Preview' : 'Finish'
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
         </div>
+        <div className="w-full max-w-2xl mx-auto flex flex-col items-center animate-fadeIn">
+          <img src={HippoHappy} alt="Hippo" className="w-48 h-48 mb-4" />
+          <h2 className="text-4xl font-bold text-[#8e44ad] mb-4">Congratulations!</h2>
+          <div className="text-2xl mb-2">You've completed the drill!</div>
+          <div className="text-xl mb-6">Total Points: <span className="font-bold text-[#f39c12]">{Object.values(points).reduce((a, b) => a + (b || 0), 0)}</span></div>
+                <button
+            className="mt-8 px-12 py-5 bg-[#4C53B4] text-white rounded-2xl text-2xl font-bold hover:bg-[#3a4095] shadow-lg"
+            onClick={() => {
+              setIntroStep(0);
+              setCurrentWordIdx(0);
+              setCurrentQuestionIdx(0);
+              setAttempts({});
+              setTimeSpent({});
+              setPoints({});
+              setAnswerStatus(null);
+            }}
+                >
+            Retake Drill
+                </button>
       </div>
     </div>
   );
+  }
+  return null;
 };
 
 export default TakeDrill; 
