@@ -41,13 +41,17 @@ const Topbar = ({ onMenuClick }) => {
   }, []);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    setIsDropdownOpen(false);
+    navigate('/logout');
   };
 
   const handleProfileClick = () => {
     setIsDropdownOpen(false);
+    if (isTeacher){
+      navigate('/t/profile');
+    }else{
     navigate('/s/profile');
+    }
   };
 
   const handleNotificationClick = (notification) => {
