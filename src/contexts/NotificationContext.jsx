@@ -75,6 +75,21 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
+  const getNotificationPath = (notification) => {
+    switch (notification.type) {
+      case 'student_transfer':
+        return '/t/transfer-requests';
+      case 'transfer_approved':
+      case 'transfer_rejected':
+        return `/t/classes/${notification.data.classroom_id}`;
+      case 'student_added':
+      case 'student_removed':
+        return `/s/classes/${notification.data.classroom_id}`;
+      default:
+        return null;
+    }
+  };
+
   return (
     <NotificationContext.Provider value={{
       notifications,
@@ -83,7 +98,8 @@ export const NotificationProvider = ({ children }) => {
       markAllAsRead,
       addNotification,
       refreshNotifications: fetchNotifications,
-      deleteNotification
+      deleteNotification,
+      getNotificationPath
     }}>
       {children}
     </NotificationContext.Provider>

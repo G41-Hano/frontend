@@ -10,7 +10,7 @@ const Topbar = ({ onMenuClick }) => {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const navigate = useNavigate();
   const { user, logout } = useUser();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, getNotificationPath } = useNotifications();
   const isTeacher = user?.role === 'teacher';
   
   // Refs for modal containers
@@ -59,20 +59,9 @@ const Topbar = ({ onMenuClick }) => {
       markAsRead(notification.id);
     }
 
-    // Navigate based on notification type
-    switch (notification.type) {
-      case 'student_transfer':
-        // Navigate to transfer requests page
-        navigate('/t/transfer-requests');
-        break;
-      case 'transfer_approved':
-      case 'transfer_rejected':
-        // Navigate to the classroom
-        navigate(`/t/classes/${notification.data.classroom_id}`);
-        break;
-      default:
-        // Handle other notification types
-        break;
+    const path = getNotificationPath(notification);
+    if (path) {
+      navigate(path);
     }
     setIsNotificationOpen(false);
   };
