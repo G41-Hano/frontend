@@ -701,6 +701,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           sign_language_instructions: q.sign_language_instructions,
         };
         if (q.type === 'M' || q.type === 'F') {
+          base.answer = q.answer;  // Add the answer field
           base.choices = (q.choices || []).map((c, cIdx) => {
               let choice = { ...c, is_correct: q.answer === cIdx };
               if (c.media instanceof File) {

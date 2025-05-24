@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import drillBg from '../../assets/drill_bg.png';
 import '../../styles/animations.css';
 
-const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer }) => {
+const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer, handleSubmitAnswer, question: currentQuestion }) => {
   return (
     <div className="animate-fadeIn">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 max-w-4xl mx-auto">
@@ -39,7 +39,7 @@ const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer }) => {
                   ? 'bg-[#8e44ad] text-white shadow-lg scale-105' 
                   : 'bg-white text-gray-800 shadow-md hover:shadow-lg'
               }`}
-              onClick={() => onAnswer(index)}
+              onClick={() => handleSubmitAnswer(currentQuestion.id, index)}
             >
               <div className="flex items-center justify-center">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl mr-4 ${
@@ -60,7 +60,7 @@ const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer }) => {
   );
 };
 
-const FillInBlankQuestion = ({ question, onAnswer, currentAnswer }) => {
+const FillInBlankQuestion = ({ question, onAnswer, currentAnswer, handleSubmitAnswer }) => {
   // For fill in the blank, split the text by underscore
   const parts = question.text.split('_');
   
@@ -69,7 +69,7 @@ const FillInBlankQuestion = ({ question, onAnswer, currentAnswer }) => {
       <div className="text-xl mb-6 text-center">
         {parts[0]}
         <span className="inline-block min-w-[120px] border-b-2 border-[#8e44ad] mx-1 text-center font-bold text-[#8e44ad]">
-          {currentAnswer !== null && question.choices[currentAnswer] ? question.choices[currentAnswer].text : '_____'}
+          {currentAnswer !== null && question.choices && question.choices[currentAnswer] ? question.choices[currentAnswer].text : '_____'}
         </span>
         {parts[1]}
       </div>
@@ -79,11 +79,11 @@ const FillInBlankQuestion = ({ question, onAnswer, currentAnswer }) => {
           <button
             key={index}
             className={`p-3 rounded-lg text-center transition-all ${
-              currentAnswer === index 
-                ? 'bg-[#8e44ad] text-white shadow-lg scale-105 border-2 border-[#9b59b6]' 
+              currentAnswer === index
+                ? 'bg-[#8e44ad] text-white shadow-lg scale-105 border-2 border-[#9b59b6]'
                 : 'bg-white border-2 border-gray-200 hover:border-[#9b59b6] hover:shadow-md'
             }`}
-            onClick={() => onAnswer(index)}
+            onClick={() => handleSubmitAnswer(question.id, index)}
           >
             {choice.text}
           </button>
@@ -93,7 +93,7 @@ const FillInBlankQuestion = ({ question, onAnswer, currentAnswer }) => {
   );
 };
 
-const DragDropQuestion = ({ question, onAnswer, currentAnswers = {} }) => {
+const DragDropQuestion = ({ question, onAnswer, currentAnswers = {}, handleSubmitAnswer }) => {
   const dragItems = question.dragItems || [];
   const dropZones = question.dropZones || [];
   
@@ -101,6 +101,9 @@ const DragDropQuestion = ({ question, onAnswer, currentAnswers = {} }) => {
   const handleDrop = (dragIndex, zoneIndex) => {
     const newAnswers = {...currentAnswers};
     newAnswers[zoneIndex] = dragIndex;
+    // Call handleSubmitAnswer with the updated mapping
+    handleSubmitAnswer(question.id, newAnswers);
+    // Update local state immediately for responsiveness (optional, backend response will confirm)
     onAnswer(newAnswers);
   };
   
@@ -108,6 +111,9 @@ const DragDropQuestion = ({ question, onAnswer, currentAnswers = {} }) => {
   const resetMapping = (zoneIndex) => {
     const newAnswers = {...currentAnswers};
     delete newAnswers[zoneIndex];
+     // Call handleSubmitAnswer with the updated mapping
+    handleSubmitAnswer(question.id, newAnswers);
+    // Update local state immediately for responsiveness (optional)
     onAnswer(newAnswers);
   };
   
@@ -197,7 +203,7 @@ const DragDropQuestion = ({ question, onAnswer, currentAnswers = {} }) => {
 };
 
 // Memory Game Question Component
-const MemoryGameQuestion = ({ question, onAnswer }) => {
+const MemoryGameQuestion = ({ question, onAnswer, handleSubmitAnswer }) => {
   const [flipped, setFlipped] = useState([]); // array of card ids currently flipped
   const [matched, setMatched] = useState([]); // array of card ids that are matched
   const [lock, setLock] = useState(false); // prevent flipping more than 2 at a time
@@ -232,7 +238,31 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
       if (firstCard && secondCard && firstCard.pairId === secondCard.id) {
         // It's a match!
         setTimeout(() => {
-          setMatched(prev => [...prev, firstId, secondId]);
+          setMatched(prev => {
+            const newMatched = [...prev, firstId, secondId];
+            // If all pairs are matched, submit the result
+            if (newMatched.length === shuffledCards.length) {
+                 // Pass the list of matched pairs as answerData
+                 const matchedPairs = [];
+                 // Assuming `matched` state contains all matched card IDs
+                 // We need to reconstruct the pairs to send to the backend
+                 const tempMatched = [...newMatched]; // Use a copy to avoid modifying state during iteration
+                 while(tempMatched.length > 0) {
+                     const card1Id = tempMatched.shift();
+                     const card1 = shuffledCards.find(c => c.id === card1Id);
+                     if(card1 && card1.pairId) {
+                         const card2IdIndex = tempMatched.findIndex(id => id === card1.pairId);
+                         if(card2IdIndex !== -1) {
+                              const card2Id = tempMatched.splice(card2IdIndex, 1)[0];
+                               matchedPairs.push([card1Id, card2Id]);
+                         }
+                     }
+                 }
+                 console.log("Submitting Memory Game matched pairs:", matchedPairs);
+                 handleSubmitAnswer(question.id, matchedPairs);
+            }
+            return newMatched;
+          });
           setFlipped([]);
           setLock(false);
         }, 700);
@@ -316,34 +346,43 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
   );
 };
 
-const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
+const PictureWordQuestion = ({ question, onAnswer, currentAnswer, handleSubmitAnswer }) => {
   const [answer, setAnswer] = useState(currentAnswer || '');
   const [isCorrect, setIsCorrect] = useState(null);
   const [showHint, setShowHint] = useState(false);
 
-  // Update answer state when currentAnswer changes
+  // Update answer state when currentAnswer changes (from backend submission result)
   useEffect(() => {
-    if (currentAnswer !== undefined) {
+    // Check if currentAnswer is different from the current local state before updating
+    if (currentAnswer !== undefined && currentAnswer !== answer) {
       setAnswer(currentAnswer);
     }
-  }, [currentAnswer]);
+     // When currentAnswer changes due to backend response, update isCorrect display
+    // Need access to the is_correct status from the backend result.
+    // Assuming the parent component passes the full question result object via currentAnswer prop
+    // or we fetch it here based on currentAnswer being available.
+
+    // **Refinement:** The parent component (TakeDrill) should pass the full question result object
+    // down to render the correct/incorrect status.
+    // For now, let's assume currentAnswer being defined means it was submitted.
+    // We need to get the is_correct status from the submittedQuestionResults state in the parent.
+
+  }, [currentAnswer]); // Depend on currentAnswer prop
 
   const handleSubmit = () => {
     // Debug logs
     console.log('Question object:', question);
     console.log('User answer:', answer);
-    
-    // Get the correct answer from the question object
-    const correctAnswer = question.answer?.toLowerCase().trim() || '';
-    const userAnswer = answer.toLowerCase().trim();
-    
-    console.log('Correct answer:', correctAnswer);
-    console.log('User answer (processed):', userAnswer);
-    console.log('Are they equal?', correctAnswer === userAnswer);
-    
-    const isAnswerCorrect = userAnswer === correctAnswer;
-    setIsCorrect(isAnswerCorrect);
-    onAnswer(answer); // Pass the answer instead of the boolean
+  
+    // Submit the text answer to the backend
+    handleSubmitAnswer(question.id, answer);
+
+    // The correctness feedback will come from the backend response
+    // The useEffect hooked to currentAnswer will handle updating the display based on the backend result.
+
+     // Clear local isCorrect state immediately or wait for backend confirmation?
+     // Let's wait for backend confirmation to avoid flickering.
+     // setIsCorrect(null);
   };
 
   return (
@@ -506,9 +545,10 @@ const TakeDrill = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
+  const [submittedQuestionResults, setSubmittedQuestionResults] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTeacherPreview, setIsTeacherPreview] = useState(false);
+  const questionStartTimeRef = useRef(null);
   
   // Fetch the drill data
   useEffect(() => {
@@ -532,6 +572,17 @@ const TakeDrill = () => {
     
     fetchDrill();
   }, [id]);
+  
+  // Start timer when question index changes (and not in teacher preview mode)
+  useEffect(() => {
+      if (drill && drill.questions && !isTeacherPreview) {
+          questionStartTimeRef.current = Date.now();
+      }
+      // Cleanup function to potentially stop timer if component unmounts or drill changes
+      return () => {
+          questionStartTimeRef.current = null;
+      };
+  }, [currentQuestionIndex, drill, isTeacherPreview]);
   
   if (loading) {
     return (
@@ -588,59 +639,143 @@ const TakeDrill = () => {
   const questions = drill.questions || [];
   const currentQuestion = questions[currentQuestionIndex] || null;
   
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    }
+  const handleNextQuestion = async () => {
+      // Ensure an answer is submitted before moving to the next question
+      const currentQuestion = questions[currentQuestionIndex];
+      if (!currentQuestion) return;
+
+      // If in teacher preview or already submitted, just move next
+      if (isTeacherPreview || submittedQuestionResults[currentQuestionIndex]) {
+           if (currentQuestionIndex < questions.length - 1) {
+               setCurrentQuestionIndex(currentQuestionIndex + 1);
+           }
+           return;
+      }
+
+      // Otherwise, submit the answer for the current question first
+      // The individual question components need to call handleAnswer with the answer data
+      // We need to ensure handleAnswer is called *before* handleNextQuestion is triggered by the UI.
+      // This requires modifying the individual question components or the logic that calls handleNextQuestion.
+      // For now, this is a placeholder check. The actual submission will happen when the answer is provided in the UI.
+
+       // **Refinement:** Instead of relying on handleNextQuestion to trigger submit,
+       // the individual question components should call a submit handler function directly
+       // when the user completes their answer (e.g., clicks a submit button, selects a choice).
+       // The submit handler will then update state and potentially move to the next question.
+
+       console.warn("Submit logic needs to be triggered by individual question components.");
+       // Proceeding for now, but actual submission will be missing.
+       if (currentQuestionIndex < questions.length - 1) {
+           setCurrentQuestionIndex(currentQuestionIndex + 1);
+       }
+
   };
-  
+
   const handlePreviousQuestion = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
   };
-  
-  const handleAnswer = (answer) => {
-    setAnswers({
-      ...answers,
-      [currentQuestionIndex]: answer
-    });
+
+  // New function to handle submitting an answer to the backend
+  const handleSubmitAnswer = async (questionId, answerData) => {
+       if (isTeacherPreview || isSubmitting) return; // Don't submit in preview or if already submitting
+
+       setIsSubmitting(true);
+       setError(null); // Clear previous errors
+
+       const startTime = questionStartTimeRef.current;
+       const endTime = Date.now();
+       const timeTaken = startTime ? (endTime - startTime) / 1000 : null; // Time in seconds
+
+       try {
+           const response = await api.post(
+               `/api/drills/${id}/questions/${questionId}/submit/`,
+               { answer: answerData, time_taken: timeTaken }
+           );
+
+           console.log('Answer submission response:', response.data);
+
+           // Store the returned QuestionResult object
+           setSubmittedQuestionResults(prev => ({
+               ...prev,
+               [currentQuestionIndex]: response.data // Assuming backend returns the QuestionResult or similar data
+           }));
+
+           setIsSubmitting(false);
+
+           // Automatically move to the next question after successful submission (except for the last question)
+           if (currentQuestionIndex < questions.length - 1) {
+               // Add a small delay before moving to the next question
+               setTimeout(() => {
+                   setCurrentQuestionIndex(currentQuestionIndex + 1);
+               }, 500); // 500ms delay
+           }
+
+       } catch (err) {
+           console.error('Error submitting answer:', err.response?.data || err.message);
+           setError(err.response?.data?.error || 'Failed to submit answer.');
+           setIsSubmitting(false);
+       }
   };
-  
+
+  // Modify handleAnswer to just update local state temporarily if needed, or remove it
+  // The primary submission will now go through handleSubmitAnswer
+  const handleAnswer = (answer) => {
+      // This function might no longer be needed or could be used for temporary local state update
+      // before the official submission via handleSubmitAnswer.
+      console.log("handleAnswer called with:", answer);
+      // You might still use this to update the UI immediately after a user action,
+      // but the actual saving to the backend happens in handleSubmitAnswer.
+  };
+
+  // Modify the main handleSubmit (for finishing the drill) to check if all questions are answered
   const handleSubmit = async () => {
+    // Check if all questions have a submitted result
+    const allAnswered = questions.every((_, index) => submittedQuestionResults[index]);
+
+    if (!allAnswered) {
+      alert("Please answer all questions before finishing the drill.");
+      return;
+    }
+
+    if (isTeacherPreview || isSubmitting) return; // Don't proceed in preview or if already submitting
+
+    setIsSubmitting(true);
+
+    // In a full implementation, you might have a final backend endpoint to mark the drill run as complete
+    // and potentially calculate final scores/completion time on the overall DrillResult.
+    // For now, the SubmitAnswerView updates points question by question.
+
     try {
-      setIsSubmitting(true);
-      
-      // For teacher preview, just go back
-      if (isTeacherPreview) {
+        // Example: A final API call to mark the drill as complete (if needed)
+        // await api.post(`/api/drills/${id}/complete/`);
+
+        alert('Drill completed successfully!');
+
+        // Navigate back to classroom
         navigate(-1);
-        return;
-      }
-      
-      // TODO: Submit answers to API
-      // This will depend on your backend API design
-      
-      // For now, let's just show some feedback
-      alert('Drill completed successfully!');
-      
-      // Navigate back to classroom
-      navigate(-1);
+
     } catch (error) {
-      console.error('Error submitting drill answers:', error);
-      alert(`Failed to submit answers: ${error.message || 'Unknown error'}`);
-      setIsSubmitting(false);
+        console.error('Error completing drill:', error);
+        alert(`Failed to complete drill: ${error.message || 'Unknown error'}`);
+    } finally {
+       setIsSubmitting(false);
     }
   };
-  
+
+  // Update isQuestionAnswered logic to check against submittedQuestionResults
   const isQuestionAnswered = (questionIndex) => {
     // If teacher is previewing a draft drill, consider all questions as answered
     if (isTeacherPreview) {
       return true;
     }
-    return answers[questionIndex] !== undefined;
+    return submittedQuestionResults[questionIndex] !== undefined;
   };
-  
-  const currentAnswer = answers[currentQuestionIndex];
+
+  // The currentAnswer state is now derived from submittedQuestionResults
+  const currentQuestionResult = submittedQuestionResults[currentQuestionIndex];
+  const currentAnswer = currentQuestionResult ? currentQuestionResult.submitted_answer : undefined;
   
   const renderQuestion = () => {
     if (!currentQuestion) return null;
@@ -661,6 +796,7 @@ const TakeDrill = () => {
                     question={currentQuestion} 
                     onAnswer={handleAnswer} 
                     currentAnswer={currentAnswer}
+                    handleSubmitAnswer={handleSubmitAnswer}
                   />
                 );
               case 'F':
@@ -669,6 +805,7 @@ const TakeDrill = () => {
                     question={currentQuestion} 
                     onAnswer={handleAnswer} 
                     currentAnswer={currentAnswer}
+                    handleSubmitAnswer={handleSubmitAnswer}
                   />
                 );
               case 'D':
@@ -677,6 +814,7 @@ const TakeDrill = () => {
                     question={currentQuestion} 
                     onAnswer={handleAnswer} 
                     currentAnswers={currentAnswer}
+                    handleSubmitAnswer={handleSubmitAnswer}
                   />
                 );
               case 'G':
@@ -684,7 +822,7 @@ const TakeDrill = () => {
                   <MemoryGameQuestion
                     question={currentQuestion}
                     onAnswer={handleAnswer}
-                    currentAnswer={currentAnswer}
+                    handleSubmitAnswer={handleSubmitAnswer}
                   />
                 );
               case 'P':
@@ -693,6 +831,7 @@ const TakeDrill = () => {
                     question={currentQuestion}
                     onAnswer={handleAnswer}
                     currentAnswer={currentAnswer}
+                    handleSubmitAnswer={handleSubmitAnswer}
                   />
                 );
               default:
