@@ -285,9 +285,22 @@ const EnrollStudentsModal = ({ isOpen, onClose, classroomId, onEnrollSuccess }) 
                   onClick={() => handleStudentSelect(student.id)}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-[#4C53B4] flex items-center justify-center text-white">
-                      {student.first_name?.[0] || student.username[0]}
-                    </div>
+                    {student.avatar ? (
+                      <img 
+                        src={student.avatar}
+                        alt={student.first_name?.[0] || student.username[0]}
+                        className="w-10 h-10 rounded-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-[#4C53B4] flex items-center justify-center text-white">
+                        {student.first_name?.[0] || student.username[0]}
+                      </div>
+                    )}
                     <div>
                       <h3 className="font-medium text-gray-800">
                         {student.first_name} {student.last_name}

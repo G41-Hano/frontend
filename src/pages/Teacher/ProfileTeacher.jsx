@@ -248,7 +248,7 @@ const Profile = () => {
                     {profile?.first_name} {profile?.last_name}
                   </h2>
                   <div className="inline-block px-4 py-2 bg-[#FF6B6B]/10 text-[#FF6B6B] rounded-full text-sm font-medium">
-                    {profile?.role}
+                    {profile?.role?.charAt(0).toUpperCase() + profile?.role?.slice(1)}
                   </div>
                 </div>
               </div>
@@ -401,7 +401,7 @@ const Profile = () => {
                     {profile?.first_name} {profile?.last_name}
                   </h2>
                   <div className="inline-block px-4 py-2 bg-[#FF6B6B]/10 text-[#FF6B6B] rounded-full text-sm font-medium">
-                    {profile?.role}
+                    {profile?.role?.charAt(0).toUpperCase() + profile?.role?.slice(1)}
                   </div>
                 </div>
               </div>
