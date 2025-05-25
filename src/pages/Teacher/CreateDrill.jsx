@@ -19,7 +19,7 @@ const initialDrill = {
 
 const emptyQuestion = {
   text: '',
-  type: 'M', // 'M' for Multiple Choice, 'F' for Fill in the Blank, 'D' for Drag and Drop, 'G' for Memory Game
+  type: 'M', 
   choices: [
     { text: '', media: null },
     { text: '', media: null },
@@ -31,6 +31,7 @@ const emptyQuestion = {
   dragItems: [], // For Drag and Drop questions
   dropZones: [], // For Drag and Drop questions
   memoryCards: [], // For Memory Game questions
+  pictureWord: [], // For Picture Word questions
 
   story_title: '',
   story_context: '',
@@ -329,6 +330,96 @@ const MemoryGameQuestionForm = ({ question, onChange, setNotification, setMediaM
   );
 };
 
+const PictureWordQuestionForm = ({ question, onChange, setNotification }) => {
+  const addPicture = () => {
+    const newPicture = {
+      id: `pic_${Date.now()}`,
+      media: null
+    };
+    onChange({
+      ...question,
+      pictureWord: [...(question.pictureWord || []), newPicture]
+    });
+  };
+
+  const removePicture = (picId) => {
+    const pictures = (question.pictureWord || []).filter(pic => pic.id !== picId);
+    onChange({
+      ...question,
+      pictureWord: pictures
+    });
+  };
+
+  const updatePicture = (picId, file) => {
+    const updatedPictures = (question.pictureWord || []).map(pic => {
+      if (pic.id === picId) {
+        return { ...pic, media: file };
+      }
+      return pic;
+    });
+    onChange({
+      ...question,
+      pictureWord: updatedPictures
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Four Pics One Word</h3>
+        <button
+          type="button"
+          onClick={addPicture}
+          className="px-3 py-1 bg-[#4C53B4] text-white rounded hover:bg-[#3a3f8f]"
+          disabled={(question.pictureWord || []).length >= 4}
+        >
+          Add Picture
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {(question.pictureWord || []).map((pic, index) => (
+          <div key={pic.id} className="border rounded-lg p-4 bg-white">
+            <div className="flex justify-between items-start mb-2">
+              <span className="text-sm text-gray-600">Picture {index + 1}</span>
+              <button
+                type="button"
+                onClick={() => removePicture(pic.id)}
+                className="text-red-500 hover:text-red-700"
+              >
+                <i className="fa-solid fa-trash"></i>
+              </button>
+            </div>
+            <FileInput
+              value={pic.media}
+              onChange={(file) => updatePicture(pic.id, file)}
+              onPreview={(src, type) => setMediaModal({ open: true, src, type })}
+            />
+          </div>
+        ))}
+      </div>
+      {/* Correct answer field */}
+      <div className="mt-4">
+        <label className="block mb-1 font-medium">Correct Answer</label>
+        <input
+          type="text"
+          className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+          placeholder="Enter the correct word that connects all pictures"
+          value={question.answer || ''}
+          onChange={(e) => onChange({ ...question, answer: e.target.value })}
+        />
+      </div>
+      {(question.pictureWord || []).length > 0 && (
+        <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            <i className="fa-solid fa-info-circle mr-2"></i>
+            Add exactly 4 pictures that have a common word or theme. Make sure each picture is clear and relevant to the answer.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   const [step, setStep] = useState(0);
   const [drill, setDrill] = useState(initialDrill);
@@ -572,6 +663,30 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           }
         }
       }
+      if (q.type === 'P') {
+        if (!q.text) {
+          alert('Picture Word questions must have a question text.');
+          setSubmittingAction(null);
+          return;
+        }
+        if (!q.answer) {
+          alert('Picture Word questions must have a correct answer.');
+          setSubmittingAction(null);
+          return;
+        }
+        if (!q.pictureWord || q.pictureWord.length !== 4) {
+          alert('Picture Word questions must have exactly 4 pictures.');
+          setSubmittingAction(null);
+          return;
+        }
+        for (const pic of q.pictureWord) {
+          if (!pic.media) {
+            alert('Each picture in Picture Word questions must have an image.');
+            setSubmittingAction(null);
+            return;
+          }
+        }
+      }
     }
 
     try {
@@ -605,13 +720,51 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           base.dropZones = Array.isArray(q.dropZones) ? q.dropZones : [];
         }
         if (q.type === 'G') {
-          base.memoryCards = Array.isArray(q.memoryCards) ? q.memoryCards.map(card => ({
-            id: card.id,
-            content: card.content,
-            pairId: card.pairId,
-            media: card.media,
-          })) : [];
+          base.memoryCards = Array.isArray(q.memoryCards) ? q.memoryCards.map(card => {
+            let mediaValue = null;
+            // If it's a new file upload
+              if (card.media instanceof File) {
+              const key = `media_${qIdx}_card_${card.id}`;
+                formData.append(key, card.media);
+              mediaValue = key; // Send the key reference in the JSON
+              } else if (card.media && card.media.url) {
+              // If it's existing media with a URL
+              mediaValue = card.media.url; // Send the URL in the JSON
+            } else if (card.media) {
+                 // Fallback for any other unexpected existing media format
+                 console.warn('Unexpected memoryCard media format (non-File, non-URL object):', card.media);
+                 // Try to keep it as is, or stringify, depending on backend expectation
+                 // Assuming backend might handle other JSON structures for media
+                 mediaValue = card.media;
+            }
+
+            return {
+              id: card.id,
+              content: card.content,
+              pairId: card.pairId,
+              media: mediaValue, // Assign the determined media value
+            };
+          }) : [];
         }
+        if (q.type === 'P') {
+          base.pictureWord = Array.isArray(q.pictureWord) ? q.pictureWord.map((pic, pIdx) => {
+            let updatedPic = { ...pic };
+            if (pic.media instanceof File) {
+              const key = `media_${qIdx}_${pIdx}`;
+              formData.append(key, pic.media);
+              updatedPic.media = key;
+            } else if (pic.media && pic.media.url) {
+              updatedPic.media = pic.media.url;
+            }
+            return {
+              id: updatedPic.id,
+              media: updatedPic.media,
+              type: 'image'  // Add type field to match backend expectations
+            };
+          }) : [];
+          base.answer = q.answer;  // Make sure answer is included
+        }
+
         // Remove undefined/null from base
         Object.keys(base).forEach(k => (base[k] == null) && delete base[k]);
         return base;
@@ -1059,7 +1212,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   {q.signVideo && <video src={typeof q.signVideo === 'string' ? q.signVideo : URL.createObjectURL(q.signVideo)} controls className="max-h-32 rounded mb-2" />}
                   {/* Preview for question types */}
                         <div className="mb-2">
-                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Multiple Choice' : q.type === 'F' ? 'Fill in the Blank' : q.type === 'D' ? 'Drag and Drop' : q.type === 'G' ? 'Memory Game' : ''}
+                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Multiple Choice' : q.type === 'F' ? 'Fill in the Blank' : q.type === 'D' ? 'Drag and Drop' : q.type === 'G' ? 'Memory Game' : q.type === 'F' ? 'Picture Word' : ''}
                         </div>
                   <div className="mb-2">
                     <span className="font-semibold">Question:</span> {q.type === 'F' ? (
@@ -1160,6 +1313,49 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                             </div>
                           );
                         })}
+                      </div>
+                    </div>
+                  )}
+                  {q.type === 'P' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        {(q.pictureWord || []).map((pic, index) => (
+                          <div key={pic.id} className="border rounded-lg p-4 bg-white">
+                            <span className="text-sm text-gray-600 mb-2 block">Picture {index + 1}</span>
+                            {pic.media ? (
+                              (() => {
+                                let src = null;
+                                let type = '';
+                                if (pic.media instanceof File) {
+                                  src = URL.createObjectURL(pic.media);
+                                  type = pic.media.type;
+                                } else if (pic.media && pic.media.url) {
+                                  src = pic.media.url;
+                                  type = pic.media.type || '';
+                                }
+                                if (type.startsWith('image/')) {
+                                  return (
+                                    <img
+                                      src={src}
+                                      alt="preview"
+                                      className="w-full h-48 object-cover rounded border cursor-pointer"
+                                      onClick={() => setMediaModal({ open: true, src, type })}
+                                    />
+                                  );
+                                }
+                                return null;
+                              })()
+                            ) : (
+                              <div className="w-full h-48 border-2 border-dashed border-gray-300 rounded flex items-center justify-center">
+                                <i className="fa-regular fa-image text-4xl text-gray-300"></i>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 p-4 bg-[#EEF1F5] rounded-lg border border-[#4C53B4]">
+                        <span className="text-sm text-gray-600">Correct Answer:</span>
+                        <p className="font-medium text-[#4C53B4]">{q.answer || 'Not set'}</p>
                       </div>
                     </div>
                   )}
@@ -1264,13 +1460,15 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       dragItems: newType === 'D' ? [] : [],
                       dropZones: newType === 'D' ? [] : [],
                       memoryCards: newType === 'G' ? [] : [],
+                      pictureWord: newType === 'P' ? [] : [],
                     });
                   }}
                 >
-                  <option value="M">Multiple Choice</option>
-                  <option value="F">Fill in the Blank</option>
+                  <option value="M">Smart Select</option>
+                  <option value="F">Blank Busters</option>
                   <option value="D">Drag and Drop</option>
                   <option value="G">Memory Game</option>
+                  <option value="P">Four Pics One Word</option>
                 </select>
               </div>
                     {/* Question Text with AI Generation */}
@@ -1490,6 +1688,16 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                         setMediaModal={setMediaModal}
                 />
               )}
+              {/* Add Picture Word Question Form */}
+              {questionDraft.type === 'P' && (
+                <PictureWordQuestionForm
+                  question={questionDraft}
+                  onChange={(updatedQuestion) => {
+                    setQuestionDraft(updatedQuestion);
+                  }}
+                  setNotification={setNotification}
+                />
+              )}
               {/* Choices Section - Only show for Multiple Choice */}
               {questionDraft.type === 'M' && (
                 <div className="mb-4">
@@ -1571,10 +1779,14 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       questionDraft.memoryCards.length < 2 || 
                       questionDraft.memoryCards.length % 2 !== 0 ||
                             questionDraft.memoryCards.some(card => !card.content && !card.media)
+                          )) || 
+                    (questionDraft.type === 'P' && (
+                      !questionDraft.pictureWord || 
+                      questionDraft.pictureWord.length < 4 
                           ))
                         }
                       >
-                        {questionEditIdx !== null ? 'Save' : 'Add Question'}
+                        {questionEditIdx !== null ? 'Save' : 'Add Question'} 
                 </button>
               </div>
                   </>
@@ -1718,6 +1930,49 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                             </div>
                           );
                         })}
+                      </div>
+                    </div>
+                  )}
+                   {q.type === 'P' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        {(q.pictureWord || []).map((pic, index) => (
+                          <div key={pic.id} className="border rounded-lg p-4 bg-white">
+                            <span className="text-sm text-gray-600 mb-2 block">Picture {index + 1}</span>
+                            {pic.media ? (
+                              (() => {
+                                let src = null;
+                                let type = '';
+                                if (pic.media instanceof File) {
+                                  src = URL.createObjectURL(pic.media);
+                                  type = pic.media.type;
+                                } else if (pic.media && pic.media.url) {
+                                  src = pic.media.url;
+                                  type = pic.media.type || '';
+                                }
+                                if (type.startsWith('image/')) {
+                                  return (
+                                    <img
+                                      src={src}
+                                      alt="preview"
+                                      className="w-full h-48 object-cover rounded border cursor-pointer"
+                                      onClick={() => setMediaModal({ open: true, src, type })}
+                                    />
+                                  );
+                                }
+                                return null;
+                              })()
+                            ) : (
+                              <div className="w-full h-48 border-2 border-dashed border-gray-300 rounded flex items-center justify-center">
+                                <i className="fa-regular fa-image text-4xl text-gray-300"></i>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-4 p-4 bg-[#EEF1F5] rounded-lg border border-[#4C53B4]">
+                        <span className="text-sm text-gray-600">Correct Answer:</span>
+                        <p className="font-medium text-[#4C53B4]">{q.answer || 'Not set'}</p>
                       </div>
                     </div>
                   )}
