@@ -1,4 +1,5 @@
 import { useSuccessModal } from '../contexts/SuccessModalContext';
+import React from 'react';
 
 const SuccessModal = () => {
   const { showSuccess, successType, successData, hideSuccessModal } = useSuccessModal();
@@ -66,6 +67,32 @@ const SuccessModal = () => {
             </span>
           </button>
         </div>
+      </div>
+    </div>
+  );
+};
+
+const StudentDrillSuccessModal = ({ open, score, maxScore, onGoToClasses }) => {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div
+        className="bg-white rounded-3xl p-10 w-[420px] max-w-[95vw] flex flex-col items-center animate-fadeIn shadow-2xl border-4 border-[#4C53B4]"
+      >
+        <h2 className="text-3xl font-extrabold text-[#4C53B4] text-center mb-2" style={{fontFamily: 'Baloo, sans-serif'}}>Drill Completed!</h2>
+        <p className="text-lg text-gray-700 text-center mb-6">You finished the drill. Here is your score:</p>
+        <div className="flex flex-col items-center mb-8">
+          <span className="text-5xl font-extrabold text-green-500 mb-2" style={{fontFamily: 'Baloo, sans-serif'}}>{score} <span className="text-2xl text-gray-500">/ {maxScore}</span></span>
+          <span className="text-lg text-gray-600">Points</span>
+        </div>
+        <button
+          onClick={onGoToClasses}
+          className="bg-[#FBE18F] text-[#4C53B4] font-bold px-8 py-3 rounded-full shadow hover:bg-yellow-300 transition text-lg w-44"
+          style={{fontFamily: 'Baloo, sans-serif'}}
+        >
+          Go to My Classes
+        </button>
       </div>
     </div>
   );

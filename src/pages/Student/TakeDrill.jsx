@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import drillBg from '../../assets/drill_bg.png';
 import '../../styles/animations.css';
+import BadgeEarnedModal from '../../components/BadgeEarnedModal';
+import { useUser } from '../../contexts/UserContext';
 
 const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer, handleSubmitAnswer, question: currentQuestion }) => {
   return (
@@ -541,6 +543,7 @@ const StoryDisplay = ({ story }) => {
 const TakeDrill = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useUser(); // Get user from context
   const [drill, setDrill] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -549,7 +552,19 @@ const TakeDrill = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTeacherPreview, setIsTeacherPreview] = useState(false);
   const questionStartTimeRef = useRef(null);
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [earnedBadge, setEarnedBadge] = useState(null);
+  const [initialBadgeCount, setInitialBadgeCount] = useState(0); // Store initial badge count
   
+  // Fetch initial badge count on mount
+  useEffect(() => {
+    if (user?.id) {
+      api.get('/api/badges/student-badges/', { params: { student_id: user.id } })
+        .then(res => setInitialBadgeCount(res.data.length))
+        .catch(err => console.error('Error fetching initial badge count:', err));
+    }
+  }, [user]);
+
   // Fetch the drill data
   useEffect(() => {
     const fetchDrill = async () => {
@@ -743,24 +758,28 @@ const TakeDrill = () => {
 
     setIsSubmitting(true);
 
-    // In a full implementation, you might have a final backend endpoint to mark the drill run as complete
-    // and potentially calculate final scores/completion time on the overall DrillResult.
-    // For now, the SubmitAnswerView updates points question by question.
-
     try {
-        // Example: A final API call to mark the drill as complete (if needed)
-        // await api.post(`/api/drills/${id}/complete/`);
+      // Example: A final API call to mark the drill as complete (if needed)
+      // await api.post(`/api/drills/${id}/complete/`);
 
-        alert('Drill completed successfully!');
-
-        // Navigate back to classroom
-        navigate(-1);
-
+      // After drill completion, check for new badge
+      const badgesRes = await api.get('/api/badges/student-badges/', { params: { student_id: user.id } });
+      const newBadgeCount = badgesRes.data.length;
+      
+      // Navigate back first
+      navigate(-1);
+      
+      // Then check for new badge and show modal if earned
+      if (newBadgeCount > initialBadgeCount) {
+        const latestBadge = badgesRes.data[badgesRes.data.length - 1];
+        setEarnedBadge(latestBadge);
+        setShowBadgeModal(true);
+      }
     } catch (error) {
-        console.error('Error completing drill:', error);
-        alert(`Failed to complete drill: ${error.message || 'Unknown error'}`);
+      console.error('Error completing drill:', error);
+      alert(`Failed to complete drill: ${error.message || 'Unknown error'}`);
     } finally {
-       setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -1045,6 +1064,12 @@ const TakeDrill = () => {
           </div>
         </div>
       </div>
+      <BadgeEarnedModal
+        open={showBadgeModal}
+        badge={earnedBadge}
+        onViewBadges={() => navigate('/s/badges')}
+        onClose={() => setShowBadgeModal(false)}
+      />
     </div>
   );
 };
