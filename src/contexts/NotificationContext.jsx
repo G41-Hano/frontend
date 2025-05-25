@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { ACCESS_TOKEN } from "../constants"
 import api from '../api';
 
 const NotificationContext = createContext();
@@ -23,12 +24,15 @@ export const NotificationProvider = ({ children }) => {
   }, []);
 
   const fetchNotifications = async () => {
-    try {
-      const response = await api.get('/api/notifications/');
-      setNotifications(response.data);
-      setUnreadCount(response.data.filter(n => !n.is_read).length);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
+    const token = localStorage.getItem(ACCESS_TOKEN)
+    if (token) {
+      try {
+        const response = await api.get('/api/notifications/');
+        setNotifications(response.data);
+        setUnreadCount(response.data.filter(n => !n.is_read).length);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
     }
   };
 
