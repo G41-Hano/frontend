@@ -12,6 +12,7 @@ import { ClassroomPreferencesProvider } from './contexts/ClassroomPreferencesCon
 import { SuccessModalProvider } from './contexts/SuccessModalContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import SuccessModal from './components/SuccessModal'
+import TestPage from './pages/TestPage'
 
 function Logout() {
   localStorage.removeItem('access');
@@ -41,6 +42,8 @@ function App() {
               <Route path="/register/teacher" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
               <Route path="/request-password-reset" element={<AuthRoute requireAuth={false}><PasswordReset /></AuthRoute>} />
               <Route path="/reset-password/:token" element={<AuthRoute requireAuth={false}><NewPassword /></AuthRoute>} />
+
+              <Route path="/test" element={<AuthRoute><TestPage /></AuthRoute>} />
 
               {/* Student Routes */}
               <Route path="/s" element={
