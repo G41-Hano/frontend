@@ -54,10 +54,39 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
+  const deleteNotification = async (notificationId) => {
+    try {
+      await api.delete(`/api/notifications/${notificationId}/`);
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      // Update unread count if the deleted notification was unread
+      const deletedNotification = notifications.find(n => n.id === notificationId);
+      if (deletedNotification && !deletedNotification.is_read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
   const addNotification = (notification) => {
     setNotifications(prev => [notification, ...prev]);
     if (!notification.is_read) {
       setUnreadCount(prev => prev + 1);
+    }
+  };
+
+  const getNotificationPath = (notification) => {
+    switch (notification.type) {
+      case 'student_transfer':
+        return '/t/transfer-requests';
+      case 'transfer_approved':
+      case 'transfer_rejected':
+        return `/t/classes/${notification.data.classroom_id}`;
+      case 'student_added':
+      case 'student_removed':
+        return `/s/classes/${notification.data.classroom_id}`;
+      default:
+        return null;
     }
   };
 
@@ -68,7 +97,9 @@ export const NotificationProvider = ({ children }) => {
       markAsRead,
       markAllAsRead,
       addNotification,
-      refreshNotifications: fetchNotifications
+      refreshNotifications: fetchNotifications,
+      deleteNotification,
+      getNotificationPath
     }}>
       {children}
     </NotificationContext.Provider>

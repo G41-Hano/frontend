@@ -343,38 +343,41 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
                     `${student.first_name} ${student.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
                   )
                   .map(student => (
-                    <div 
+                    <div
                       key={student.id}
-                      className="flex items-center justify-between p-2 hover:bg-gray-50 transition-colors"
+                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-300 ${
+                        selectedStudents.some(s => s.id === student.id)
+                          ? 'bg-[#4C53B4] text-white'
+                          : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => {
+                        if (selectedStudents.some(s => s.id === student.id)) {
+                          setSelectedStudents(prev => prev.filter(s => s.id !== student.id));
+                        } else {
+                          setSelectedStudents(prev => [...prev, student]);
+                        }
+                      }}
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#4C53B4] flex items-center justify-center text-white text-sm">
-                          {student.first_name?.[0] || student.username[0]}
+                      {student.avatar ? (
+                        <img 
+                          src={student.avatar}
+                          alt={student.first_name?.[0] || student.username[0]}
+                          className="w-10 h-10 rounded-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-[#4C53B4] flex items-center justify-center text-white text-sm font-medium">
+                          {student.first_name?.[0]?.toUpperCase() || student.username?.[0]?.toUpperCase()}
                         </div>
-                        <div>
-                          <div className="font-medium text-sm">
-                            {student.first_name ? `${student.first_name} ${student.last_name}` : student.username}
-                          </div>
-                          <div className="text-xs text-gray-500">@{student.username}</div>
-                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium">{student.first_name} {student.last_name}</div>
+                        <div className="text-sm opacity-75">@{student.username}</div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (selectedStudents.find(s => s.id === student.id)) {
-                            setSelectedStudents(prev => prev.filter(s => s.id !== student.id));
-                          } else {
-                            setSelectedStudents(prev => [...prev, student]);
-                          }
-                        }}
-                        className={`px-2 py-1 rounded-lg transition-colors text-sm ${
-                          selectedStudents.find(s => s.id === student.id)
-                            ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                            : 'bg-[#4C53B4]/10 text-[#4C53B4] hover:bg-[#4C53B4]/20'
-                        }`}
-                      >
-                        {selectedStudents.find(s => s.id === student.id) ? 'Remove' : 'Add'}
-                      </button>
                     </div>
                   ))
               )}
