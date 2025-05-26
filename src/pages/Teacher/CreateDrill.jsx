@@ -38,6 +38,7 @@ const emptyQuestion = {
   story_context: '',
   sign_language_instructions: '',
   sentence: '', // For Drag and Drop sentence with blanks
+  letterChoices: [], // For Blank Buster letter choices
 };
 
 const Stepper = ({ step, setStep }) => (
@@ -532,33 +533,52 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           defaultAnswer = 0;
           break;
           
-        case 'F': // Fill in the Blank
-          defaultQuestion = `Complete the word by filling in the missing letters:`;
-          // Create pattern showing first and last letters
+        case 'F': { // <-- open block
           word = selectedQuestionWord.toUpperCase();
+          
+          // Ensure word is at least 4 letters long
+          if (word.length < 4) {
+            throw new Error('Word must be at least 4 letters long for Blank Buster');
+          }
+          
+          // Create pattern with first and last letters visible
           pattern = word.split('').map((char, idx) => 
             idx === 0 || idx === word.length - 1 ? char : '_'
           ).join(' ');
           
-          // Find missing letters (those replaced with _)
-          missingLetters = word.split('').filter((char, idx) => 
-            idx !== 0 && idx !== word.length - 1
-          );
+          // Find missing letter indices
+          const missingIndices = word.split('').reduce((acc, char, idx) => {
+            if (idx !== 0 && idx !== word.length - 1) acc.push(idx);
+            return acc;
+          }, []);
           
-          // Create unique choices by adding some random letters
+          // Get missing letters
+          missingLetters = missingIndices.map(idx => word[idx]);
+          
+          // Create letter choices: include missing letters and some random letters
           letterChoices = [
             ...missingLetters,
             ...allPossibleLetters
               .filter(l => !missingLetters.includes(l))
               .sort(() => Math.random() - 0.5)
-              .slice(0, Math.max(0, 5 - missingLetters.length))
-          ];
+              .slice(0, Math.max(0, 6 - missingLetters.length))
+          ].sort(() => Math.random() - 0.5);
           
+          // Ensure unique letter choices
+          letterChoices = [...new Set(letterChoices)];
+          
+          defaultQuestion = `Complete the word by filling in the missing letters:`;
           defaultPattern = pattern;
           defaultAnswer = word;
-          defaultHint = `Hint: ${selectedQuestionWordData.definition || 'Definition would appear here'}`;
-          break;
+          defaultHint = `Hint: ${selectedQuestionWordData.definition || 'A word related to the lesson'}`;
           
+          // Create choices for the question (optional, but can help with validation)
+          defaultChoices = letterChoices.map((letter, idx) => ({
+            text: letter,
+            is_correct: missingLetters.includes(letter)
+          }));
+          break; // <-- close block
+        }
         case 'D': // Sentence Builder
           defaultQuestion = `Build the correct sentence using the given words:`;
           defaultAnswer = selectedQuestionWord;
@@ -578,16 +598,11 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
         ...questionDraft,
         text: defaultQuestion,
         answer: defaultAnswer,
-        letterChoices: questionDraft.type === 'F' ? letterChoices : undefined
+        pattern: defaultPattern,
+        hint: defaultHint,
+        letterChoices: questionDraft.type === 'F' ? letterChoices : undefined,
+        choices: defaultChoices
       };
-
-      if (questionDraft.type === 'M') {
-        newQuestionDraft.choices = defaultChoices;
-      }
-      if (questionDraft.type === 'F') {
-        newQuestionDraft.pattern = defaultPattern;
-        newQuestionDraft.hint = defaultHint;
-      }
 
       setQuestionDraft(newQuestionDraft);
     } catch (err) {
@@ -839,6 +854,11 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
             Object.keys(choice).forEach(k => (choice[k] == null) && delete choice[k]);
             return choice;
           });
+        }
+        if (q.type === 'F') {
+          base.pattern = q.pattern;
+          base.hint = q.hint;
+          base.letterChoices = q.letterChoices;
         }
         if (q.type === 'D') {
           base.dragItems = Array.isArray(q.dragItems) ? q.dragItems : [];
@@ -1884,14 +1904,18 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                             type="button"
                             className="px-3 py-2 rounded-xl bg-[#EEF1F5] text-[#4C53B4] hover:bg-[#4C53B4] hover:text-white transition-colors"
                             onClick={() => {
-                              // Generate pattern from the selected word
                               if (selectedQuestionWord) {
                                 const word = selectedQuestionWord.toUpperCase();
-                                const pattern = word.split('').map((char, idx) => 
-                                  // Show first letter, and randomly show some other letters
-                                  idx === 0 || (idx !== word.length - 1 && Math.random() > 0.7) ? char : '_'
-                                ).join(' ');
-                                setQuestionDraft(prev => ({ ...prev, pattern, answer: word }));
+                                const pattern = word.split('').map((char, idx) => idx === 0 || (idx !== word.length - 1 && Math.random() > 0.7) ? char : '_').join(' ');
+                                // --- letterChoices logic ---
+                                const missingLetters = word.split('').filter((char, idx) => pattern.split(' ')[idx] === '_');
+                                const allPossibleLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+                                let letterChoices = [
+                                  ...missingLetters,
+                                  ...allPossibleLetters.filter(l => !missingLetters.includes(l)).sort(() => Math.random() - 0.5).slice(0, Math.max(0, 5 - missingLetters.length))
+                                ];
+                                letterChoices = letterChoices.sort(() => Math.random() - 0.5);
+                                setQuestionDraft(prev => ({ ...prev, pattern, answer: word, letterChoices }));
                               }
                             }}
                           >
@@ -2003,9 +2027,22 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                           <div className="flex gap-2">
                             <textarea
                               className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                              placeholder="Enter the sentence with blanks (_)"
+                              placeholder="Enter the sentence with blanks (_)..."
                               value={questionDraft.sentence || ''}
-                              onChange={e => setQuestionDraft({ ...questionDraft, sentence: e.target.value })}
+                              onChange={e => {
+                                const sentence = e.target.value;
+                                // Count blanks
+                                const blankCount = (sentence.match(/_/g) || []).length;
+                                let dragItems = questionDraft.dragItems || [];
+                                if (blankCount > dragItems.length) {
+                                  // Add empty answers
+                                  dragItems = [...dragItems, ...Array(blankCount - dragItems.length).fill({ text: '', isCorrect: true })];
+                                } else if (blankCount < dragItems.length) {
+                                  // Remove extra answers
+                                  dragItems = dragItems.slice(0, blankCount);
+                                }
+                                setQuestionDraft({ ...questionDraft, sentence, dragItems });
+                              }}
                               rows={3}
                             />
                             <AiGenerateButton
@@ -2022,65 +2059,35 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                                     });
                                     return;
                                   }
-
                                   // Create initial sentence with the word
                                   const word = selectedQuestionWord;
                                   const initialSentence = `A ${word} is ${definition}`;
                                   const allWords = initialSentence.split(/\s+/);
-                                  
                                   // Decide if we want to blank out the main word (50% chance)
                                   const blankMainWord = Math.random() < 0.5;
-                                  
                                   // Select 2-3 additional random words to blank out (excluding very short words)
-                                  const eligibleWords = allWords
-                                    .slice(2) // Skip "A" and the word itself
-                                    .filter(word => word.length > 3);
+                                  const eligibleWords = allWords.slice(2).filter(word => word.length > 3);
                                   const numAdditionalBlanks = Math.min(Math.floor(Math.random() * 2) + 1, eligibleWords.length);
                                   const wordsToBlank = new Set();
-                                  
-                                  // Add main word if selected
                                   if (blankMainWord) {
                                     wordsToBlank.add(word.toLowerCase());
                                   }
-                                  
-                                  // Add additional words
                                   while (wordsToBlank.size < (blankMainWord ? numAdditionalBlanks + 1 : numAdditionalBlanks) && eligibleWords.length > 0) {
                                     const randomWord = eligibleWords[Math.floor(Math.random() * eligibleWords.length)];
                                     const cleanWord = randomWord.toLowerCase().replace(/[.,!?]/g, '');
-                                    if (cleanWord !== word.toLowerCase()) { // Don't add the main word twice
+                                    if (cleanWord !== word.toLowerCase()) {
                                       wordsToBlank.add(cleanWord);
                                     }
                                   }
-
-                                  // Create sentence with blanks
                                   const sentenceWithBlanks = allWords.map((word, index) => {
-                                    // Always keep "A" and "is"
                                     if (index === 0 || index === 2) return word;
-                                    
                                     const cleanWord = word.toLowerCase().replace(/[.,!?]/g, '');
                                     return wordsToBlank.has(cleanWord) ? '_' : word;
                                   }).join(' ');
-
-                                  // Create drag items from blanked words
-                                  const dragItems = Array.from(wordsToBlank).map(word => ({
-                                    text: word,
-                                    isCorrect: true
-                                  }));
-
-                                  // Add some incorrect choices
-                                  const otherWords = allWords
-                                    .map(w => w.toLowerCase().replace(/[.,!?]/g, ''))
-                                    .filter(w => w.length > 3 && !wordsToBlank.has(w) && w !== 'is');
-                                  
-                                  const additionalChoices = otherWords
-                                    .filter((w, i, arr) => arr.indexOf(w) === i) // Remove duplicates
-                                    .slice(0, Math.max(0, 5 - dragItems.length));
-
-                                  const incorrectChoices = additionalChoices.map(word => ({
-                                    text: word,
-                                    isCorrect: false
-                                  }));
-
+                                  const dragItems = Array.from(wordsToBlank).map(word => ({ text: word, isCorrect: true }));
+                                  const otherWords = allWords.map(w => w.toLowerCase().replace(/[.,!?]/g, '')).filter(w => w.length > 3 && !wordsToBlank.has(w) && w !== 'is');
+                                  const additionalChoices = otherWords.filter((w, i, arr) => arr.indexOf(w) === i).slice(0, Math.max(0, 5 - dragItems.length));
+                                  const incorrectChoices = additionalChoices.map(word => ({ text: word, isCorrect: false }));
                                   setQuestionDraft(prev => ({
                                     ...prev,
                                     sentence: sentenceWithBlanks,
@@ -2294,7 +2301,10 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                             definition: selectedQuestionWordData.definition,
                             image: selectedQuestionWordData.image,
                             signVideo: selectedQuestionWordData.signVideo,
-                      choices: questionDraft.choices.map(c => ({ ...c }))
+                      choices: questionDraft.choices.map(c => ({ ...c })),
+                      letterChoices: questionDraft.type === 'F' ? [...(questionDraft.letterChoices || [])] : undefined,
+                      dragItems: questionDraft.type === 'D' ? [...(questionDraft.dragItems || [])] : undefined,
+                      incorrectChoices: questionDraft.type === 'D' ? [...(questionDraft.incorrectChoices || [])] : undefined,
                     };
                     if (questionEditIdx !== null) {
                       const updatedQuestions = [...drill.questions];
@@ -2425,7 +2435,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   )}
                   {q.type === 'F' && (
                     <div className="space-y-2">
-                      <div className="text-gray-700">{q.text}</div>
                       <div className="font-mono text-xl tracking-wider text-[#4C53B4] bg-[#EEF1F5] p-4 rounded-xl text-center">
                         {q.pattern}
                       </div>
@@ -2442,10 +2451,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   {q.type === 'D' && (
                     <div className="mt-2">
                       <div className="mb-4 p-4 bg-[#F7F9FC] rounded-lg border border-[#4C53B4]/10">
-                        {/* Question Text */}
-                        <div className="text-gray-700 mb-3">
-                          <span className="font-medium">Question:</span> {q.text}
-                          </div>
                         {/* Sentence with Blanks */}
                         <div className="p-4 bg-white rounded-lg border border-gray-200">
                           {(q.sentence || '').split('_').map((part, index, array) => (
@@ -2453,13 +2458,13 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                               {part}
                               {index < array.length - 1 && (
                                 <span className="inline-block min-w-[100px] h-8 mx-2 bg-[#EEF1F5] border-2 border-dashed border-[#4C53B4]/30 rounded-lg align-middle"></span>
-                                )}
+                              )}
                             </span>
-                            ))}
-                      </div>
+                          ))}
+                          </div>
                         {/* Available Words */}
                         <div className="mt-4">
-                          <div className="text-sm text-gray-600 mb-2">Available words:</div>
+                          <div className="text-sm text-gray-600 mb-2">Choices:</div>
                           <div className="flex flex-wrap gap-2">
                             {[...(q.dragItems || []), ...(q.incorrectChoices || [])].map((item, i) => (
                               <div
@@ -2474,7 +2479,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                               </div>
                             ))}
                           </div>
-                        </div>
+                      </div>
                       </div>
                     </div>
                   )}

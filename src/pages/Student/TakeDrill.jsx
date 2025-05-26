@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useReducer } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import drillBg from '../../assets/drill_bg.png';
@@ -655,6 +655,275 @@ const calculateCurrentStep = (introStep, currentWordIdx, currentQuestionIdx, wor
   }
 };
 
+// --- Blank Buster (FillInBlankQuestion) ---
+const BlankBusterQuestion = ({ question, onAnswer, currentAnswer }) => {
+  const safeQuestion = question || {};
+  const letterChoices = Array.isArray(safeQuestion.letterChoices) && safeQuestion.letterChoices.length > 0
+    ? safeQuestion.letterChoices
+    : (Array.isArray(safeQuestion.choices) ? safeQuestion.choices.map(c => c.text) : []);
+  const pattern = (safeQuestion.pattern || '').toString().split(' ');
+  const blanksCount = pattern.filter(p => p === '_').length;
+
+  const getInitialSelectedIndexes = useCallback(() =>
+    Array.isArray(currentAnswer) && currentAnswer.length === blanksCount
+      ? currentAnswer
+      : Array(blanksCount).fill(undefined)
+  , [currentAnswer, blanksCount]);
+
+  const reducer = useCallback((state, action) => {
+    switch (action.type) {
+      case 'RESET':
+        return action.payload;
+      case 'SET_INDEX': {
+        const newState = [...state];
+        newState[action.blankIdx] = action.choiceIdx;
+        return newState;
+      }
+      case 'REMOVE_INDEX': {
+        const newState = [...state];
+        newState[action.blankIdx] = undefined;
+        return newState;
+      }
+      default:
+        return state;
+    }
+  }, []);
+
+  const [selectedIndexes, dispatch] = useReducer(reducer, getInitialSelectedIndexes());
+  const [checked, setChecked] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(null);
+
+  // Reset check state if user changes answer
+  useEffect(() => {
+    setChecked(false);
+    setIsCorrect(null);
+  }, [getInitialSelectedIndexes]);
+
+  const getLetterCount = useCallback((idx) =>
+    selectedIndexes.filter(i => i === idx).length,
+    [selectedIndexes]
+  );
+
+  const getMaxCount = useCallback((idx) =>
+    letterChoices.filter(l => l === letterChoices[idx]).length,
+    [letterChoices]
+  );
+
+  const handleAnswer = useCallback((newIndexes) => {
+    onAnswer(newIndexes);
+  }, [onAnswer]);
+
+  const handleLetterClick = useCallback((choiceIdx) => {
+    if (isCorrect) return;
+    const firstEmpty = selectedIndexes.findIndex(idx => idx === undefined);
+    if (firstEmpty === -1) return;
+    const usedCount = getLetterCount(choiceIdx);
+    const maxCount = getMaxCount(choiceIdx);
+    if (usedCount >= maxCount) return;
+    dispatch({
+      type: 'SET_INDEX',
+      blankIdx: firstEmpty,
+      choiceIdx
+    });
+    const newIndexes = [...selectedIndexes];
+    newIndexes[firstEmpty] = choiceIdx;
+    handleAnswer(newIndexes);
+  }, [selectedIndexes, getLetterCount, getMaxCount, handleAnswer, isCorrect]);
+
+  const handleRemove = useCallback((blankIdx) => {
+    if (isCorrect) return;
+    dispatch({
+      type: 'REMOVE_INDEX',
+      blankIdx
+    });
+    const newIndexes = [...selectedIndexes];
+    newIndexes[blankIdx] = undefined;
+    handleAnswer(newIndexes);
+  }, [selectedIndexes, handleAnswer, isCorrect]);
+
+  if (!safeQuestion.pattern || blanksCount === 0) {
+    return (
+      <div className="text-center text-red-500">
+        No valid fill-in-the-blank question available.
+      </div>
+    );
+  }
+
+  let blankCounter = 0;
+  const display = pattern.map((char, idx) => {
+    if (char !== '_') {
+      return (
+        <div key={idx} className="w-14 h-14 flex items-center justify-center rounded bg-[#4C53B4] text-white font-bold text-2xl mx-2">{char}</div>
+      );
+    } else {
+      const selectedIdx = selectedIndexes[blankCounter];
+      const box = (
+        <div
+          key={idx}
+          className={`w-14 h-14 flex items-center justify-center rounded bg-[#EEF1F5] text-[#4C53B4] font-bold text-2xl mx-2 cursor-pointer border-2 border-[#4C53B4]/30 relative ${checked && (selectedIdx === undefined || letterChoices[selectedIdx] !== safeQuestion.answer[blankCounter + 1]) ? 'border-red-500' : ''}`}
+          onClick={() => selectedIdx !== undefined && handleRemove(blankCounter)}
+        >
+          {selectedIdx !== undefined ? letterChoices[selectedIdx] : ''}
+          {selectedIdx !== undefined && !isCorrect && (
+            <span className="absolute -top-2 -right-2 w-5 h-5 bg-white text-red-500 rounded-full flex items-center justify-center text-lg border border-gray-200">&times;</span>
+          )}
+        </div>
+      );
+      blankCounter++;
+      return box;
+    }
+  });
+
+  const allFilled = selectedIndexes.every(idx => idx !== undefined);
+
+  // Only show unused choices
+  const usedIndexes = new Set(selectedIndexes.filter(idx => idx !== undefined));
+  const availableChoices = letterChoices.map((letter, idx) => ({ letter, idx }))
+    .filter(({ idx }) => !usedIndexes.has(idx));
+
+  // Check answer logic
+  const checkAnswer = () => {
+    if (!allFilled) return;
+    const userAnswer = pattern.map((char, idx) => char === '_' ? letterChoices[selectedIndexes[blankCounter - pattern.slice(idx + 1).filter(c => c === '_').length - 1]] : char).join('').replace(/ /g, '');
+    const correct = userAnswer.toUpperCase() === (safeQuestion.answer || '').toUpperCase();
+    setChecked(true);
+    setIsCorrect(correct);
+  };
+
+  return (
+    <div className="animate-fadeIn">
+      <div className="flex justify-center gap-2 mb-8">{display}</div>
+      <div className="flex flex-wrap justify-center gap-4 mb-6">
+        {availableChoices.map(({ letter, idx }) => (
+          <button
+            key={idx}
+            className={`w-14 h-14 px-6 py-4 flex items-center justify-center rounded bg-white border-2 border-[#4C53B4] text-[#4C53B4] font-bold text-2xl cursor-pointer hover:bg-[#EEF1F5] transition ${getLetterCount(idx) >= getMaxCount(idx) || isCorrect ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => getLetterCount(idx) < getMaxCount(idx) && !isCorrect && handleLetterClick(idx)}
+            disabled={getLetterCount(idx) >= getMaxCount(idx) || isCorrect}
+          >
+            {letter}
+          </button>
+        ))}
+      </div>
+      <div className="flex justify-center mb-4">
+        <button
+          className={`px-8 py-3 rounded-xl text-xl font-bold text-white ${allFilled ? 'bg-[#4C53B4] hover:bg-[#3a4095]' : 'bg-gray-300 cursor-not-allowed'}`}
+          onClick={checkAnswer}
+          disabled={!allFilled || isCorrect}
+        >
+          Check
+        </button>
+      </div>
+      {safeQuestion.hint && (
+        <div className="text-lg text-gray-700 text-center mb-2">
+          <i className="fa-solid fa-lightbulb text-yellow-500 mr-2"></i>
+          {safeQuestion.hint.replace(/^Hint: /i, '')}
+        </div>
+      )}
+      {checked && isCorrect === false && (
+        <div className={`text-center text-2xl font-bold mt-2 text-red-600`}>
+          Try again!
+        </div>
+      )}
+      {checked && isCorrect === true && (
+        <div className={`text-center text-2xl font-bold mt-2 text-green-600`}>
+          Correct!
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Sentence Builder (DragDropQuestion) ---
+const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
+  const sentence = question.sentence || '';
+  const blanksCount = (sentence.match(/_/g) || []).length;
+  const [blankAnswers, setBlankAnswers] = useState(() =>
+    Array.isArray(currentAnswer) && currentAnswer.length === blanksCount
+      ? currentAnswer
+      : Array(blanksCount).fill(null)
+  );
+  useEffect(() => {
+    setBlankAnswers(
+      Array.isArray(currentAnswer) && currentAnswer.length === blanksCount
+        ? currentAnswer
+        : Array(blanksCount).fill(null)
+    );
+  }, [question]);
+
+  // Combine correct and incorrect choices, shuffle on mount
+  const [choices] = useState(() => {
+    const all = [...(question.dragItems || []), ...(question.incorrectChoices || [])];
+    return all.sort(() => Math.random() - 0.5);
+  });
+
+  // Build the sentence display
+  let blankIdx = 0;
+  const parts = sentence.split('_');
+  const display = [];
+  for (let i = 0; i < parts.length; i++) {
+    display.push(<span key={`part-${i}`}>{parts[i]}</span>);
+    if (i < parts.length - 1) {
+      const answerIdx = blankAnswers[blankIdx];
+      display.push(
+        <span
+          key={`blank-${blankIdx}`}
+          className="inline-block min-w-[100px] h-8 mx-2 bg-[#EEF1F5] border-2 border-dashed border-[#4C53B4]/30 rounded-lg align-middle text-center cursor-pointer relative"
+          onClick={() => {
+            if (answerIdx !== null) {
+              // Remove answer from this blank
+              const newAnswers = [...blankAnswers];
+              newAnswers[blankIdx] = null;
+              setBlankAnswers(newAnswers);
+              onAnswer(newAnswers);
+            }
+          }}
+        >
+          {answerIdx !== null ? choices[answerIdx]?.text : ''}
+          {answerIdx !== null && (
+            <span className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-500 rounded-full flex items-center justify-center text-xs border border-gray-200">&times;</span>
+          )}
+        </span>
+      );
+      blankIdx++;
+    }
+  }
+  // Choices not yet used
+  const used = new Set(blankAnswers.filter(idx => idx !== null));
+  return (
+    <div className="animate-fadeIn">
+      <div className="p-4 bg-white rounded-lg border border-gray-200 flex flex-wrap items-center justify-center gap-1 mb-6 text-lg">
+        {display}
+      </div>
+      <div className="flex flex-wrap justify-center gap-2 mt-4">
+        {choices.map((choice, idx) => (
+          <button
+            key={idx}
+            className={`px-4 py-2 rounded-lg text-sm font-medium bg-white border-2 border-[#4C53B4] text-[#4C53B4] cursor-pointer hover:bg-[#EEF1F5] transition ${used.has(idx) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => {
+              // Find first empty blank
+              const firstEmpty = blankAnswers.findIndex(a => a === null);
+              if (firstEmpty !== -1 && !used.has(idx)) {
+                const newAnswers = [...blankAnswers];
+                newAnswers[firstEmpty] = idx;
+                setBlankAnswers(newAnswers);
+                onAnswer(newAnswers);
+              }
+            }}
+            disabled={used.has(idx)}
+          >
+            {choice.text}
+          </button>
+        ))}
+      </div>
+      <div className="text-sm text-gray-500 mt-2 text-center">
+        <i className="fa-solid fa-shuffle mr-1"></i>
+        All choices are shuffled. Tap a blank to remove its answer.
+      </div>
+    </div>
+  );
+};
+
 const TakeDrill = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -668,23 +937,24 @@ const TakeDrill = () => {
   const [timeSpent, setTimeSpent] = useState({});
   const [points, setPoints] = useState({});
   const [answerStatus, setAnswerStatus] = useState(null);
-  const [timer, setTimer] = useState(null);
   const [wordGroups, setWordGroups] = useState([]);
   const [currentAnswer, setCurrentAnswer] = useState(null);
   const [wrongAnswers, setWrongAnswers] = useState([]);
 
   // Timer logic
   useEffect(() => {
+    let intervalId;
     if (introStep === 5) {
-      setTimer(setInterval(() => {
+      intervalId = setInterval(() => {
         const key = `${currentWordIdx}_${currentQuestionIdx}`;
         setTimeSpent(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-      }, 1000));
-    } else {
-      if (timer) clearInterval(timer);
+      }, 1000);
     }
-    return () => { if (timer) clearInterval(timer); };
-  }, [introStep, currentWordIdx, currentQuestionIdx, timer]);
+    
+    return () => { 
+      if (intervalId) clearInterval(intervalId); 
+    };
+  }, [introStep, currentWordIdx, currentQuestionIdx]);
 
   // Fetch drill and wordlist
   useEffect(() => {
@@ -1130,7 +1400,7 @@ const TakeDrill = () => {
                 );
               case 'F':
                 return (
-                  <FillInBlankQuestion 
+                  <BlankBusterQuestion 
                     question={currentQuestion} 
                         onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
                     currentAnswer={currentAnswer}
@@ -1138,10 +1408,10 @@ const TakeDrill = () => {
                 );
               case 'D':
                 return (
-                  <DragDropQuestion 
+                  <SentenceBuilderQuestion 
                     question={currentQuestion} 
                         onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
-                        currentAnswers={{}}
+                        currentAnswer={currentAnswer}
                   />
                 );
               case 'G':

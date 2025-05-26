@@ -210,18 +210,18 @@ const SortableClassroomCard = ({
               >
                 {student.avatar ? (
                   <>
-                    <img 
-                      src={student.avatar}
-                      alt={student.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
+                  <img 
+                    src={student.avatar}
+                    alt={student.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
                         const fallback = e.target.parentNode.querySelector('.avatar-fallback');
                         if (fallback) {
                           fallback.style.display = 'flex';
                         }
-                      }}
-                    />
+                    }}
+                  />
                     <div 
                       className="avatar-fallback w-full h-full bg-[#4C53B4] items-center justify-center text-white text-[10px] sm:text-xs font-medium hidden"
                     >
@@ -300,18 +300,18 @@ const ClassroomCard = ({ classroom }) => {
             >
               {student.avatar ? (
                 <>
-                  <img 
-                    src={student.avatar}
-                    alt={student.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
+                <img 
+                  src={student.avatar}
+                  alt={student.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
                       const fallback = e.target.parentNode.querySelector('.avatar-fallback');
                       if (fallback) {
                         fallback.style.display = 'flex';
                       }
-                    }}
-                  />
+                  }}
+                />
                   <div 
                     className="avatar-fallback w-full h-full bg-[#4C53B4] items-center justify-center text-white text-[10px] sm:text-xs font-medium hidden"
                   >
