@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api';
 import ClassroomHeader from './ClassroomHeader';
+import Definitions, {useDefinitionFetcher} from '../../components/gen-ai/GenerateDefinition';
+import CreateCustomWordList from '../../components/CreateCustomWordList';
 
 const initialDrill = {
   title: '',
@@ -73,7 +75,7 @@ const Stepper = ({ step, setStep }) => (
   </div>
 );
 
-const FileInput = ({ value, onChange, onPreview }) => {
+export const FileInput = ({ value, onChange, onPreview }) => {
   const isFile = value instanceof File;
   const src = isFile ? URL.createObjectURL(value) : (value && value.url ? value.url : '');
   const [inputKey, setInputKey] = useState(0);
@@ -141,7 +143,7 @@ const FileInput = ({ value, onChange, onPreview }) => {
 };
 
 // New component for AI generation button
-const AiGenerateButton = ({ onClick, loading, className = '' }) => (
+export const AiGenerateButton = ({ onClick, loading, className = '' }) => (
   <button
     type="button"
     onClick={onClick}
@@ -464,32 +466,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       setDrill(d => ({ ...d, dueDate: minDue }));
     }
   }, [drill.openDate, drill.dueDate]);
-
-  // New function for AI definition generation
-  const generateDefinition = async () => {
-    setAiLoading(prev => ({ ...prev, definition: true }));
-    try {
-      // TODO: Replace with actual AI API call
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API delay
-      const fakeDefinition = `A ${drill.word} is an important object used for various purposes.`;
-      setDrill(prev => ({ ...prev, definition: fakeDefinition }));
-      setNotification({
-        show: true,
-        message: 'Definition generated successfully!',
-        type: 'success'
-      });
-    } catch (err) {
-      console.error('Failed to generate definition:', err);
-      setNotification({
-        show: true,
-        message: 'Failed to generate definition: ' + (err.message || 'Unknown error'),
-        type: 'error'
-      });
-    } finally {
-      setAiLoading(prev => ({ ...prev, definition: false }));
-      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
-    }
-  };
 
   // New function for AI question generation
   const generateQuestion = async () => {
@@ -1070,10 +1046,10 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       onChange={e => setCustomListDesc(e.target.value)}
                       placeholder="Describe this word list"
                     />
-                    <AiGenerateButton
+                    {/* <AiGenerateButton
                       onClick={generateListDescription}
                       loading={aiLoadingListDesc}
-                    />
+                    /> */}
                   </div>
                 </div>
                 {/* Add Words */}
@@ -1082,61 +1058,12 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     <label className="font-medium">Add Vocabulary Words</label>
                   </div>
                   {drill.customWordList.map((word, index) => (
-                    <div key={index} className="mb-4 p-4 rounded-xl border-2 border-gray-100 flex flex-col gap-2">
-                      <div className="flex gap-4">
-                        <div className="flex-1">
-                          <label className="block text-sm text-gray-600 mb-1">Word <span className="text-red-500">*</span></label>
-                          <input
-                            className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                            value={word.word}
-                            onChange={e => handleUpdateCustomWord(index, 'word', e.target.value)}
-                            placeholder="Enter word"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <label className="block text-sm text-gray-600 mb-1">Definition <span className="text-red-500">*</span></label>
-                          <div className="flex gap-2">
-                            <input
-                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                              value={word.definition}
-                              onChange={e => handleUpdateCustomWord(index, 'definition', e.target.value)}
-                              placeholder="Enter definition"
-                            />
-                            <AiGenerateButton
-                      onClick={() => {
-                                handleUpdateCustomWord(index, 'word', word.word);
-                                generateDefinition();
-                              }}
-                              loading={aiLoading.definition}
-                            />
-                          </div>
-                        </div>
-                        <button
-                          className="text-red-500 hover:text-red-700 px-2"
-                          onClick={() => handleRemoveCustomWord(index)}
-                        >
-                          <i className="fa-solid fa-trash"></i>
-                    </button>
-                      </div>
-                      <div className="flex gap-4">
-                        <div className="flex-1">
-                          <label className="block text-sm text-gray-600 mb-1">Image</label>
-                          <FileInput
-                            value={word.image}
-                            onChange={file => handleUpdateCustomWord(index, 'image', file)}
-                            onPreview={(src, type) => setMediaModal({ open: true, src, type })}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <label className="block text-sm text-gray-600 mb-1">Sign Language Video</label>
-                          <FileInput
-                            value={word.signVideo}
-                            onChange={file => handleUpdateCustomWord(index, 'signVideo', file)}
-                            onPreview={(src, type) => setMediaModal({ open: true, src, type })}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <CreateCustomWordList 
+                      key={index} index={index} word={word} 
+                      handleUpdateCustomWord={handleUpdateCustomWord}
+                      handleRemoveCustomWord={handleRemoveCustomWord}
+                      setMediaModal={setMediaModal}
+                    />
                   ))}
                     <button
                     className="px-3 py-1 rounded-lg bg-[#4C53B4] text-white hover:bg-[#3a4095]"

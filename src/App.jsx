@@ -43,7 +43,6 @@ function App() {
               <Route path="/request-password-reset" element={<AuthRoute requireAuth={false}><PasswordReset /></AuthRoute>} />
               <Route path="/reset-password/:token" element={<AuthRoute requireAuth={false}><NewPassword /></AuthRoute>} />
 
-              <Route path="/test" element={<AuthRoute><TestPage /></AuthRoute>} />
 
               {/* Student Routes */}
               <Route path="/s" element={
