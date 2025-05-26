@@ -8,6 +8,8 @@ import InteractiveLearning from '../components/InteractiveLearning';
 import InteractiveModule from '../components/InteractiveModule';
 import StoryBasedLearning from '../components/StoryBasedLearning';
 import VocabularyAdventure from '../components/VocabularyAdventure';
+import Badges from '../pages/Student/Badges';
+import DrillLeaderboard from '../pages/Student/DrillLeaderboard';
 
 const StudentRoutes = () => {
   return (
@@ -17,6 +19,8 @@ const StudentRoutes = () => {
       <Route path="/classes/:id" element={<StudentClassroom />} />
       <Route path="/take-drill/:id" element={<TakeDrill />} />
       <Route path="/profile" element={<Profile />} />
+      <Route path="/badges" element={<Badges />} />
+      <Route path="/s/drill/:id/leaderboard" element={<DrillLeaderboard />} />
 
       {/*routes for testing only*/}
       <Route path="/interactive-learning" element={<InteractiveLearning />} />

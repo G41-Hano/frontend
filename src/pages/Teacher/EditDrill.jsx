@@ -83,6 +83,271 @@ const FileInput = ({ value, onChange, onPreview }) => {
   );
 };
 
+const MemoryGameCard = ({ card, cards, onRemove, onTextChange, onMediaChange, onPairChange, setNotification, setMediaModal }) => {
+  const handleMediaChange = (file) => {
+    if (file && file.size > 5 * 1024 * 1024) { // 5MB limit
+      setNotification({
+        show: true,
+        message: 'File size must be less than 5MB',
+        type: 'error'
+      });
+      return;
+    }
+    onMediaChange(file);
+  };
+
+  return (
+    <div className="border rounded-lg p-4 bg-white">
+      <div className="flex justify-between items-start mb-2">
+        <input
+          type="text"
+          value={card.content}
+          onChange={(e) => onTextChange(e.target.value)}
+          placeholder="Enter text content"
+          className="flex-1 mr-2 p-2 border rounded"
+        />
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-red-500 hover:text-red-700"
+        >
+          <i className="fa-solid fa-trash"></i>
+        </button>
+      </div>
+      <FileInput
+        value={card.media}
+        onChange={handleMediaChange}
+        onPreview={(src, type) => setMediaModal({ open: true, src, type })}
+      />
+      <div className="mt-2">
+        <label className="block text-xs text-gray-600 mb-1">Pair With</label>
+        <select
+          className="w-full border rounded p-1"
+          value={card.pairId || ''}
+          onChange={e => onPairChange(e.target.value)}
+        >
+          <option value="">Select a card</option>
+          {cards.filter(c => c.id !== card.id).map(c => (
+            <option key={c.id} value={c.id}>
+              {c.content || c.media?.name || c.media?.url || 'Card'}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+};
+
+const MemoryGameQuestionForm = ({ question, onChange, setNotification, setMediaModal }) => {
+  const addCard = () => {
+    const newCard = {
+      id: `card_${Date.now()}`,
+      content: '',
+      pairId: '',
+      media: null
+    };
+    onChange({
+      ...question,
+      memoryCards: [...(question.memoryCards || []), newCard]
+    });
+  };
+
+  const removeCard = (cardId) => {
+    const cards = (question.memoryCards || []).filter(card => card.id !== cardId);
+    // Remove pairings to this card
+    const updatedCards = cards.map(card => {
+      if (card.pairId === cardId) {
+        return { ...card, pairId: '' };
+      }
+      return card;
+    });
+    onChange({
+      ...question,
+      memoryCards: updatedCards
+    });
+  };
+
+  const updateCard = (cardId, field, value) => {
+    const updatedCards = (question.memoryCards || []).map(card => {
+      if (card.id === cardId) {
+        return { ...card, [field]: value };
+      }
+      return card;
+    });
+    onChange({
+      ...question,
+      memoryCards: updatedCards
+    });
+  };
+
+  const updateCardMedia = (cardId, file) => {
+    const updatedCards = (question.memoryCards || []).map(card => {
+      if (card.id === cardId) {
+        return { ...card, media: file };
+      }
+      return card;
+    });
+    onChange({
+      ...question,
+      memoryCards: updatedCards
+    });
+  };
+
+  const updateCardPair = (cardId, pairId) => {
+    let updatedCards = (question.memoryCards || []).map(card => {
+      if (card.id === cardId) {
+        return { ...card, pairId };
+      }
+      // If this card was previously paired with cardId, clear it if the new pairId is not this card
+      if (card.pairId === cardId && pairId !== card.id) {
+        return { ...card, pairId: '' };
+      }
+      return card;
+    });
+    // Make the pairing mutual
+    if (pairId) {
+      updatedCards = updatedCards.map(card => {
+        if (card.id === pairId) {
+          return { ...card, pairId: cardId };
+        }
+        return card;
+      });
+    }
+    onChange({
+      ...question,
+      memoryCards: updatedCards
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Memory Game Cards</h3>
+        <button
+          type="button"
+          onClick={addCard}
+          className="px-3 py-1 bg-[#4C53B4] text-white rounded hover:bg-[#3a3f8f]"
+        >
+          Add Card
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {(question.memoryCards || []).map((card) => (
+          <MemoryGameCard
+            key={card.id}
+            card={card}
+            cards={question.memoryCards}
+            onRemove={() => removeCard(card.id)}
+            onTextChange={(value) => updateCard(card.id, 'content', value)}
+            onMediaChange={(file) => updateCardMedia(card.id, file)}
+            onPairChange={(pairId) => updateCardPair(card.id, pairId)}
+            setNotification={setNotification}
+            setMediaModal={setMediaModal}
+          />
+        ))}
+      </div>
+      {(question.memoryCards || []).length > 0 && (
+        <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            <i className="fa-solid fa-info-circle mr-2"></i>
+            Make sure to add an even number of cards for matching pairs. Each card should have either text or media content. Use the 'Pair With' dropdown to set matching pairs. Each pair must be unique and mutual.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PictureWordQuestionForm = ({ question, onChange, setMediaModal }) => {
+  const addPicture = () => {
+    const newPicture = {
+      id: `pic_${Date.now()}`,
+      media: null
+    };
+    onChange({
+      ...question,
+      pictureWord: [...(question.pictureWord || []), newPicture]
+    });
+  };
+
+  const removePicture = (picId) => {
+    const pictures = (question.pictureWord || []).filter(pic => pic.id !== picId);
+    onChange({
+      ...question,
+      pictureWord: pictures
+    });
+  };
+
+  const updatePicture = (picId, file) => {
+    const updatedPictures = (question.pictureWord || []).map(pic => {
+      if (pic.id === picId) {
+        return { ...pic, media: file };
+      }
+      return pic;
+    });
+    onChange({
+      ...question,
+      pictureWord: updatedPictures
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Four Pics One Word</h3>
+        <button
+          type="button"
+          onClick={addPicture}
+          className="px-3 py-1 bg-[#4C53B4] text-white rounded hover:bg-[#3a3f8f]"
+          disabled={(question.pictureWord || []).length >= 4}
+        >
+          Add Picture
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {(question.pictureWord || []).map((pic, index) => (
+          <div key={pic.id} className="border rounded-lg p-4 bg-white">
+            <div className="flex justify-between items-start mb-2">
+              <span className="text-sm text-gray-600">Picture {index + 1}</span>
+              <button
+                type="button"
+                onClick={() => removePicture(pic.id)}
+                className="text-red-500 hover:text-red-700"
+              >
+                <i className="fa-solid fa-trash"></i>
+              </button>
+            </div>
+            <FileInput
+              value={pic.media}
+              onChange={(file) => updatePicture(pic.id, file)}
+              onPreview={(src, type) => setMediaModal({ open: true, src, type })}
+            />
+          </div>
+        ))}
+      </div>
+      {/* Correct answer field */}
+      <div className="mt-4">
+        <label className="block mb-1 font-medium">Correct Answer</label>
+        <input
+          type="text"
+          className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+          placeholder="Enter the correct word that connects all pictures"
+          value={question.answer || ''}
+          onChange={(e) => onChange({ ...question, answer: e.target.value })}
+        />
+      </div>
+      {(question.pictureWord || []).length > 0 && (
+        <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            <i className="fa-solid fa-info-circle mr-2"></i>
+            Add exactly 4 pictures that have a common word or theme. Make sure each picture is clear and relevant to the answer.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const EditDrill = () => {
   const [step, setStep] = useState(0);
   const [drill, setDrill] = useState(null);
@@ -113,10 +378,13 @@ const EditDrill = () => {
     blankPosition: null,
     dragItems: [],
     dropZones: [],
+    memoryCards: [], // For Memory Game questions
+    pictureWord: [], // For Picture Word questions
   };
 
   const getAbsoluteUrl = (url) => {
     if (!url) return null;
+    if (typeof url !== 'string') return null;
     if (url.startsWith('http')) return url;
     return `http://127.0.0.1:8000${url}`;
   };
@@ -138,11 +406,91 @@ const EditDrill = () => {
             }
             const choices = (q.choices || []).map(c => {
               let media = null;
-              if (c.image) media = { url: getAbsoluteUrl(c.image), type: 'image/*' };
-              else if (c.video) media = { url: getAbsoluteUrl(c.video), type: 'video/*' };
+              if (c.image) {
+                const url = getAbsoluteUrl(c.image);
+                if (url) media = { url, type: 'image/*' };
+              } else if (c.video) {
+                const url = getAbsoluteUrl(c.video);
+                if (url) media = { url, type: 'video/*' };
+              }
               return { ...c, media };
             });
-            return { ...q, answer: answerIdx, choices };
+
+            // Handle memory game cards
+            let memoryCards = q.memoryCards || [];
+            if (Array.isArray(memoryCards)) {
+              memoryCards = memoryCards.map(card => {
+                let media = null;
+                if (card.media) {
+                  // Check if media is an object with url and type
+                  if (typeof card.media === 'object' && card.media !== null && card.media.url) {
+                     const url = getAbsoluteUrl(card.media.url);
+                     if (url) {
+                        media = {
+                           url,
+                           type: card.media.type || '' // Use the type from the backend if available
+                        };
+                     }
+                  } else if (typeof card.media === 'string') {
+                     // Fallback for older data or simple URLs without type
+                     const url = getAbsoluteUrl(card.media);
+                     if (url) {
+                        // Attempt to infer type from URL extension if not provided
+                        const fileExtension = url.split('.').pop().toLowerCase();
+                        let type = '';
+                        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
+                           type = 'image/*';
+                        } else if (['mp4', 'webm', 'mov', 'avi'].includes(fileExtension)) {
+                           type = 'video/*';
+                        }
+                        media = { url, type };
+                     }
+                  }
+                }
+                return {
+                  ...card,
+                  media
+                };
+              });
+            }
+
+            // Handle picture word images
+            let pictureWord = q.pictureWord || [];
+            if (Array.isArray(pictureWord)) {
+              pictureWord = pictureWord.map(pic => {
+                let media = null;
+                if (pic.media) {
+                   // Check if media is an object with url and type
+                  if (typeof pic.media === 'object' && pic.media !== null && pic.media.url) {
+                     const url = getAbsoluteUrl(pic.media.url);
+                     if (url) {
+                        media = {
+                           url,
+                           type: pic.media.type || 'image/*' // Assume image if type is missing for picture word
+                        };
+                     }
+                  } else if (typeof pic.media === 'string') {
+                     // Fallback for older data or simple URLs without type
+                     const url = getAbsoluteUrl(pic.media);
+                     if (url) {
+                         media = { url, type: 'image/*' }; // Assume image for string URLs in picture word
+                     }
+                  }
+                }
+                return {
+                  ...pic,
+                  media
+                };
+              });
+            }
+
+            return {
+              ...q,
+              answer: q.type === 'P' ? q.answer : answerIdx,
+              choices,
+              memoryCards,
+              pictureWord
+            };
           }),
         };
         setDrill(drillData);
@@ -201,84 +549,83 @@ const EditDrill = () => {
 
   // Step 3: Review & Submit
   const handleSubmit = async (status = drill.status) => {
+    setSubmittingAction(status);
     try {
-    // Validate: each choice must have text or media
-    for (const q of drill.questions) {
-      if (q.type === 'M') {
-        for (const c of q.choices) {
-          if (!c.text && !c.media) {
-            alert('Each choice in Multiple Choice must have text or media.');
-              setSubmittingAction(null);
-            return;
-          }
-        }
-      }
-      if (q.type === 'F') {
-        for (const c of q.choices) {
-          if (!c.text) {
-            alert('Each possible answer in Fill in the Blank must have text.');
-              setSubmittingAction(null);
-            return;
-          }
-        }
-      }
-    }
-
-      console.log("Submitting drill update:", drill);
       const formData = new FormData();
       const questions = drill.questions.map((q, qIdx) => {
-        // Preserve the ID if it exists
-        const questionData = {
+        const base = {
           id: q.id,
           text: q.text,
-          type: q.type
+          type: q.type,
         };
-        
-        // Add drag and drop fields if they exist
-        if (q.dragItems) questionData.dragItems = q.dragItems;
-        if (q.dropZones) questionData.dropZones = q.dropZones;
-        if (q.blankPosition !== undefined) questionData.blankPosition = q.blankPosition;
-        
+
         if (q.type === 'M' || q.type === 'F') {
-          questionData.choices = q.choices.map((c, cIdx) => {
-            const choice = { 
+          base.answer = q.answer;
+          base.choices = (q.choices || []).map((c, cIdx) => {
+            let choice = { 
               text: c.text,
               is_correct: q.answer === cIdx 
             };
-            
-            if (c.media) {
-              if (c.media instanceof File) {
-                const key = `media_${qIdx}_${cIdx}`;
-                formData.append(key, c.media);
-                choice.media = key;
-              } else if (c.media.url) {
-                // Existing media with URL
-                choice.media = {
-                  url: c.media.url,
-                  type: c.media.type || ''
-                };
-              }
+            if (c.media instanceof File) {
+              const key = `media_${qIdx}_${cIdx}`;
+              formData.append(key, c.media);
+              choice.media = key;
+            } else if (c.media && c.media.url) {
+              choice.media = c.media.url;
             }
-            
-              return choice;
+            return choice;
           });
         }
-        
-        return questionData;
+
+        if (q.type === 'G') {
+          base.memoryCards = (q.memoryCards || []).map((card, cIdx) => {
+            let mediaValue = null;
+            if (card.media instanceof File) {
+              const key = `media_${qIdx}_card_${cIdx}`;
+              formData.append(key, card.media);
+              mediaValue = key;
+            } else if (card.media && card.media.url) {
+              mediaValue = card.media.url;
+            }
+            return {
+              id: card.id,
+              content: card.content,
+              pairId: card.pairId,
+              media: mediaValue,
+            };
+          });
+        }
+
+        if (q.type === 'P') {
+          base.answer = q.answer;
+          base.pictureWord = (q.pictureWord || []).map((pic, pIdx) => {
+            let mediaValue = null;
+            if (pic.media instanceof File) {
+              const key = `media_${qIdx}_pic_${pIdx}`;
+              formData.append(key, pic.media);
+              mediaValue = key;
+            } else if (pic.media && pic.media.url) {
+              mediaValue = pic.media.url;
+            }
+            return {
+              id: pic.id,
+              media: mediaValue,
+            };
+          });
+        }
+
+        return base;
       });
 
-      // Add form data fields
       formData.append('title', drill.title);
       formData.append('description', drill.description);
       formData.append('deadline', drill.dueDate || drill.deadline);
+      formData.append('openDate', drill.openDate);
       formData.append('classroom', drill.classroom);
       formData.append('questions_input', JSON.stringify(questions));
       formData.append('status', status);
 
-      console.log("Sending data:", JSON.stringify(questions));
       const response = await api.patch(`/api/drills/${drillId}/`, formData);
-      console.log("Update response:", response.data);
-      
       setDrill(prev => ({ ...prev, status }));
       setSuccessMsg('Drill updated successfully!');
       setTimeout(() => {
@@ -486,8 +833,10 @@ const EditDrill = () => {
                         >
                           {c.media ? (
                             (() => {
-                              const src = c.media instanceof File ? URL.createObjectURL(c.media) : (c.media?.url || c.media);
-                              const type = c.media.type || c.media?.mimetype || '';
+                              const src = c.media instanceof File ? URL.createObjectURL(c.media) : 
+                                         (typeof c.media === 'string' ? c.media : c.media?.url);
+                              const type = c.media instanceof File ? c.media.type :
+                                          (typeof c.media === 'string' ? 'image/*' : c.media?.type || '');
                               if (type.startsWith('image/')) {
                                 return (
                                   <img
@@ -559,6 +908,91 @@ const EditDrill = () => {
                       </div>
                     </div>
                   )}
+                  {/* Memory Game Preview */}
+                  {q.type === 'G' && (
+                    <div className="mt-2">
+                      <div className="mb-2 font-semibold">Memory Game Cards:</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {(q.memoryCards || []).map((card, i) => (
+                          <div key={i} className="border rounded-lg p-4 bg-white">
+                            {card.media ? (
+                              (() => {
+                                const src = card.media instanceof File ? URL.createObjectURL(card.media) : 
+                                           (typeof card.media === 'string' ? card.media : card.media?.url);
+                                const type = card.media instanceof File ? card.media.type :
+                                            (typeof card.media === 'string' ? 'image/*' : card.media?.type || '');
+                                if (type.startsWith('image/')) {
+                                  return (
+                                    <img
+                                      src={src}
+                                      alt="preview"
+                                      className="w-full h-32 object-contain rounded border cursor-pointer"
+                                      onClick={() => setMediaModal({ open: true, src, type })}
+                                    />
+                                  );
+                                } else if (type.startsWith('video/')) {
+                                  return (
+                                    <video
+                                      src={src}
+                                      className="w-full h-32 object-contain rounded border cursor-pointer"
+                                      controls
+                                      onClick={e => { e.stopPropagation(); setMediaModal({ open: true, src, type }); }}
+                                    />
+                                  );
+                                }
+                                return null;
+                              })()
+                            ) : null}
+                            {card.content && (
+                              <div className="mt-2 text-center text-sm">{card.content}</div>
+                            )}
+                            {card.pairId && (
+                              <div className="mt-1 text-xs text-gray-500 text-center">
+                                Paired with: {q.memoryCards.find(c => c.id === card.pairId)?.content || 'Card'}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Picture Word Preview */}
+                  {q.type === 'P' && (
+                    <div className="mt-2">
+                      <div className="mb-2 font-semibold">Pictures:</div>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        {(q.pictureWord || []).map((pic, i) => (
+                          <div key={i} className="border rounded-lg p-4 bg-white">
+                            {pic.media ? (
+                              (() => {
+                                const src = pic.media instanceof File ? URL.createObjectURL(pic.media) : (pic.media?.url || pic.media);
+                                const type = pic.media.type || pic.media?.mimetype || '';
+                                if (type.startsWith('image/')) {
+                                  return (
+                                    <img
+                                      src={src}
+                                      alt="preview"
+                                      className="w-full h-32 object-contain rounded border cursor-pointer"
+                                      onClick={() => setMediaModal({ open: true, src, type })}
+                                    />
+                                  );
+                                }
+                                return null;
+                              })()
+                            ) : (
+                              <div className="w-full h-32 flex items-center justify-center text-gray-400">
+                                <i className="fa-regular fa-image text-3xl"></i>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mb-2">
+                        <span className="font-semibold">Correct Answer:</span>
+                        <span className="ml-2 bg-[#EEF1F5] px-2 py-1 rounded">{q.answer || 'Not set'}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -568,40 +1002,44 @@ const EditDrill = () => {
                 <div className="mb-2 font-bold text-lg">{questionEditIdx !== null ? 'Edit' : 'Add'} Question</div>
                 {/* Question Type Selection */}
                 <div className="mb-4">
-                  <label className="block mb-1 font-medium">Question Type</label>
+                  <label className="block mb-1 font-medium">Question Type <span className="text-red-500">*</span></label>
                   <select
                     className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                    value={questionDraft?.type || 'M'}
+                    value={questionDraft.type}
                     onChange={e => {
                       const newType = e.target.value;
                       setQuestionDraft({
                         ...questionDraft,
                         type: newType,
                         text: '',
-                        choices: Array(4).fill().map(() => ({ text: '', media: null })),
+                        choices: emptyQuestion.choices.map(() => ({ text: '', media: null })),
                         answer: 0,
                         dragItems: newType === 'D' ? [] : [],
                         dropZones: newType === 'D' ? [] : [],
+                        memoryCards: newType === 'G' ? [] : [],
+                        pictureWord: newType === 'P' ? [] : [],
                       });
                     }}
                   >
-                    <option value="M">Multiple Choice</option>
-                    <option value="F">Fill in the Blank</option>
+                    <option value="M">Smart Select</option>
+                    <option value="F">Blank Busters</option>
                     <option value="D">Drag and Drop</option>
+                    <option value="G">Memory Game</option>
+                    <option value="P">Four Pics One Word</option>
                   </select>
                 </div>
 
-                {/* Question Text Input */}
+                {/* Question Text */}
                 <div className="mb-4">
-                  <label className="block mb-1 font-medium">Question Text</label>
-                  {questionDraft?.type === 'F' ? (
+                  <label className="block mb-1 font-medium">Question Text <span className="text-red-500">*</span></label>
+                  {questionDraft.type === 'F' ? (
                     <div className="flex items-center gap-2 mb-4">
                       <input
                         className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
                         placeholder="Enter text before the blank"
-                        value={questionDraft.text?.split('_')[0] || ''}
+                        value={questionDraft.text.split('_')[0] || ''}
                         onChange={e => {
-                          const parts = questionDraft.text?.split('_') || ['',''];
+                          const parts = questionDraft.text.split('_');
                           setQuestionDraft({
                             ...questionDraft,
                             text: e.target.value + '_' + (parts[1] || '')
@@ -612,9 +1050,9 @@ const EditDrill = () => {
                       <input
                         className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
                         placeholder="Enter text after the blank"
-                        value={questionDraft.text?.split('_')[1] || ''}
+                        value={questionDraft.text.split('_')[1] || ''}
                         onChange={e => {
-                          const parts = questionDraft.text?.split('_') || ['',''];
+                          const parts = questionDraft.text.split('_');
                           setQuestionDraft({
                             ...questionDraft,
                             text: (parts[0] || '') + '_' + e.target.value
@@ -622,29 +1060,23 @@ const EditDrill = () => {
                         }}
                       />
                     </div>
-                  ) : questionDraft?.type === 'D' ? (
-                    <input
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Question text"
-                      value={questionDraft.text}
-                      onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
-                    />
                   ) : (
                     <input
                       className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
                       placeholder="Question text"
                       value={questionDraft.text}
                       onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
+                      id="question-text-input"
                     />
                   )}
                 </div>
 
-                {/* Choices Section - Only for MCQ */}
-                {questionDraft?.type === 'M' && (
+                {/* Type-specific form sections */}
+                {questionDraft.type === 'M' && (
                   <div className="mb-4">
                     <label className="block mb-1 font-medium">Choices</label>
                     <div className="flex gap-2 mb-2">
-                      {(questionDraft.choices || []).map((c, i) => (
+                      {questionDraft.choices.map((c, i) => (
                         <div key={i} className="flex-1 flex flex-col gap-1">
                           <input
                             className="w-full border-2 border-gray-100 rounded-xl px-2 py-1 focus:border-[#4C53B4]"
@@ -652,23 +1084,30 @@ const EditDrill = () => {
                             value={c.text}
                             onChange={e => handleChoiceChange(i, 'text', e.target.value)}
                           />
-                          <FileInput
-                            value={c.media}
-                            onChange={file => handleChoiceMedia(i, file)}
-                            onPreview={(src, type) => setMediaModal({ open: true, src, type })}
-                          />
+                          <FileInput value={c.media} onChange={file => handleChoiceMedia(i, file)} onPreview={(src, type) => setMediaModal({ open: true, src, type })} />
                         </div>
                       ))}
+                    </div>
+                    <div className="mb-4">
+                      <label className="block mb-1 font-medium">Correct Answer</label>
+                      <select
+                        className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                        value={questionDraft.answer}
+                        onChange={e => setQuestionDraft({ ...questionDraft, answer: parseInt(e.target.value) })}
+                      >
+                        {questionDraft.choices.map((_, i) => (
+                          <option key={i} value={i}>Choice {i+1}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 )}
 
-                {/* Possible Answers for Fill in the Blank */}
-                {questionDraft?.type === 'F' && (
+                {questionDraft.type === 'F' && (
                   <div className="mb-4">
                     <label className="block mb-1 font-medium">Possible Answers</label>
                     <div className="flex gap-2 mb-2">
-                      {(questionDraft.choices || []).map((c, i) => (
+                      {questionDraft.choices.map((c, i) => (
                         <div key={i} className="flex-1 flex flex-col gap-1">
                           <input
                             className="w-full border-2 border-gray-100 rounded-xl px-2 py-1 focus:border-[#4C53B4]"
@@ -679,135 +1118,40 @@ const EditDrill = () => {
                         </div>
                       ))}
                     </div>
+                    <div className="mb-4">
+                      <label className="block mb-1 font-medium">Correct Answer</label>
+                      <select
+                        className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                        value={questionDraft.answer}
+                        onChange={e => setQuestionDraft({ ...questionDraft, answer: parseInt(e.target.value) })}
+                      >
+                        {questionDraft.choices.map((_, i) => (
+                          <option key={i} value={i}>Answer {i+1}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 )}
 
-                {/* Drag and Drop Section */}
-                {questionDraft?.type === 'D' && (
-                  <div className="space-y-4">
-                    {/* Drag Items */}
-                    <div className="space-y-2">
-                      <label className="block font-medium">Drag Items (What students will drag)</label>
-                      <div className="text-sm text-gray-500 mb-2">Example: Countries, dates, names, etc.</div>
-                      {(questionDraft.dragItems || []).map((item, index) => (
-                        <div key={index} className="flex gap-2">
-                          <input
-                            className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                            placeholder={`Drag Item ${index + 1}`}
-                            value={item.text}
-                            onChange={e => {
-                              const newItems = [...questionDraft.dragItems];
-                              newItems[index] = { ...newItems[index], text: e.target.value };
-                              setQuestionDraft({ ...questionDraft, dragItems: newItems });
-                            }}
-                          />
-                          <button
-                            className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
-                            onClick={() => {
-                              const newItems = questionDraft.dragItems.filter((_, i) => i !== index);
-                              setQuestionDraft({ ...questionDraft, dragItems: newItems });
-                            }}
-                          >
-                            <i className="fa-solid fa-trash"></i>
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
-                        onClick={() => {
-                          setQuestionDraft({
-                            ...questionDraft,
-                            dragItems: [...questionDraft.dragItems, { text: '', isCorrect: false }]
-                          });
-                        }}
-                      >
-                        <i className="fa-solid fa-plus mr-2"></i> Add Drag Item
-                      </button>
-                    </div>
-                    {/* Drop Zones */}
-                    <div className="space-y-2">
-                      <label className="block font-medium">Drop Zones (Where students will drop items)</label>
-                      <div className="text-sm text-gray-500 mb-2">Example: Capitals, definitions, answers, etc.</div>
-                      {(questionDraft.dropZones || []).map((zone, index) => (
-                        <div key={index} className="flex flex-col gap-2">
-                          <div className="flex gap-2">
-                            <input
-                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                              placeholder={`Drop Zone ${index + 1}`}
-                              value={zone.text}
-                              onChange={e => {
-                                const newZones = [...questionDraft.dropZones];
-                                newZones[index] = { ...newZones[index], text: e.target.value };
-                                setQuestionDraft({ ...questionDraft, dropZones: newZones });
-                              }}
-                            />
-                            <button
-                              className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
-                              onClick={() => {
-                                const newZones = questionDraft.dropZones.filter((_, i) => i !== index);
-                                setQuestionDraft({ ...questionDraft, dropZones: newZones });
-                              }}
-                            >
-                              <i className="fa-solid fa-trash"></i>
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <label className="text-sm text-gray-600">Correct Answer:</label>
-                            <select
-                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                              value={zone.correctItemIndex ?? ''}
-                              onChange={e => {
-                                const newZones = [...questionDraft.dropZones];
-                                newZones[index] = { 
-                                  ...newZones[index], 
-                                  correctItemIndex: e.target.value === '' ? null : parseInt(e.target.value)
-                                };
-                                setQuestionDraft({ ...questionDraft, dropZones: newZones });
-                              }}
-                            >
-                              <option value="">Select correct answer</option>
-                              {(questionDraft.dragItems || []).map((item, i) => (
-                                <option key={i} value={i}>
-                                  {item.text || `Drag Item ${i + 1}`}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      ))}
-                      <button
-                        className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
-                        onClick={() => {
-                          setQuestionDraft({
-                            ...questionDraft,
-                            dropZones: [...questionDraft.dropZones, { text: '', correctItemIndex: null }]
-                          });
-                        }}
-                      >
-                        <i className="fa-solid fa-plus mr-2"></i> Add Drop Zone
-                      </button>
-                    </div>
-                  </div>
+                {questionDraft.type === 'G' && (
+                  <MemoryGameQuestionForm
+                    question={questionDraft}
+                    onChange={setQuestionDraft}
+                    setNotification={setNotification}
+                    setMediaModal={setMediaModal}
+                  />
+                )}
+
+                {questionDraft.type === 'P' && (
+                  <PictureWordQuestionForm
+                    question={questionDraft}
+                    onChange={setQuestionDraft}
+                    setMediaModal={setMediaModal}
+                  />
                 )}
 
                 {/* Add/Edit Question Buttons */}
-                {(questionDraft?.type === 'M' || questionDraft?.type === 'F') && (
-                  <div className="mb-4">
-                    <label className="block mb-1 font-medium">Correct Answer</label>
-                    <select
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      value={questionDraft?.answer ?? 0}
-                      onChange={e => setQuestionDraft({ ...questionDraft, answer: parseInt(e.target.value) })}
-                    >
-                      {(questionDraft.choices || []).map((_, i) => (
-                        <option key={i} value={i}>
-                          {questionDraft.type === 'F' ? `Answer ${i+1}` : `Choice ${i+1}`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div className="flex justify-end gap-2 mt-6">
+                <div className="flex justify-end gap-2">
                   {questionEditIdx !== null && (
                     <button className="px-4 py-1 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105 transition" onClick={startAddQuestion}>
                       Cancel
@@ -820,37 +1164,33 @@ const EditDrill = () => {
                         const updatedQuestions = [...drill.questions];
                         updatedQuestions[questionEditIdx] = questionDraft;
                         setDrill(prev => ({ ...prev, questions: updatedQuestions }));
-                        
-                        // Show notification for edit
-                        setNotification({
-                          show: true,
-                          message: `Question ${questionEditIdx+1} updated successfully`,
-                          type: 'success'
-                        });
+                        setNotification({ show: true, message: `Question ${questionEditIdx+1} updated successfully`, type: 'success' });
                       } else {
                         setDrill(prev => ({ ...prev, questions: [...prev.questions, questionDraft] }));
-                        
-                        // Show notification for add
-                        setNotification({
-                          show: true,
-                          message: `New question added successfully`,
-                          type: 'success'
-                        });
+                        setNotification({ show: true, message: `New question added successfully`, type: 'success' });
                       }
                       setQuestionDraft(emptyQuestion);
                       setQuestionEditIdx(null);
-                      
-                      // Auto-hide notification after a few seconds
                       setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
-                      
-                      // Scroll back to questions list
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     disabled={
-                      !questionDraft?.text ||
+                      !questionDraft?.text || 
                       (questionDraft.type === 'M' && questionDraft.choices.some(c => !c.text && !c.media)) ||
                       (questionDraft.type === 'F' && questionDraft.choices.some(c => !c.text)) ||
-                      (questionDraft.type === 'D' && ((questionDraft.dragItems || []).length === 0 || (questionDraft.dropZones || []).length === 0))
+                      (questionDraft.type === 'D' && ((questionDraft.dragItems || []).length === 0 || (questionDraft.dropZones || []).length === 0)) ||
+                      (questionDraft.type === 'G' && (
+                        !questionDraft.memoryCards || 
+                        questionDraft.memoryCards.length < 2 || 
+                        questionDraft.memoryCards.length % 2 !== 0 ||
+                        questionDraft.memoryCards.some(card => !card.content && !card.media)
+                      )) || 
+                      (questionDraft.type === 'P' && (
+                        !questionDraft.pictureWord || 
+                        questionDraft.pictureWord.length !== 4 ||
+                        !questionDraft.answer ||
+                        questionDraft.pictureWord.some(pic => !pic.media)
+                      ))
                     }
                   >
                     {questionEditIdx !== null ? 'Save' : 'Add'} Question
@@ -900,8 +1240,10 @@ const EditDrill = () => {
                         >
                           {c.media ? (
                             (() => {
-                              const src = c.media instanceof File ? URL.createObjectURL(c.media) : (c.media?.url || c.media);
-                              const type = c.media.type || c.media?.mimetype || '';
+                              const src = c.media instanceof File ? URL.createObjectURL(c.media) : 
+                                         (typeof c.media === 'string' ? c.media : c.media?.url);
+                              const type = c.media instanceof File ? c.media.type :
+                                          (typeof c.media === 'string' ? 'image/*' : c.media?.type || '');
                               if (type.startsWith('image/')) {
                                 return (
                                   <img
@@ -970,6 +1312,91 @@ const EditDrill = () => {
                             ))}
                           </ul>
                         </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Memory Game Preview */}
+                  {q.type === 'G' && (
+                    <div className="mt-2">
+                      <div className="mb-2 font-semibold">Memory Game Cards:</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {(q.memoryCards || []).map((card, i) => (
+                          <div key={i} className="border rounded-lg p-4 bg-white">
+                            {card.media ? (
+                              (() => {
+                                const src = card.media instanceof File ? URL.createObjectURL(card.media) : 
+                                           (typeof card.media === 'string' ? card.media : card.media?.url);
+                                const type = card.media instanceof File ? card.media.type :
+                                            (typeof card.media === 'string' ? 'image/*' : card.media?.type || '');
+                                if (type.startsWith('image/')) {
+                                  return (
+                                    <img
+                                      src={src}
+                                      alt="preview"
+                                      className="w-full h-32 object-contain rounded border cursor-pointer"
+                                      onClick={() => setMediaModal({ open: true, src, type })}
+                                    />
+                                  );
+                                } else if (type.startsWith('video/')) {
+                                  return (
+                                    <video
+                                      src={src}
+                                      className="w-full h-32 object-contain rounded border cursor-pointer"
+                                      controls
+                                      onClick={e => { e.stopPropagation(); setMediaModal({ open: true, src, type }); }}
+                                    />
+                                  );
+                                }
+                                return null;
+                              })()
+                            ) : null}
+                            {card.content && (
+                              <div className="mt-2 text-center text-sm">{card.content}</div>
+                            )}
+                            {card.pairId && (
+                              <div className="mt-1 text-xs text-gray-500 text-center">
+                                Paired with: {q.memoryCards.find(c => c.id === card.pairId)?.content || 'Card'}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Picture Word Preview */}
+                  {q.type === 'P' && (
+                    <div className="mt-2">
+                      <div className="mb-2 font-semibold">Pictures:</div>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        {(q.pictureWord || []).map((pic, i) => (
+                          <div key={i} className="border rounded-lg p-4 bg-white">
+                            {pic.media ? (
+                              (() => {
+                                const src = pic.media instanceof File ? URL.createObjectURL(pic.media) : (pic.media?.url || pic.media);
+                                const type = pic.media.type || pic.media?.mimetype || '';
+                                if (type.startsWith('image/')) {
+                                  return (
+                                    <img
+                                      src={src}
+                                      alt="preview"
+                                      className="w-full h-32 object-contain rounded border cursor-pointer"
+                                      onClick={() => setMediaModal({ open: true, src, type })}
+                                    />
+                                  );
+                                }
+                                return null;
+                              })()
+                            ) : (
+                              <div className="w-full h-32 flex items-center justify-center text-gray-400">
+                                <i className="fa-regular fa-image text-3xl"></i>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mb-2">
+                        <span className="font-semibold">Correct Answer:</span>
+                        <span className="ml-2 bg-[#EEF1F5] px-2 py-1 rounded">{q.answer || 'Not set'}</span>
                       </div>
                     </div>
                   )}

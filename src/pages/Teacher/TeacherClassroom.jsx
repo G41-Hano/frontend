@@ -823,7 +823,7 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
                 navigate(`/t/take-drill/${drill.id}`);
               }}
             >
-              <i className={`fa-solid ${drill.status === 'draft' ? 'fa-eye' : 'fa-play'}`}></i> {drill.status === 'draft' ? 'Preview Drill' : 'Take Drill'}
+              <i className={`fa-solid ${drill.status === 'draft' ? 'fa-eye' : 'fa-play'}`}></i> {drill.status === 'draft' ? 'Preview Drill' : 'Test Drill'}
             </button>
           </div>
         </div>

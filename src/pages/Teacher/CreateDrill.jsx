@@ -332,7 +332,7 @@ const MemoryGameQuestionForm = ({ question, onChange, setNotification, setMediaM
   );
 };
 
-const PictureWordQuestionForm = ({ question, onChange, setNotification }) => {
+const PictureWordQuestionForm = ({ question, onChange }) => {
   const addPicture = () => {
     const newPicture = {
       id: `pic_${Date.now()}`,
@@ -394,7 +394,6 @@ const PictureWordQuestionForm = ({ question, onChange, setNotification }) => {
             <FileInput
               value={pic.media}
               onChange={(file) => updatePicture(pic.id, file)}
-              onPreview={(src, type) => setMediaModal({ open: true, src, type })}
             />
           </div>
         ))}
@@ -597,9 +596,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
 
   // Step 3: Review
   const handleSubmit = async (status = 'draft') => {
-    // Start loading state
     setSubmittingAction(status);
-    
     // Validate: each choice must have text or media
     for (const q of drill.questions) {
       if (q.type === 'M') {
@@ -664,11 +661,57 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
         }
       }
     }
-
     try {
+      // First, save custom wordlist if it exists
+      let customWordlistId = null;
+      if (drill.wordlistType === 'custom' && drill.customWordList.length > 0) {
+        const customWordlistData = {
+          name: drill.wordlistName,
+          description: customListDesc,
+          words: []
+        };
+        for (const word of drill.customWordList) {
+          const wordData = { 
+            word: word.word, 
+            definition: word.definition 
+          };
+          if (word.image instanceof File) {
+            const imageFormData = new FormData();
+            imageFormData.append('image', word.image);
+            try {
+              const imageResponse = await api.post('/api/upload-image/', imageFormData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+              });
+              wordData.image_url = imageResponse.data.url;
+            } catch (imageError) {
+              console.error('Image upload error:', imageError);
+            }
+          } else if (word.image && typeof word.image === 'string') {
+            wordData.image_url = word.image;
+          }
+          if (word.signVideo instanceof File) {
+            const videoFormData = new FormData();
+            videoFormData.append('video', word.signVideo);
+            try {
+              const videoResponse = await api.post('/api/upload-video/', videoFormData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+              });
+              wordData.video_url = videoResponse.data.url;
+            } catch (videoError) {
+              console.error('Video upload error:', videoError);
+            }
+          } else if (word.signVideo && typeof word.signVideo === 'string') {
+            wordData.video_url = word.signVideo;
+          }
+          if (wordData.word && wordData.definition) {
+            customWordlistData.words.push(wordData);
+          }
+        }
+        const wordlistResponse = await api.post('/api/wordlist/', customWordlistData);
+        customWordlistId = wordlistResponse.data.id;
+      }
       const formData = new FormData();
       const questions = drill.questions.map((q, qIdx) => {
-        // Sanitize question object for backend
         const base = {
           text: q.text,
           type: q.type,
@@ -677,19 +720,18 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           sign_language_instructions: q.sign_language_instructions,
         };
         if (q.type === 'M' || q.type === 'F') {
-          base.answer = q.answer;  // Add the answer field
+          base.answer = q.answer;
           base.choices = (q.choices || []).map((c, cIdx) => {
-              let choice = { ...c, is_correct: q.answer === cIdx };
-              if (c.media instanceof File) {
-                const key = `media_${qIdx}_${cIdx}`;
-                formData.append(key, c.media);
-                choice.media = key;
-              } else if (c.media && c.media.url) {
-                choice.media = c.media.url;
-              }
-            // Remove undefined/null
+            let choice = { ...c, is_correct: q.answer === cIdx };
+            if (c.media instanceof File) {
+              const key = `media_${qIdx}_${cIdx}`;
+              formData.append(key, c.media);
+              choice.media = key;
+            } else if (c.media && c.media.url) {
+              choice.media = c.media.url;
+            }
             Object.keys(choice).forEach(k => (choice[k] == null) && delete choice[k]);
-              return choice;
+            return choice;
           });
         }
         if (q.type === 'D') {
@@ -699,27 +741,20 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
         if (q.type === 'G') {
           base.memoryCards = Array.isArray(q.memoryCards) ? q.memoryCards.map(card => {
             let mediaValue = null;
-            // If it's a new file upload
-              if (card.media instanceof File) {
+            if (card.media instanceof File) {
               const key = `media_${qIdx}_card_${card.id}`;
-                formData.append(key, card.media);
-              mediaValue = key; // Send the key reference in the JSON
-              } else if (card.media && card.media.url) {
-              // If it's existing media with a URL
-              mediaValue = card.media.url; // Send the URL in the JSON
+              formData.append(key, card.media);
+              mediaValue = key;
+            } else if (card.media && card.media.url) {
+              mediaValue = card.media.url;
             } else if (card.media) {
-                 // Fallback for any other unexpected existing media format
-                 console.warn('Unexpected memoryCard media format (non-File, non-URL object):', card.media);
-                 // Try to keep it as is, or stringify, depending on backend expectation
-                 // Assuming backend might handle other JSON structures for media
-                 mediaValue = card.media;
+              mediaValue = card.media;
             }
-
             return {
               id: card.id,
               content: card.content,
               pairId: card.pairId,
-              media: mediaValue, // Assign the determined media value
+              media: mediaValue,
             };
           }) : [];
         }
@@ -736,25 +771,23 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
             return {
               id: updatedPic.id,
               media: updatedPic.media,
-              type: 'image'  // Add type field to match backend expectations
+              type: 'image'
             };
           }) : [];
-          base.answer = q.answer;  // Make sure answer is included
+          base.answer = q.answer;
         }
-
-        // Remove undefined/null from base
         Object.keys(base).forEach(k => (base[k] == null) && delete base[k]);
         return base;
       });
-      console.log('Submitting questions:', questions);
-
       formData.append('title', drill.title);
       formData.append('description', drill.description);
       formData.append('deadline', drill.dueDate);
       formData.append('classroom', classroom.id);
       formData.append('questions_input', JSON.stringify(questions));
       formData.append('status', status);
-
+      if (customWordlistId) {
+        formData.append('custom_wordlist', customWordlistId);
+      }
       await api.post('/api/drills/', formData);
       setDrill(prev => ({ ...prev, status }));
       setSuccessMsg('Drill created successfully!');
@@ -824,7 +857,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
     if (!drill.wordlistName || !customListDesc) return false;
     if (drill.customWordList.length < 3) return false;
     for (const w of drill.customWordList) {
-      if (!w.word || !w.definition) return false;
+      if (!w.word || !w.definition || !w.image || !w.signVideo) return false;
     }
     return true;
   };
@@ -1136,12 +1169,10 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                 <div key={idx} className="mb-4 p-4 rounded-xl border-2 border-gray-100 bg-[#F7F9FC] relative">
                   <div className="font-medium mb-2">Word: {q.word}</div>
                   <div className="text-gray-600 mb-2">Definition: {q.definition}</div>
-                  {q.image && <img src={typeof q.image === 'string' ? q.image : URL.createObjectURL(q.image)} alt="preview" className="max-h-32 rounded mb-2" />}
-                  {q.signVideo && <video src={typeof q.signVideo === 'string' ? q.signVideo : URL.createObjectURL(q.signVideo)} controls className="max-h-32 rounded mb-2" />}
                   {/* Preview for question types */}
-                        <div className="mb-2">
-                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Multiple Choice' : q.type === 'F' ? 'Fill in the Blank' : q.type === 'D' ? 'Drag and Drop' : q.type === 'G' ? 'Memory Game' : q.type === 'F' ? 'Picture Word' : ''}
-                        </div>
+                  <div className="mb-2">
+                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Multiple Choice' : q.type === 'F' ? 'Fill in the Blank' : q.type === 'D' ? 'Drag and Drop' : q.type === 'G' ? 'Memory Game' : q.type === 'P' ? 'Picture Word' : ''}
+                  </div>
                   <div className="mb-2">
                     <span className="font-semibold">Question:</span> {q.type === 'F' ? (
                       <span>{(q.text || '').split('_')[0]}<span className="inline-block w-16 border-b-2 border-gray-400 mx-2 align-middle" />{(q.text || '').split('_')[1]}</span>
@@ -1464,7 +1495,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     </div>
                 </div>
               )}
-              {/* Content Section */}
+              {/* Content Section 
               <div className="mb-6 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
                 <h3 className="font-medium mb-3">Content</h3>
                 <div className="space-y-4">
@@ -1498,7 +1529,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     />
                   </div>
                 </div>
-              </div>
+              </div> */}
               {/* Type-specific form for Drag and Drop and Memory Game */}
               {questionDraft.type === 'D' && (
                 <div className="space-y-4">
@@ -1623,7 +1654,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   onChange={(updatedQuestion) => {
                     setQuestionDraft(updatedQuestion);
                   }}
-                  setNotification={setNotification}
                 />
               )}
               {/* Choices Section - Only show for Multiple Choice */}
@@ -1753,17 +1783,15 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                 <div key={idx} className="mb-4 p-4 rounded-xl border-2 border-gray-100 bg-[#F7F9FC] relative">
                   <div className="font-medium mb-2">Word: {q.word}</div>
                   <div className="text-gray-600 mb-2">Definition: {q.definition}</div>
-                  {q.image && <img src={typeof q.image === 'string' ? q.image : URL.createObjectURL(q.image)} alt="preview" className="max-h-32 rounded mb-2" />}
-                  {q.signVideo && <video src={typeof q.signVideo === 'string' ? q.signVideo : URL.createObjectURL(q.signVideo)} controls className="max-h-32 rounded mb-2" />}
                   {/* Preview for question types */}
-                        <div className="mb-2">
-                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Multiple Choice' : q.type === 'F' ? 'Fill in the Blank' : q.type === 'D' ? 'Drag and Drop' : q.type === 'G' ? 'Memory Game' : ''}
-                        </div>
-                        <div className="mb-2">
+                  <div className="mb-2">
+                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Multiple Choice' : q.type === 'F' ? 'Fill in the Blank' : q.type === 'D' ? 'Drag and Drop' : q.type === 'G' ? 'Memory Game' : q.type === 'P' ? 'Picture Word' : ''}
+                  </div>
+                  <div className="mb-2">
                     <span className="font-semibold">Question:</span> {q.type === 'F' ? (
                       <span>{(q.text || '').split('_')[0]}<span className="inline-block w-16 border-b-2 border-gray-400 mx-2 align-middle" />{(q.text || '').split('_')[1]}</span>
                     ) : q.text}
-                        </div>
+                    </div>
                   {q.type === 'M' && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {(q.choices || []).map((c, i) => (
