@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
+import sparkle from '../../assets/sparkles.png'; // Assuming the sparkle asset is named sparkle.png
 
 const Badges = ({ studentId }) => {
   const [badges, setBadges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hoveredBadge, setHoveredBadge] = useState(null);
+  const [selectedBadge, setSelectedBadge] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -65,6 +67,8 @@ const Badges = ({ studentId }) => {
                     key={idx}
                     onMouseEnter={() => setHoveredBadge(idx)}
                     onMouseLeave={() => setHoveredBadge(null)}
+                    onClick={() => setSelectedBadge(badge)}
+                    style={{ cursor: 'pointer' }}
                   >
                     <img
                       src={badge.image}
@@ -77,6 +81,55 @@ const Badges = ({ studentId }) => {
                 ))}
               </div>
             </div>
+            {/* Badge Details Modal */}
+            {selectedBadge && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                <div
+                  className="bg-[#8A2799] rounded-2xl shadow-2xl flex flex-col items-center relative animate-fadeIn"
+                  style={{
+                    width: '700px',
+                    maxWidth: '98vw',
+                    border: '6px solid #781B86',
+                    borderRadius: '32px',
+                    padding: '2.5rem 2.5rem 2rem 2.5rem',
+                  }}
+                >
+                  <h2
+                    className="mb-0 text-center"
+                    style={{
+                      fontSize: '3.2rem',
+                      color: '#C3FD65',
+                      WebkitTextStroke: '2px #557423',
+                      textStroke: '2px #557423',
+                      fontWeight: 1000,
+                      letterSpacing: '1px',
+                      textShadow: '0 2px 8px #55742344',
+                    }}
+                  >
+                    Badge Earned!
+                  </h2>
+                  <p className="text-white text-center text-lg mt-0">Congratulations on earning this badge!</p>
+                  <div className="relative flex items-center justify-center mb-4" style={{ minHeight: '220px', minWidth: '220px' }}>
+                    {/* Sparkles - left and right, even bigger */}
+                    <img src={sparkle} alt="sparkle" className="absolute left-[-110px] top-1/2 -translate-y-1/2 w-40 h-40" style={{transform: 'rotate(-10deg)'}} />
+                    <img src={sparkle} alt="sparkle" className="absolute right-[-110px] top-1/2 -translate-y-1/2 w-40 h-40" style={{transform: 'rotate(10deg)'}} />
+                    <img
+                      src={selectedBadge.image}
+                      alt={selectedBadge.name}
+                      className="w-48 h-48 object-contain drop-shadow-lg relative z-10"
+                    />
+                  </div>
+                  <h3 className="text-3xl font-extrabold text-yellow-300 mb-2 text-center" style={{ fontSize: '2.5rem' }}>{selectedBadge.name}</h3>
+                  <p className="text-white text-center text-base mb-6" style={{ fontSize: '1rem' }}>{selectedBadge.description}</p>
+                  <button
+                    className="bg-[#FBE18F] text-[#7B3FA0] font-bold px-8 py-2 rounded-full shadow hover:bg-yellow-300 transition text-lg"
+                    onClick={() => setSelectedBadge(null)}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
