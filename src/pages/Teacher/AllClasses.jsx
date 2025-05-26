@@ -209,16 +209,25 @@ const SortableClassroomCard = ({
                 title={student.name}
               >
                 {student.avatar ? (
-                  <img 
-                    src={student.avatar}
-                    alt={student.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
+                  <>
+                    <img 
+                      src={student.avatar}
+                      alt={student.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        const fallback = e.target.parentNode.querySelector('.avatar-fallback');
+                        if (fallback) {
+                          fallback.style.display = 'flex';
+                        }
+                      }}
+                    />
+                    <div 
+                      className="avatar-fallback w-full h-full bg-[#4C53B4] items-center justify-center text-white text-[10px] sm:text-xs font-medium hidden"
+                    >
+                      {student.name?.split(' ').map(n => n[0].toUpperCase()).join('')}
+                    </div>
+                  </>
                 ) : (
                   <div className="w-full h-full bg-[#4C53B4] flex items-center justify-center text-white text-[10px] sm:text-xs font-medium">
                     {student.name?.split(' ').map(n => n[0].toUpperCase()).join('')}
@@ -290,16 +299,25 @@ const ClassroomCard = ({ classroom }) => {
               title={student.name}
             >
               {student.avatar ? (
-                <img 
-                  src={student.avatar}
-                  alt={student.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'flex';
-                  }}
-                />
+                <>
+                  <img 
+                    src={student.avatar}
+                    alt={student.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      const fallback = e.target.parentNode.querySelector('.avatar-fallback');
+                      if (fallback) {
+                        fallback.style.display = 'flex';
+                      }
+                    }}
+                  />
+                  <div 
+                    className="avatar-fallback w-full h-full bg-[#4C53B4] items-center justify-center text-white text-[10px] sm:text-xs font-medium hidden"
+                  >
+                    {student.name?.split(' ').map(n => n[0].toUpperCase()).join('')}
+                  </div>
+                </>
               ) : (
                 <div className="w-full h-full bg-[#4C53B4] flex items-center justify-center text-white text-[10px] sm:text-xs font-medium">
                   {student.name?.split(' ').map(n => n[0].toUpperCase()).join('')}
