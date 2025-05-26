@@ -60,6 +60,7 @@ const StudentClassroom = () => {
   const { getClassroomColor } = useClassroomPreferences();
   const [leaderboard, setLeaderboard] = useState([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
+  const [drillResults, setDrillResults] = useState({});
 
   // Sort drills: older drills first, newer drills last
   const getSortedDrills = (drillsToSort) => {
@@ -72,6 +73,19 @@ const StudentClassroom = () => {
   // Toggle drill panel open/close
   const toggleDrillPanel = (drillId) => {
     setOpenDrillId(openDrillId === drillId ? null : drillId);
+  };
+
+  // Fetch drill results for a specific drill
+  const fetchDrillResults = async (drillId) => {
+    try {
+      const response = await api.get(`/api/drills/${drillId}/results/`);
+      // Get the best score for this drill
+      const bestScore = response.data.reduce((max, result) => Math.max(max, result.points), 0);
+      setDrillResults(prev => ({ ...prev, [drillId]: bestScore }));
+    } catch (error) {
+      console.error('Error fetching drill results:', error);
+      setDrillResults(prev => ({ ...prev, [drillId]: 0 }));
+    }
   };
 
   // Fetch classroom and students data
@@ -96,6 +110,11 @@ const StudentClassroom = () => {
         // Filter only published drills
         const publishedDrills = drillsResponse.data.filter(drill => drill.status === 'published');
         setDrills(publishedDrills);
+
+        // Fetch results for each drill
+        for (const drill of publishedDrills) {
+          await fetchDrillResults(drill.id);
+        }
         
         setError(null);
         setLoading(false);
@@ -266,21 +285,18 @@ const StudentClassroom = () => {
                               <span className="font-bold text-2xl text-black leading-tight group-hover:text-[#4C53B4] transition-colors">{drill.title}</span>
                             </div>
                           </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <div className="text-sm text-gray-500">Best Score</div>
+                              <div className="text-lg font-bold text-[#4C53B4]">{drillResults[drill.id] || 0} pts</div>
+                            </div>
+                          </div>
                         </div>
                         
                         {openDrillId === drill.id && (
                           <div className="bg-[#F7F9FC] px-8 py-6 border-t border-[#F7D9A0] flex flex-col md:flex-row md:items-center md:justify-between gap-6 animate-fadeIn">
                             <div className="flex-1 flex flex-col gap-2">
                               <div className="text-gray-500 text-sm">Due: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
-                              <div className="mt-2">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-xs text-gray-500 font-medium">Progress</span>
-                                  <span className="text-xs text-gray-600 font-bold">0%</span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div className="bg-green-500 h-2 rounded-full" style={{ width: '0%' }}></div>
-                                </div>
-                              </div>
                             </div>
                             <div className="flex flex-col items-end gap-2 md:items-center md:flex-row">
                               <Link 
