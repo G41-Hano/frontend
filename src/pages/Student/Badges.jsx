@@ -15,7 +15,7 @@ const Badges = ({ studentId }) => {
       try {
         let response;
         if (studentId) {
-          response = await api.get('/api/badges/student-badges/', { params: { student_id: studentId } });
+          response = await api.get('/api/badges/earned_badges/', { params: { student_id: studentId } });
         } else {
           response = await api.get('/api/badges/');
         }

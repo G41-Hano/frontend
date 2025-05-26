@@ -84,6 +84,9 @@ const Topbar = ({ onMenuClick }) => {
   };
 
   const handleNotificationClick = (notification) => {
+    if (notification.type === 'badge_earned') {
+      navigate('/s/badges');
+    }
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
@@ -93,6 +96,16 @@ const Topbar = ({ onMenuClick }) => {
       navigate(path);
     }
     setIsNotificationOpen(false);
+  };
+
+  // Call this function when a badge is earned
+  const notifyBadge = async (badgeId) => {
+    try {
+      await api.post(`/api/badges/${badgeId}/notify_badge/`);
+      // Optionally, show a toast or update notification state
+    } catch (error) {
+      console.error('Failed to notify badge:', error);
+    }
   };
 
   return (

@@ -82,13 +82,6 @@ const DrillLeaderboard = () => {
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
       <div className="max-w-[95%] mx-auto mt-8">
-        <button
-          onClick={() => navigate('/s/classes')}
-          className="inline-flex items-center gap-2 px-4 py-3 text-gray-600 hover:text-[#4C53B4] transition-colors group mb-6"
-        >
-          <i className="fa-solid fa-arrow-left transform group-hover:-translate-x-1 transition-transform"></i>
-          Back to My Classes
-        </button>
         <div
           className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-6 animate-slideIn relative overflow-hidden"
           style={{
@@ -98,6 +91,14 @@ const DrillLeaderboard = () => {
             minHeight: 500,
           }}
         >
+          <button
+            onClick={() => navigate('/s/classes')}
+            className="inline-flex items-center gap-2 px-6 py-3 mb-8 bg-white border-2 border-[#4C53B4] text-[#4C53B4] font-bold rounded-xl shadow hover:bg-[#f3f6fd] transition-colors text-lg"
+            style={{ position: 'relative', zIndex: 20 }}
+          >
+            <i className="fa-solid fa-arrow-left text-[#4C53B4] text-base"></i>
+            Back to My Classes
+          </button>
           <div className="absolute inset-0 bg-blue-100/60 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <h3 className="text-3xl font-extrabold text-[#e09b1a] text-center mb-8 tracking-wide flex items-center justify-center gap-2">

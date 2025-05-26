@@ -1225,20 +1225,28 @@ const TakeDrill = () => {
           <h2 className="text-4xl font-bold text-[#8e44ad] mb-4">Congratulations!</h2>
           <div className="text-2xl mb-2">You've completed the drill!</div>
           <div className="text-xl mb-6">Total Points: <span className="font-bold text-[#f39c12]">{Object.values(points).reduce((a, b) => a + (b || 0), 0)}</span></div>
-                <button
-            className="mt-8 px-12 py-5 bg-[#4C53B4] text-white rounded-2xl text-2xl font-bold hover:bg-[#3a4095] shadow-lg"
-            onClick={() => {
-              setIntroStep(0);
-              setCurrentWordIdx(0);
-              setCurrentQuestionIdx(0);
-              setAttempts({});
-              setTimeSpent({});
-              setPoints({});
-              setAnswerStatus(null);
-            }}
-                >
-            Retake Drill
-                </button>
+          <div className="flex gap-6 mt-8">
+            <button
+              className="px-12 py-5 bg-[#4C53B4] text-white rounded-2xl text-2xl font-bold hover:bg-[#3a4095] shadow-lg"
+              onClick={() => {
+                setIntroStep(0);
+                setCurrentWordIdx(0);
+                setCurrentQuestionIdx(0);
+                setAttempts({});
+                setTimeSpent({});
+                setPoints({});
+                setAnswerStatus(null);
+              }}
+            >
+              Retake Drill
+            </button>
+            <button
+              className="px-12 py-5 bg-white text-[#4C53B4] rounded-2xl text-2xl font-bold hover:bg-gray-100 shadow-lg border-2 border-[#4C53B4]"
+              onClick={() => navigate(`/s/drill/${id}/leaderboard`)}
+            >
+              Go to Leaderboards
+            </button>
+          </div>
       </div>
     </div>
   );
