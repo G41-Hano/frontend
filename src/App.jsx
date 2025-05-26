@@ -12,6 +12,7 @@ import { ClassroomPreferencesProvider } from './contexts/ClassroomPreferencesCon
 import { SuccessModalProvider } from './contexts/SuccessModalContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import SuccessModal from './components/SuccessModal'
+import DrillLeaderboard from './pages/Student/DrillLeaderboard'
 
 function Logout() {
   localStorage.removeItem('access');
@@ -49,6 +50,7 @@ function App() {
                 </AuthRoute>
               }>
                 <Route path="*" element={<StudentRoutes />} />
+                <Route path="drill/:id/leaderboard" element={<DrillLeaderboard />} />
               </Route>
 
               {/* Teacher Routes */}
