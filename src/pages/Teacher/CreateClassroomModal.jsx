@@ -74,43 +74,33 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
   // Handle final submission
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
-    // Allow submission if either students are selected OR a CSV file is present
-    if (selectedStudents.length === 0 && !csvFile) {
-      setError('Please add at least one student or upload a CSV file.');
-      return;
-    }
-    await createClassroom();
-  };
-
-    // Create classroom helper function
-  const createClassroom = async (skipStudents = false) => {
     setLoading(true);
     setError(null);
-    
-    // Validate required fields
-    if (!formData.name.trim()) {
-      setError('Classroom name is required');
-      setLoading(false);
-      return;
-    }
+    setCsvError(null);
+    setIsProcessingCsv(false);
 
     try {
       // 1. Create the classroom
-      const classroomData = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        color: formData.color || '#7D83D7',
-        is_archived: false,
-        is_hidden: false,
-        order: 0
-      };
-
-      const classroomResponse = await api.post('/api/classrooms/', classroomData);
+      const classroomResponse = await api.post('/api/classrooms/', {
+        name: formData.name,
+        description: formData.description,
+        color: formData.color
+      });
       const classroomId = classroomResponse.data.id;
 
-      // 2. If CSV file is present and not skipping, import students
-      if (!skipStudents && csvFile) {
-        console.log('Uploading CSV to backend:', classroomId, csvFile);
+      // 2. Enroll selected students (manual)
+      if (selectedStudents.length > 0) {
+        try {
+          await api.post(`/api/classrooms/${classroomId}/students/`, {
+            student_ids: selectedStudents.map(s => s.id)
+          });
+        } catch (err) {
+          setError('Some students could not be enrolled manually.');
+        }
+      }
+
+      // 3. Import students from CSV if present
+      if (csvFile) {
         setIsProcessingCsv(true);
         try {
           await importStudentsFromCsv(classroomId, csvFile);
@@ -122,10 +112,12 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
       }
 
       setCreatedClassroom(classroomResponse.data);
-      if (onSuccess) onSuccess(classroomResponse.data);
-      setStep(3);
+      if (onSuccess) {
+        onSuccess(classroomResponse.data);
+      }
+      setStep(3); // Move to success step
     } catch (err) {
-      setError('Failed to create classroom. ' + (err?.error || err?.message || ''));
+      setError(err.response?.data?.error || 'Failed to create classroom');
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import drillBg from '../../assets/drill_bg.png';
 import '../../styles/animations.css';
+import BadgeEarnedModal from '../../components/BadgeEarnedModal';
+import { useUser } from '../../contexts/UserContext';
+import { StudentDrillSuccessModal } from '../../components/SuccessModal.jsx';
 
 const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer, handleSubmitAnswer, question: currentQuestion }) => {
   return (
@@ -541,6 +544,7 @@ const StoryDisplay = ({ story }) => {
 const TakeDrill = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useUser(); // Get user from context
   const [drill, setDrill] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -549,7 +553,22 @@ const TakeDrill = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTeacherPreview, setIsTeacherPreview] = useState(false);
   const questionStartTimeRef = useRef(null);
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [earnedBadge, setEarnedBadge] = useState(null);
+  const [initialBadgeCount, setInitialBadgeCount] = useState(0); // Store initial badge count
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [studentScore, setStudentScore] = useState(null);
+  const [maxScore, setMaxScore] = useState(null);
   
+  // Fetch initial badge count on mount
+  useEffect(() => {
+    if (user?.id) {
+      api.get('/api/badges/student-badges/', { params: { student_id: user.id } })
+        .then(res => setInitialBadgeCount(res.data.length))
+        .catch(err => console.error('Error fetching initial badge count:', err));
+    }
+  }, [user]);
+
   // Fetch the drill data
   useEffect(() => {
     const fetchDrill = async () => {
@@ -731,8 +750,10 @@ const TakeDrill = () => {
 
   // Modify the main handleSubmit (for finishing the drill) to check if all questions are answered
   const handleSubmit = async () => {
+    console.log('handleSubmit called');
     // Check if all questions have a submitted result
     const allAnswered = questions.every((_, index) => submittedQuestionResults[index]);
+    console.log('allAnswered:', allAnswered, 'submittedQuestionResults:', submittedQuestionResults);
 
     if (!allAnswered) {
       alert("Please answer all questions before finishing the drill.");
@@ -743,25 +764,59 @@ const TakeDrill = () => {
 
     setIsSubmitting(true);
 
-    // In a full implementation, you might have a final backend endpoint to mark the drill run as complete
-    // and potentially calculate final scores/completion time on the overall DrillResult.
-    // For now, the SubmitAnswerView updates points question by question.
-
     try {
-        // Example: A final API call to mark the drill as complete (if needed)
-        // await api.post(`/api/drills/${id}/complete/`);
-
-        alert('Drill completed successfully!');
-
-        // Navigate back to classroom
-        navigate(-1);
-
+      // After drill completion, check for new badge
+      const badgesRes = await api.get('/api/badges/student-badges/', { params: { student_id: user.id } });
+      const newBadgeCount = badgesRes.data.length;
+      let latestBadge = null;
+      if (newBadgeCount > initialBadgeCount) {
+        latestBadge = badgesRes.data[badgesRes.data.length - 1];
+      }
+      // Fetch drill results for the student
+      const resultsRes = await api.get(`/api/drills/${id}/results/`);
+      console.log('resultsRes.data:', resultsRes.data);
+      resultsRes.data.forEach((r, i) => console.log(`Result[${i}]`, r));
+      console.log('user.id:', user.id);
+      const myResult = Array.isArray(resultsRes.data)
+        ? resultsRes.data.find(r =>
+            r.student?.id === user.id ||
+            r.student_id === user.id ||
+            r.id === user.id ||
+            r.user === user.id ||
+            r.user_id === user.id ||
+            r.username === user.username
+          )
+        : resultsRes.data;
+      console.log('myResult:', myResult);
+      setStudentScore(myResult?.points || 0);
+      setMaxScore(myResult?.max_points || myResult?.total_points || 0);
+      // Store badge for later
+      setEarnedBadge(latestBadge);
+      console.log('Setting showSuccessModal to true');
+      setShowSuccessModal(true);
     } catch (error) {
-        console.error('Error completing drill:', error);
-        alert(`Failed to complete drill: ${error.message || 'Unknown error'}`);
+      console.error('Error completing drill:', error);
+      alert(`Failed to complete drill: ${error.message || 'Unknown error'}`);
     } finally {
-       setIsSubmitting(false);
+      setIsSubmitting(false);
     }
+  };
+
+  // Handler for Go to My Classes (shows badge modal if earned)
+  const handleGoToClasses = () => {
+    setShowSuccessModal(false);
+    if (earnedBadge) {
+      setShowBadgeModal(true);
+    } else {
+      navigate('/s/classes');
+    }
+  };
+
+  // Handler for Go to Leaderboard
+  const handleGoToLeaderboard = () => {
+    console.log('handleGoToLeaderboard called, id:', id);
+    setShowSuccessModal(false);
+    navigate(`/s/drill/${id}/leaderboard`);
   };
 
   // Update isQuestionAnswered logic to check against submittedQuestionResults
@@ -1045,6 +1100,23 @@ const TakeDrill = () => {
           </div>
         </div>
       </div>
+      <StudentDrillSuccessModal
+        open={showSuccessModal}
+        score={studentScore}
+        maxScore={maxScore}
+        onGoToClasses={handleGoToClasses}
+        onGoToLeaderboard={handleGoToLeaderboard}
+        className="z-[9999]"
+      />
+      <BadgeEarnedModal
+        open={showBadgeModal}
+        badge={earnedBadge}
+        onViewBadges={() => navigate('/s/badges')}
+        onClose={() => {
+          setShowBadgeModal(false);
+          navigate('/s/classes');
+        }}
+      />
     </div>
   );
 };
