@@ -38,14 +38,14 @@ const Badges = ({ studentId }) => {
           </div>
         ) : badges.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] w-full animate-fadeIn">
-            <h2 className="text-5xl font-extrabold text-[#e09b1a] mb-2 drop-shadow-sm animate-bounce">No Badges yet?</h2>
+            <h2 className="text-5xl font-extrabold text-[#e09b1a] mb-2 drop-shadow-sm ">No Badges yet?</h2>
             <p className="text-xl text-gray-800 mb-8 font-semibold animate-pulse">Let's keep learning to earn your first batch!</p>
             <div className="bg-[#DE6C62] rounded-2xl px-8 py-8 mb-8 max-w-2xl w-full text-center animate-wiggle">
               <p className="text-white font-extrabold text-2xl mb-2">Stay motivated!</p>
               <p className="text-white font-bold text-lg mb-2">Every drill you complete brings you closer to earning badges.</p>
               <p className="text-white font-bold text-lg">Keep going—you can do it!</p>
             </div>
-            <div className="bg-[#7B3FA0] rounded-2xl px-8 py-6 max-w-xl w-full text-center mb-4 animate-bounce">
+            <div className="bg-[#7B3FA0] rounded-2xl px-8 py-6 max-w-xl w-full text-center mb-4">
               <p className="text-white font-semibold text-lg mb-4">You have a new vocabulary drill waiting. Take it now to update your progress!</p>
               <button className="bg-[#D6F25A] text-black font-bold px-6 py-2 rounded-full shadow hover:bg-lime-400 transition animate-wiggle" onClick={() => navigate('/s/classes')}>START DRILL</button>
             </div>
@@ -53,7 +53,7 @@ const Badges = ({ studentId }) => {
         ) : (
           <>
             <div className="rounded-3xl p-8">
-              <h1 className="text-5xl font-extrabold text-[#e09b1a] mb-2 animate-bounce">Badges</h1>
+              <h1 className="text-5xl font-extrabold text-[#e09b1a] mb-2">Badges</h1>
               <div className="flex items-center mb-8">
                 <span className="text-lg font-semibold text-gray-500 mr-4">Earned Badges</span>
                 <div className="flex-1 h-1 bg-gray-300 rounded opacity-50"></div>

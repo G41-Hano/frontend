@@ -107,7 +107,9 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
       {/* Card Body (clickable, not draggable) */}
       <div
         style={{ backgroundColor: classroomColor }}
-        className={`rounded-3xl p-4 shadow-xl transition-all duration-300 ease-in-out relative overflow-hidden min-h-[200px] flex flex-col justify-between group hover:-translate-y-1 cursor-pointer`}
+        className={`rounded-3xl p-4 shadow-xl transition-all duration-300 ease-in-out relative overflow-hidden min-h-[200px] flex flex-col justify-between group hover:-translate-y-1 ${
+          isDragging ? 'shadow-2xl cursor-grabbing' : ''
+        }`}
       >
         {/* Classroom Details */}
         <div className="space-y-6 relative z-10">
@@ -158,6 +160,15 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
               </div>
             )}
           </div>
+        </div>
+
+        {/* Decorative Circles */}
+        <div className="absolute right-0 bottom-0">
+          <div className="w-36 sm:w-48 h-36 sm:h-48 rounded-full bg-white/10 absolute -bottom-20 sm:-bottom-24 -right-20 sm:-right-24"></div>
+          <div className="w-24 sm:w-32 h-24 sm:h-32 rounded-full bg-white/10 absolute -bottom-4 sm:-bottom-6 -right-4 sm:-right-6"></div>
+        </div>
+        <div className="absolute left-1/2 top-1/2">
+          <div className="w-16 sm:w-20 h-16 sm:h-20 rounded-full bg-white/10 absolute -translate-x-1/2 -translate-y-1/2"></div>
         </div>
       </div>
     </div>
