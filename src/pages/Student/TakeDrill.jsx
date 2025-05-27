@@ -668,23 +668,38 @@ const TakeDrill = () => {
   const [timeSpent, setTimeSpent] = useState({});
   const [points, setPoints] = useState({});
   const [answerStatus, setAnswerStatus] = useState(null);
-  const [timer, setTimer] = useState(null);
   const [wordGroups, setWordGroups] = useState([]);
   const [currentAnswer, setCurrentAnswer] = useState(null);
   const [wrongAnswers, setWrongAnswers] = useState([]);
 
   // Timer logic
+  const timerRef = useRef(null);
+  
   useEffect(() => {
-    if (introStep === 5) {
-      setTimer(setInterval(() => {
-        const key = `${currentWordIdx}_${currentQuestionIdx}`;
-        setTimeSpent(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-      }, 1000));
-    } else {
-      if (timer) clearInterval(timer);
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
     }
-    return () => { if (timer) clearInterval(timer); };
-  }, [introStep, currentWordIdx, currentQuestionIdx, timer]);
+
+    // Only run timer during question phase
+    if (introStep === 5) {
+      // Create a new interval and store its reference
+      timerRef.current = setInterval(() => {
+        const key = `${currentWordIdx}_${currentQuestionIdx}`;
+        setTimeSpent(prev => {
+          const currentTime = (prev[key] || 0) + 1;
+          return { ...prev, [key]: currentTime };
+        });
+      }, 1000);
+    }
+
+    // Cleanup function to clear interval
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [introStep, currentWordIdx, currentQuestionIdx]);
 
   // Fetch drill and wordlist
   useEffect(() => {
