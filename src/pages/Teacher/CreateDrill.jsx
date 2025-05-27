@@ -1425,7 +1425,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                 >
                   <option value="M">Smart Select</option>
                   <option value="F">Blank Busters</option>
-                  <option value="D">Drag and Drop</option>
+                  {/* <option value="D">Drag and Drop</option> */}
                   <option value="G">Memory Game</option>
                   <option value="P">Four Pics One Word</option>
                 </select>
