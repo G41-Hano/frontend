@@ -138,7 +138,11 @@ const StudentClassroom = () => {
     if (activeTab === 'leaderboard' && classroom?.id) {
       setLoadingLeaderboard(true);
       api.get(`/api/classrooms/${classroom.id}/leaderboard/`)
-        .then(res => setLeaderboard(res.data))
+        .then(res => {
+          // Filter out students with 0 points (no participation)
+          const filteredLeaderboard = res.data.filter(student => student.points > 0);
+          setLeaderboard(filteredLeaderboard);
+        })
         .catch(() => setLeaderboard([]))
         .finally(() => setLoadingLeaderboard(false));
     }
@@ -343,7 +347,7 @@ const StudentClassroom = () => {
                   {loadingLeaderboard ? (
                     <div className="text-center text-gray-500 py-12">Loading...</div>
                   ) : leaderboard.length === 0 ? (
-                    <div className="text-center text-gray-400 py-12">No leaderboard data yet.</div>
+                    <div className="text-center text-gray-400 py-12">No students have participated in drills yet.</div>
                   ) : (
                     <>
                       {/* Top 3 Podium: 2nd (left), 1st (center), 3rd (right) */}
