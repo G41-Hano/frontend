@@ -89,6 +89,10 @@ export const NotificationProvider = ({ children }) => {
       case 'student_added':
       case 'student_removed':
         return `/s/classes/${notification.data.classroom_id}`;
+      case 'student_transfer_completed':
+        return `/s/classes/${notification.data.classroom_id}`;
+      case 'badge_earned':
+        return '/s/badges';
       default:
         return null;
     }

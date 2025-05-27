@@ -3,8 +3,11 @@ import logo from "../assets/logo.png"; // adjust the path if needed
 import bgImage from "../assets/bg_loginregister.png"
 import MouseTrail from "../components/MouseTrail"
 import "../index.css"
+import { useNotifications } from '../contexts/NotificationContext';
 
 function Login() {
+  const { refreshNotifications } = useNotifications();
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row items-center justify-center md:justify-between relative overflow-hidden">
       {/* Left side - Welcome panel */}
@@ -34,7 +37,11 @@ function Login() {
           </h2>
         </div>
 
-        <Form route="/api/token/" method="login" />
+        <Form
+          route="/api/token/"
+          method="login"
+          onSuccess={refreshNotifications}
+        />
       </div>
     </div>
   );

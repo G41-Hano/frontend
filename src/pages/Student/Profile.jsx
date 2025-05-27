@@ -123,6 +123,7 @@ const Profile = () => {
       formDataToSend.append('email', formData.email);
       formDataToSend.append('first_name', formData.first_name);
       formDataToSend.append('last_name', formData.last_name);
+      formDataToSend.append('username', formData.username);
       if (formData.avatar) {
         formDataToSend.append('avatar', formData.avatar);
       }
@@ -270,15 +271,10 @@ const Profile = () => {
                   value={formData.username}
                   onChange={handleInputChange}
                   className="w-full px-4 py-2 rounded-xl border-2 border-[#FF6B6B]/20 focus:border-[#FF6B6B] focus:ring-2 focus:ring-[#FF6B6B]/20 transition-all bg-white"
-                  disabled
                 />
                 {hoveredField === 'username' && (
                   <div className="absolute -right-2 -top-2 w-4 h-4 bg-[#FF6B6B] rounded-full animate-ping"></div>
                 )}
-                <p className="text-sm text-[#4C53B4] mt-1">
-                  <i className="fa-solid fa-info-circle mr-1"></i>
-                  Username cannot be changed
-                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -344,7 +340,8 @@ const Profile = () => {
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 rounded-xl border-2 border-[#FF6B6B]/20 focus:border-[#FF6B6B] focus:ring-2 focus:ring-[#FF6B6B]/20 transition-all bg-white"
+                  className="w-full px-4 py-2 rounded-xl border-2 border-[#FF6B6B]/20 focus:border-[#FF6B6B] focus:ring-2 focus:ring-[#FF6B6B]/20 transition-all bg-white text-gray-600 disabled:text-gray-600"
+                  disabled
                 />
                 {hoveredField === 'email' && (
                   <div className="absolute -right-2 -top-2 w-4 h-4 bg-[#FF6B6B] rounded-full animate-ping"></div>
