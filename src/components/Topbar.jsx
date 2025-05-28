@@ -84,9 +84,6 @@ const Topbar = ({ onMenuClick }) => {
   };
 
   const handleNotificationClick = (notification) => {
-    if (notification.type === 'badge_earned') {
-      navigate('/s/badges');
-    }
     if (!notification.is_read) {
       markAsRead(notification.id);
     }

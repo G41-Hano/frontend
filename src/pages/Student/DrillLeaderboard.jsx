@@ -52,13 +52,15 @@ const DrillLeaderboard = () => {
           };
         });
 
-        // Sort by points in descending order, then by name for students with same points
-        const sortedData = transformedData.sort((a, b) => {
-          if (b.points === a.points) {
-            return a.name.localeCompare(b.name);
-          }
-          return b.points - a.points;
-        });
+        // Filter out students who haven't attempted the drill and sort by points
+        const sortedData = transformedData
+          .filter(student => student.hasAttempted)
+          .sort((a, b) => {
+            if (b.points === a.points) {
+              return a.name.localeCompare(b.name);
+            }
+            return b.points - a.points;
+          });
         
         setLeaderboard(sortedData);
       } catch (err) {
@@ -165,13 +167,10 @@ const DrillLeaderboard = () => {
                     <div className="flex-1">NAME</div>
                     <div className="w-24 text-right">POINTS</div>
                   </div>
-                  {leaderboard.slice(3).map((student, idx) => (
+                  {leaderboard.slice(3).map((student) => (
                     <div key={student.id} className="flex items-center border-t border-gray-200 py-2">
                       <div className="flex-1 font-semibold text-gray-700">
                         {student.name}
-                        {!student.hasAttempted && (
-                          <span className="ml-2 text-sm text-gray-400">(Not attempted)</span>
-                        )}
                       </div>
                       <div className="w-24 text-right font-bold text-gray-700">{student.points}</div>
                     </div>
