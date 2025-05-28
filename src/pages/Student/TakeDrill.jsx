@@ -8,6 +8,27 @@ import HippoCurious from '../../assets/MascotHippoCurious.gif';
 import HippoHappy from '../../assets/MascotHippoHappy.gif';
 import HippoSad from '../../assets/MascotHippoSad.gif';
 import HippoWaiting from '../../assets/MascotHippoWaiting.gif';
+import { DndContext, useSensors, useSensor, useDroppable, useDraggable, DragOverlay } from '@dnd-kit/core';
+import { PointerSensor } from '@dnd-kit/core';
+
+// Custom Draggable component
+const Draggable = ({ id, disabled, children }) => {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id,
+    disabled
+  });
+  
+  return children({ attributes, listeners, setNodeRef, isDragging });
+};
+
+// Custom Droppable component
+const Droppable = ({ id, children }) => {
+  const { isOver, setNodeRef } = useDroppable({
+    id
+  });
+  
+  return children({ isOver, setNodeRef });
+};
 
 const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer, answerStatus, wrongAnswers }) => {
   return (
@@ -411,118 +432,6 @@ const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
   );
 };
 
-const StoryDisplay = ({ story }) => {
-  const [isMascotVisible, setIsMascotVisible] = useState(false);
-  const [isThoughtVisible, setIsThoughtVisible] = useState(false);
-  const [thoughtMessage, setThoughtMessage] = useState("Let's learn together! 📚");
-
-  useEffect(() => {
-    // Animate mascot entrance
-    setIsMascotVisible(true);
-    // Show thought bubble after mascot appears
-    setTimeout(() => setIsThoughtVisible(true), 1000);
-
-    // Change thought message based on content
-    if (story?.story_title) {
-      const messages = [
-        "Let's learn together! 📚",
-        "This story looks interesting! 🤔",
-        "I'm excited to learn with you! 🌟",
-        "Ready to explore? 🚀",
-        "Let's discover something new! 💫"
-      ];
-      setThoughtMessage(messages[Math.floor(Math.random() * messages.length)]);
-    }
-  }, [story]);
-
-  if (!story?.story_title && !story?.story_context && !story?.story_image && !story?.story_video) {
-    return null;
-  }
-
-  return (
-    <div className="relative mb-8 p-6 bg-white rounded-3xl shadow-lg animate-fadeIn">
-      {/* Mascot Character */}
-      <div className={`absolute -left-16 -top-16 transition-all duration-1000 transform ${isMascotVisible ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}>
-        <div className="relative">
-          <img 
-            src="/mascot.svg" 
-            alt="Learning Mascot" 
-            className="w-32 h-32 object-contain animate-float"
-            onMouseEnter={(e) => e.target.classList.add('animate-wiggle')}
-            onMouseLeave={(e) => e.target.classList.remove('animate-wiggle')}
-          />
-          {/* Thought Bubble */}
-          <div className={`absolute -top-24 -right-24 transition-all duration-1000 transform ${isThoughtVisible ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`}>
-            <div className="relative">
-              <div className="bg-white rounded-2xl p-4 shadow-lg max-w-xs animate-bounce">
-                <p className="text-lg font-medium text-gray-800">{thoughtMessage}</p>
-              </div>
-              <div style={{
-                position: 'absolute',
-                left: '-18px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                width: 0,
-                height: 0,
-                borderTop: '18px solid transparent',
-                borderBottom: '18px solid transparent',
-                borderRight: '18px solid #fff',
-                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.10))',
-                zIndex: 1
-              }}></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="ml-24">
-        {story.story_title && (
-          <h3 className="text-2xl font-bold text-[#8e44ad] mb-4 animate-slideIn animate-delay-100">
-            {story.story_title}
-          </h3>
-        )}
-        
-        {story.story_context && (
-          <div className="prose prose-lg max-w-none mb-6 animate-slideIn animate-delay-200">
-            <p className="text-gray-700 leading-relaxed">{story.story_context}</p>
-          </div>
-        )}
-
-        {/* Media Display */}
-        {(story.story_image || story.story_video) && (
-          <div className="mt-6 rounded-xl overflow-hidden shadow-md animate-slideIn animate-delay-300">
-            {story.story_image ? (
-              <img
-                src={story.story_image.startsWith('http') ? story.story_image : `http://127.0.0.1:8000${story.story_image}`}
-                alt="Story illustration"
-                className="w-full max-h-96 object-contain hover:scale-105 transition-transform duration-300"
-              />
-            ) : story.story_video ? (
-              <video
-                src={story.story_video.startsWith('http') ? story.story_video : `http://127.0.0.1:8000${story.story_video}`}
-                className="w-full max-h-96"
-                controls
-              />
-            ) : null}
-          </div>
-        )}
-
-        {/* Sign Language Instructions */}
-        {story.sign_language_instructions && (
-          <div className="mt-6 p-4 bg-[#f8f9fa] rounded-xl border border-[#e9ecef] animate-slideIn animate-delay-400">
-            <div className="flex items-center gap-2 text-[#8e44ad] mb-2">
-              <i className="fa-solid fa-hands text-xl animate-bounce"></i>
-              <h4 className="font-semibold">Sign Language Guide</h4>
-            </div>
-            <p className="text-gray-700">{story.sign_language_instructions}</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
 // Helper: Group questions by word
 const groupQuestionsByWord = (questions) => {
   const map = {};
@@ -656,7 +565,7 @@ const calculateCurrentStep = (introStep, currentWordIdx, currentQuestionIdx, wor
 };
 
 // --- Blank Buster (FillInBlankQuestion) ---
-const BlankBusterQuestion = ({ question, onAnswer, currentAnswer }) => {
+const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }) => {
   const safeQuestion = question || {};
   const letterChoices = Array.isArray(safeQuestion.letterChoices) && safeQuestion.letterChoices.length > 0
     ? safeQuestion.letterChoices
@@ -684,20 +593,23 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer }) => {
         newState[action.blankIdx] = undefined;
         return newState;
       }
+      case 'CLEAR_ALL':
+        return Array(blanksCount).fill(undefined);
       default:
         return state;
     }
-  }, []);
+  }, [blanksCount]);
 
   const [selectedIndexes, dispatch] = useReducer(reducer, getInitialSelectedIndexes());
   const [checked, setChecked] = useState(false);
   const [isCorrect, setIsCorrect] = useState(null);
+  const [isShaking, setIsShaking] = useState(false);
 
   // Reset check state if user changes answer
   useEffect(() => {
     setChecked(false);
     setIsCorrect(null);
-  }, [getInitialSelectedIndexes]);
+  }, [selectedIndexes]);
 
   const getLetterCount = useCallback((idx) =>
     selectedIndexes.filter(i => i === idx).length,
@@ -709,45 +621,55 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer }) => {
     [letterChoices]
   );
 
-  const handleAnswer = useCallback((newIndexes) => {
-    onAnswer(newIndexes);
-  }, [onAnswer]);
+  // Helper: Build user answer and check correctness
+  const buildUserAnswer = () => {
+    let userAnswerArr = [];
+    let blankIdx = 0;
+    for (let i = 0; i < pattern.length; i++) {
+      if (pattern[i] === '_') {
+        const selectedIdx = selectedIndexes[blankIdx];
+        userAnswerArr.push(selectedIdx !== undefined ? letterChoices[selectedIdx] : '');
+        blankIdx++;
+      } else {
+        userAnswerArr.push(pattern[i]);
+      }
+    }
+    return userAnswerArr.join('').replace(/ /g, '');
+  };
 
-  const handleLetterClick = useCallback((choiceIdx) => {
-    if (isCorrect) return;
+  // Choices: only fill first empty blank
+  const handleLetterChoiceClick = (choiceIdx) => {
+    if (answerStatus === 'correct') return;
     const firstEmpty = selectedIndexes.findIndex(idx => idx === undefined);
     if (firstEmpty === -1) return;
-    const usedCount = getLetterCount(choiceIdx);
-    const maxCount = getMaxCount(choiceIdx);
-    if (usedCount >= maxCount) return;
-    dispatch({
-      type: 'SET_INDEX',
-      blankIdx: firstEmpty,
-      choiceIdx
-    });
-    const newIndexes = [...selectedIndexes];
-    newIndexes[firstEmpty] = choiceIdx;
-    handleAnswer(newIndexes);
-  }, [selectedIndexes, getLetterCount, getMaxCount, handleAnswer, isCorrect]);
+    dispatch({ type: 'SET_INDEX', blankIdx: firstEmpty, choiceIdx });
+  };
 
-  const handleRemove = useCallback((blankIdx) => {
-    if (isCorrect) return;
-    dispatch({
-      type: 'REMOVE_INDEX',
-      blankIdx
-    });
-    const newIndexes = [...selectedIndexes];
-    newIndexes[blankIdx] = undefined;
-    handleAnswer(newIndexes);
-  }, [selectedIndexes, handleAnswer, isCorrect]);
+  // Remove letter from blank by clicking the blank
+  const handleBlankClick = (blankIdx) => {
+    if (answerStatus === 'correct') return;
+    if (selectedIndexes[blankIdx] !== undefined) {
+      dispatch({ type: 'REMOVE_INDEX', blankIdx });
+    }
+  };
 
-  if (!safeQuestion.pattern || blanksCount === 0) {
-    return (
-      <div className="text-center text-red-500">
-        No valid fill-in-the-blank question available.
-      </div>
-    );
-  }
+  // Check answer logic
+  const checkAnswer = () => {
+    if (!selectedIndexes.every(idx => idx !== undefined)) return;
+    const userAnswer = buildUserAnswer();
+    const correct = userAnswer.toUpperCase() === (safeQuestion.answer || '').toUpperCase();
+    setChecked(true);
+    setIsCorrect(correct);
+    onAnswer(selectedIndexes, correct); // Pass correctness up
+    if (!correct) {
+      setIsShaking(true);
+      setTimeout(() => {
+        dispatch({ type: 'CLEAR_ALL' });
+        setIsShaking(false);
+        setChecked(false);
+      }, 1000);
+    }
+  };
 
   let blankCounter = 0;
   const display = pattern.map((char, idx) => {
@@ -756,17 +678,22 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer }) => {
         <div key={idx} className="w-14 h-14 flex items-center justify-center rounded bg-[#4C53B4] text-white font-bold text-2xl mx-2">{char}</div>
       );
     } else {
-      const selectedIdx = selectedIndexes[blankCounter];
+      const thisBlankIdx = blankCounter;
+      const selectedIdx = selectedIndexes[thisBlankIdx];
       const box = (
         <div
           key={idx}
-          className={`w-14 h-14 flex items-center justify-center rounded bg-[#EEF1F5] text-[#4C53B4] font-bold text-2xl mx-2 cursor-pointer border-2 border-[#4C53B4]/30 relative ${checked && (selectedIdx === undefined || letterChoices[selectedIdx] !== safeQuestion.answer[blankCounter + 1]) ? 'border-red-500' : ''}`}
-          onClick={() => selectedIdx !== undefined && handleRemove(blankCounter)}
+          className={`w-14 h-14 flex items-center justify-center rounded bg-[#EEF1F5] text-[#4C53B4] font-bold text-2xl mx-2 border-2 relative cursor-pointer 
+            ${isShaking ? 'animate-shake' : ''}
+            ${checked 
+              ? isCorrect 
+                ? 'border-green-500' 
+                : 'border-red-500' 
+              : 'border-[#4C53B4]/30'
+            }`}
+          onClick={() => handleBlankClick(thisBlankIdx)}
         >
           {selectedIdx !== undefined ? letterChoices[selectedIdx] : ''}
-          {selectedIdx !== undefined && !isCorrect && (
-            <span className="absolute -top-2 -right-2 w-5 h-5 bg-white text-red-500 rounded-full flex items-center justify-center text-lg border border-gray-200">&times;</span>
-          )}
         </div>
       );
       blankCounter++;
@@ -774,21 +701,18 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer }) => {
     }
   });
 
-  const allFilled = selectedIndexes.every(idx => idx !== undefined);
-
   // Only show unused choices
-  const usedIndexes = new Set(selectedIndexes.filter(idx => idx !== undefined));
-  const availableChoices = letterChoices.map((letter, idx) => ({ letter, idx }))
-    .filter(({ idx }) => !usedIndexes.has(idx));
-
-  // Check answer logic
-  const checkAnswer = () => {
-    if (!allFilled) return;
-    const userAnswer = pattern.map((char, idx) => char === '_' ? letterChoices[selectedIndexes[blankCounter - pattern.slice(idx + 1).filter(c => c === '_').length - 1]] : char).join('').replace(/ /g, '');
-    const correct = userAnswer.toUpperCase() === (safeQuestion.answer || '').toUpperCase();
-    setChecked(true);
-    setIsCorrect(correct);
-  };
+  const availableChoices = [];
+  letterChoices.forEach((letter, idx) => {
+    const totalCount = letterChoices.filter(l => l === letter).length;
+    const usedCount = selectedIndexes
+      .filter(selIdx => selIdx !== undefined && letterChoices[selIdx] === letter)
+      .length;
+    let alreadyPushed = availableChoices.filter(c => c.letter === letter).length;
+    if (usedCount + alreadyPushed < totalCount) {
+      availableChoices.push({ letter, idx });
+    }
+  });
 
   return (
     <div className="animate-fadeIn">
@@ -797,9 +721,9 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer }) => {
         {availableChoices.map(({ letter, idx }) => (
           <button
             key={idx}
-            className={`w-14 h-14 px-6 py-4 flex items-center justify-center rounded bg-white border-2 border-[#4C53B4] text-[#4C53B4] font-bold text-2xl cursor-pointer hover:bg-[#EEF1F5] transition ${getLetterCount(idx) >= getMaxCount(idx) || isCorrect ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={() => getLetterCount(idx) < getMaxCount(idx) && !isCorrect && handleLetterClick(idx)}
-            disabled={getLetterCount(idx) >= getMaxCount(idx) || isCorrect}
+            className={`w-14 h-14 px-6 py-4 flex items-center justify-center rounded bg-white border-2 border-[#4C53B4] text-[#4C53B4] font-bold text-2xl cursor-pointer hover:bg-[#EEF1F5] transition ${getLetterCount(idx) >= getMaxCount(idx) || answerStatus === 'correct' ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => getLetterCount(idx) < getMaxCount(idx) && answerStatus !== 'correct' && handleLetterChoiceClick(idx)}
+            disabled={getLetterCount(idx) >= getMaxCount(idx) || answerStatus === 'correct'}
           >
             {letter}
           </button>
@@ -807,9 +731,9 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer }) => {
       </div>
       <div className="flex justify-center mb-4">
         <button
-          className={`px-8 py-3 rounded-xl text-xl font-bold text-white ${allFilled ? 'bg-[#4C53B4] hover:bg-[#3a4095]' : 'bg-gray-300 cursor-not-allowed'}`}
+          className={`px-8 py-3 rounded-xl text-xl font-bold text-white ${selectedIndexes.every(idx => idx !== undefined) ? 'bg-[#4C53B4] hover:bg-[#3a4095]' : 'bg-gray-300 cursor-not-allowed'}`}
           onClick={checkAnswer}
-          disabled={!allFilled || isCorrect}
+          disabled={!selectedIndexes.every(idx => idx !== undefined) || answerStatus === 'correct'}
         >
           Check
         </button>
@@ -821,12 +745,12 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer }) => {
         </div>
       )}
       {checked && isCorrect === false && (
-        <div className={`text-center text-2xl font-bold mt-2 text-red-600`}>
+        <div className="text-center text-2xl font-bold mt-2 text-red-600">
           Try again!
         </div>
       )}
       {checked && isCorrect === true && (
-        <div className={`text-center text-2xl font-bold mt-2 text-green-600`}>
+        <div className="text-center text-2xl font-bold mt-2 text-green-600">
           Correct!
         </div>
       )}
@@ -843,6 +767,11 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
       ? currentAnswer
       : Array(blanksCount).fill(null)
   );
+  const [isIncorrect, setIsIncorrect] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [showTryAgain, setShowTryAgain] = useState(false);
+  const [activeId, setActiveId] = useState(null);
+
   useEffect(() => {
     setBlankAnswers(
       Array.isArray(currentAnswer) && currentAnswer.length === blanksCount
@@ -857,70 +786,178 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
     return all.sort(() => Math.random() - 0.5);
   });
 
+  // DnD sensors setup
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  );
+
   // Build the sentence display
   let blankIdx = 0;
   const parts = sentence.split('_');
   const display = [];
   for (let i = 0; i < parts.length; i++) {
-    display.push(<span key={`part-${i}`}>{parts[i]}</span>);
+    display.push(<span key={`part-${i}`} className="text-2xl">{parts[i]}</span>);
     if (i < parts.length - 1) {
       const answerIdx = blankAnswers[blankIdx];
+      const currentBlankIdx = blankIdx;
       display.push(
-        <span
-          key={`blank-${blankIdx}`}
-          className="inline-block min-w-[100px] h-8 mx-2 bg-[#EEF1F5] border-2 border-dashed border-[#4C53B4]/30 rounded-lg align-middle text-center cursor-pointer relative"
-          onClick={() => {
-            if (answerIdx !== null) {
-              // Remove answer from this blank
-              const newAnswers = [...blankAnswers];
-              newAnswers[blankIdx] = null;
-              setBlankAnswers(newAnswers);
-              onAnswer(newAnswers);
-            }
-          }}
-        >
-          {answerIdx !== null ? choices[answerIdx]?.text : ''}
-          {answerIdx !== null && (
-            <span className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-500 rounded-full flex items-center justify-center text-xs border border-gray-200">&times;</span>
+        <Droppable key={`blank-${blankIdx}`} id={`blank-${blankIdx}`}>
+          {({ isOver, setNodeRef }) => (
+            <div
+              ref={setNodeRef}
+              onClick={() => {
+                if (answerIdx !== null && !isCorrect) {
+                  const newAnswers = [...blankAnswers];
+                  newAnswers[currentBlankIdx] = null;
+                  setBlankAnswers(newAnswers);
+                  onAnswer(newAnswers, false);
+                  setShowTryAgain(false);
+                  setIsIncorrect(false);
+                }
+              }}
+              className={`inline-flex items-center justify-center min-w-[150px] h-12 mx-2 align-middle cursor-pointer relative text-xl
+                ${answerIdx !== null 
+                  ? 'bg-white border-2' 
+                  : 'bg-[#EEF1F5] border-2 border-dashed border-[#4C53B4]/30'} 
+                ${isIncorrect && answerIdx !== null ? 'border-red-500 animate-shake' : ''}
+                ${isCorrect && answerIdx !== null ? 'border-green-500' : ''}
+                ${isOver ? 'border-[#4C53B4] bg-[#EEF1F5] scale-105' : ''}
+                rounded-lg transition-all duration-200`}
+            >
+              {answerIdx !== null ? choices[answerIdx]?.text : ''}
+            </div>
           )}
-        </span>
+        </Droppable>
       );
       blankIdx++;
     }
   }
+
+  // Check if all blanks are filled
+  const isComplete = blankAnswers.every(idx => idx !== null);
+
+  // Auto-check answer when all blanks are filled
+  useEffect(() => {
+    if (isComplete && !isCorrect) {
+      // Get correct answers from dragItems array
+      const correctAnswers = question.dragItems.map(item => item.text.toLowerCase().trim());
+      const currentAnswers = blankAnswers.map(idx => choices[idx]?.text.toLowerCase().trim());
+      
+      const isAllCorrect = currentAnswers.every((answer, index) => answer === correctAnswers[index]);
+      
+      if (isAllCorrect) {
+        setIsCorrect(true);
+        setIsIncorrect(false);
+        setShowTryAgain(false);
+        onAnswer(blankAnswers, true);
+      } else {
+        setIsIncorrect(true);
+        setShowTryAgain(true);
+        onAnswer(blankAnswers, false);
+        // Clear answers 
+        setTimeout(() => {
+          setBlankAnswers(Array(blanksCount).fill(null));
+          setIsIncorrect(false);
+          setShowTryAgain(false);
+        }, 2000); //2 seconds
+      }
+    } else if (!isComplete) {
+      // If sentence is not complete, don't show any error state
+      onAnswer(blankAnswers, false);
+    }
+  }, [isComplete, blankAnswers]);
+
+  // Handle drag start
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
+    // Reset error states when starting a new drag
+    setIsIncorrect(false);
+    setShowTryAgain(false);
+  };
+
+  // Handle drag end
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    setActiveId(null);
+    
+    if (!over || isCorrect) return;
+
+    const draggedItemIndex = parseInt(active.id.split('-')[1]);
+    const targetBlankIndex = parseInt(over.id.split('-')[1]);
+
+    // Update answers
+    const newAnswers = [...blankAnswers];
+    newAnswers[targetBlankIndex] = draggedItemIndex;
+    setBlankAnswers(newAnswers);
+    onAnswer(newAnswers, false);
+  };
+
   // Choices not yet used
   const used = new Set(blankAnswers.filter(idx => idx !== null));
-  return (
-    <div className="animate-fadeIn">
-      <div className="p-4 bg-white rounded-lg border border-gray-200 flex flex-wrap items-center justify-center gap-1 mb-6 text-lg">
-        {display}
-      </div>
-      <div className="flex flex-wrap justify-center gap-2 mt-4">
-        {choices.map((choice, idx) => (
-          <button
-            key={idx}
-            className={`px-4 py-2 rounded-lg text-sm font-medium bg-white border-2 border-[#4C53B4] text-[#4C53B4] cursor-pointer hover:bg-[#EEF1F5] transition ${used.has(idx) ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={() => {
-              // Find first empty blank
-              const firstEmpty = blankAnswers.findIndex(a => a === null);
-              if (firstEmpty !== -1 && !used.has(idx)) {
-                const newAnswers = [...blankAnswers];
-                newAnswers[firstEmpty] = idx;
-                setBlankAnswers(newAnswers);
-                onAnswer(newAnswers);
-              }
-            }}
-            disabled={used.has(idx)}
-          >
-            {choice.text}
-          </button>
-        ))}
-      </div>
-      <div className="text-sm text-gray-500 mt-2 text-center">
-        <i className="fa-solid fa-shuffle mr-1"></i>
-        All choices are shuffled. Tap a blank to remove its answer.
-      </div>
+
+  // Render draggable item
+  const renderDraggableItem = (choice, idx, isDragging = false) => (
+    <div
+      className={`px-6 py-3 rounded-lg text-lg font-medium bg-white border-2 border-[#4C53B4] text-[#4C53B4] 
+        ${used.has(idx) ? 'opacity-50' : 'cursor-grab hover:bg-[#EEF1F5] transition'}
+        ${isDragging ? 'opacity-90 scale-110 shadow-2xl' : ''}
+        transition-all duration-200`}
+    >
+      {choice.text}
     </div>
+  );
+
+  return (
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="animate-fadeIn">
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-12 text-2xl">
+          {display}
+        </div>
+        <div className="flex flex-wrap justify-center gap-3 mb-6">
+          {choices.map((choice, idx) => (
+            <Draggable key={`choice-${idx}`} id={`choice-${idx}`} disabled={used.has(idx)}>
+              {({ attributes, listeners, setNodeRef, isDragging }) => (
+                <div
+                  ref={setNodeRef}
+                  {...attributes}
+                  {...listeners}
+                  className={`${isDragging ? 'opacity-30' : ''}`}
+                >
+                  {renderDraggableItem(choice, idx)}
+                </div>
+              )}
+            </Draggable>
+          ))}
+        </div>
+        <DragOverlay>
+          {activeId !== null && renderDraggableItem(choices[parseInt(activeId.split('-')[1])], parseInt(activeId.split('-')[1]), true)}
+        </DragOverlay>
+        <div className="flex flex-col items-center gap-4">
+          <div className="text-sm text-gray-500 text-center">
+            <i className="fa-solid fa-info-circle mr-1"></i>
+            Drag words to fill blanks. Click a filled blank to remove its answer.
+          </div>
+          {showTryAgain && (
+            <div className="text-2xl font-bold text-red-500 animate-fadeIn">
+              Try again!
+            </div>
+          )}
+          {isCorrect && (
+            <div className="text-3xl font-bold text-emerald-500 animate-fadeIn">
+              Correct!
+            </div>
+          )}
+        </div>
+      </div>
+    </DndContext>
   );
 };
 
@@ -1269,32 +1306,61 @@ const TakeDrill = () => {
   if (introStep === 5) {
     let mascot = HippoCurious;
     if (answerStatus === 'correct') mascot = HippoHappy;
-    if (answerStatus === 'wrong') mascot = HippoSad;
+    // Only show sad mascot if answer is wrong AND it's a complete answer
+    if (answerStatus === 'wrong' && 
+        ((currentQuestion.type === 'D' && currentAnswer?.every(a => a !== null)) ||
+         currentQuestion.type !== 'D')) mascot = HippoSad;
   
-  const handleAnswer = (answer) => {
-      let isCorrect = false;
-      
-      // Check answer based on question type
-      if (currentQuestion.type === 'M') {
-        isCorrect = parseInt(answer) === parseInt(currentQuestion.answer);
-      } else if (currentQuestion.type === 'F') {
-        isCorrect = parseInt(answer) === parseInt(currentQuestion.answer);
-      } else if (currentQuestion.type === 'P') {
-        isCorrect = (answer || '').toLowerCase().trim() === (currentQuestion.answer || '').toLowerCase().trim();
-      } else if (currentQuestion.type === 'D') {
-        isCorrect = currentQuestion.dropZones.every((zone, idx) => answer[idx] === zone.correctItemIndex);
-      } else if (currentQuestion.type === 'G') {
-        isCorrect = Array.isArray(answer) && answer.length === (currentQuestion.memoryCards?.length || 0);
-      }
-
+  const handleAnswer = (answer, isCorrect) => {
+    if (currentQuestion.type === 'D') {
+      // For Sentence Builder
       setCurrentAnswer(answer);
-      
       if (isCorrect) {
         setAnswerStatus('correct');
         const key = `${currentWordIdx}_${currentQuestionIdx}`;
         const wrong = (attempts[key] || 0);
         const time = timeSpent[key] || 0;
-        // Points: 100 - 20 per wrong attempt - 1 point per 5 seconds, minimum 30
+        const earned = Math.max(30, 100 - wrong * 20 - Math.floor(time / 5));
+        setPoints(prev => ({ ...prev, [key]: earned }));
+      } else if (answer.some(a => a !== null)) {
+        // Only set wrong status if there's at least one answer
+        setAnswerStatus('wrong');
+        const key = `${currentWordIdx}_${currentQuestionIdx}`;
+        setAttempts(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+      } else {
+        // Reset status when all answers are cleared
+        setAnswerStatus(null);
+      }
+    } else {
+      // Handle other question types...
+      let correct = false;
+      
+      if (currentQuestion.type === 'M') {
+        correct = parseInt(answer) === parseInt(currentQuestion.answer);
+      } else if (currentQuestion.type === 'F') {
+        if (Array.isArray(answer)) {
+          const userAnswer = currentQuestion.pattern.split(' ').map((char, idx) => {
+            if (char === '_') {
+              const selectedIdx = answer[idx - currentQuestion.pattern.split(' ').slice(0, idx).filter(c => c === '_').length];
+              return selectedIdx !== undefined ? currentQuestion.letterChoices[selectedIdx] : '';
+            }
+            return char;
+          }).join('').replace(/ /g, '');
+          correct = userAnswer.toUpperCase() === (currentQuestion.answer || '').toUpperCase();
+        }
+      } else if (currentQuestion.type === 'P') {
+        correct = (answer || '').toLowerCase().trim() === (currentQuestion.answer || '').toLowerCase().trim();
+      } else if (currentQuestion.type === 'G') {
+        correct = Array.isArray(answer) && answer.length === (currentQuestion.memoryCards?.length || 0);
+      }
+
+      setCurrentAnswer(answer);
+      
+      if (correct) {
+        setAnswerStatus('correct');
+        const key = `${currentWordIdx}_${currentQuestionIdx}`;
+        const wrong = (attempts[key] || 0);
+        const time = timeSpent[key] || 0;
         const earned = Math.max(30, 100 - wrong * 20 - Math.floor(time / 5));
         setPoints(prev => ({ ...prev, [key]: earned }));
       } else {
@@ -1304,22 +1370,22 @@ const TakeDrill = () => {
         }
         const key = `${currentWordIdx}_${currentQuestionIdx}`;
         setAttempts(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-        // Don't clear wrong status - it will stay until correct answer is found
       }
-    };
-    const handleNext = () => {
-      setCurrentAnswer(null);
-      setWrongAnswers([]);
-      if (currentQuestionIdx < currentQuestions.length - 1) {
-        setCurrentQuestionIdx(currentQuestionIdx + 1);
-        setAnswerStatus(null);
-      } else if (currentWordIdx < wordGroups.length - 1) {
-        setCurrentWordIdx(currentWordIdx + 1);
-        setCurrentQuestionIdx(0);
-        setIntroStep(1);
-        setAnswerStatus(null);
-      } else {
-        setIntroStep(6);
+    }
+  };
+  const handleNext = () => {
+    setCurrentAnswer(null);
+    setWrongAnswers([]);
+    if (currentQuestionIdx < currentQuestions.length - 1) {
+      setCurrentQuestionIdx(currentQuestionIdx + 1);
+      setAnswerStatus(null);
+    } else if (currentWordIdx < wordGroups.length - 1) {
+      setCurrentWordIdx(currentWordIdx + 1);
+      setCurrentQuestionIdx(0);
+      setIntroStep(1);
+      setAnswerStatus(null);
+    } else {
+      setIntroStep(6);
     }
   };
   
@@ -1392,7 +1458,7 @@ const TakeDrill = () => {
                 return (
                   <MultipleChoiceQuestion 
                     question={currentQuestion} 
-                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
+                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer, false)}
                     currentAnswer={currentAnswer}
                         answerStatus={answerStatus}
                         wrongAnswers={wrongAnswers}
@@ -1402,23 +1468,26 @@ const TakeDrill = () => {
                 return (
                   <BlankBusterQuestion 
                     question={currentQuestion} 
-                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
+                        onAnswer={(answer, correct) => {
+                          handleAnswer(answer, correct);
+                        }}
                     currentAnswer={currentAnswer}
+                    answerStatus={answerStatus}
                   />
                 );
               case 'D':
                 return (
                   <SentenceBuilderQuestion 
                     question={currentQuestion} 
-                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
-                        currentAnswer={currentAnswer}
+                    onAnswer={(answer, isCorrect) => answerStatus !== 'correct' && handleAnswer(answer, isCorrect)}
+                    currentAnswer={currentAnswer}
                   />
                 );
               case 'G':
                 return (
                   <MemoryGameQuestion
                     question={currentQuestion}
-                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
+                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer, false)}
                     currentAnswer={currentAnswer}
                   />
                 );
@@ -1426,7 +1495,7 @@ const TakeDrill = () => {
                 return (
                   <PictureWordQuestion
                     question={currentQuestion}
-                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer)}
+                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer, false)}
                     currentAnswer={currentAnswer}
                   />
                 );
@@ -1476,7 +1545,7 @@ const TakeDrill = () => {
             </div>
         </div>
         <div className="w-full max-w-2xl mx-auto flex flex-col items-center animate-fadeIn">
-          <img src={HippoHappy} alt="Hippo" className="w-48 h-48 mb-4" />
+          <img src={mascot} alt="Hippo" className="w-48 h-48 mb-4" />
           <h2 className="text-4xl font-bold text-[#8e44ad] mb-4">Congratulations!</h2>
           <div className="text-2xl mb-2">You've completed the drill!</div>
           <div className="text-xl mb-6">Total Points: <span className="font-bold text-[#f39c12]">{Object.values(points).reduce((a, b) => a + (b || 0), 0)}</span></div>

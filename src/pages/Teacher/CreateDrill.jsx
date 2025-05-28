@@ -523,14 +523,31 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       // Generate default content based on question type
       switch(questionDraft.type) {
         case 'M': // Multiple Choice
-          defaultQuestion = `What is the best answer for this question?`;
-          defaultChoices = [
-            { text: selectedQuestionWordData.definition || 'Correct definition here', media: null },
-            { text: 'Alternative meaning 1', media: null },
-            { text: 'Alternative meaning 2', media: null },
-            { text: 'Alternative meaning 3', media: null },
-          ];
-          defaultAnswer = 0;
+          // Get available words excluding the current word
+          const availableWords = getAvailableWords().filter(w => w.word !== selectedQuestionWord);
+          
+          // Shuffle available words for random selection
+          const shuffledWords = [...availableWords].sort(() => Math.random() - 0.5);
+          
+          // Create choices array with correct definition and other word definitions
+          let choices = [];
+          
+          // Randomly place the correct answer
+          const correctAnswerPosition = Math.floor(Math.random() * 4); // Random position 0-3
+          
+          // Fill all positions
+          for (let i = 0; i < 4; i++) {
+            if (i === correctAnswerPosition) {
+              choices[i] = { text: selectedQuestionWordData.definition || 'Correct definition here', media: null };
+            } else {
+              const otherWord = shuffledWords[choices.filter((c, idx) => idx !== correctAnswerPosition && c !== undefined).length];
+              choices[i] = { text: otherWord?.definition || `Alternative word definition ${i + 1}`, media: null };
+            }
+          }
+
+          defaultQuestion = `What is the definition of "${selectedQuestionWord}"?`;
+          defaultChoices = choices;
+          defaultAnswer = correctAnswerPosition;
           break;
           
         case 'F': { // <-- open block
@@ -759,7 +776,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       }
       if (q.type === 'P') {
         if (!q.text) {
-          alert('Picture Word questions must have a question text.');
+          alert('Picture Word questions must have a drill instructions.');
           setSubmittingAction(null);
           return;
         }
@@ -861,7 +878,9 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           base.letterChoices = q.letterChoices;
         }
         if (q.type === 'D') {
+          base.sentence = q.sentence || '';
           base.dragItems = Array.isArray(q.dragItems) ? q.dragItems : [];
+          base.incorrectChoices = Array.isArray(q.incorrectChoices) ? q.incorrectChoices : [];
           base.dropZones = Array.isArray(q.dropZones) ? q.dropZones : [];
         }
         if (q.type === 'G') {
@@ -1457,9 +1476,9 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                           )}
                         </div>
                       ))}
-                        </div>
                       </div>
                     </div>
+                  </div>
                   )}
                   {q.type === 'F' && (
                     <div className="space-y-2">
@@ -1664,7 +1683,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   <>
               {/* Question Type Selection */}
               <div className="mb-4">
-                      <label className="block mb-1 font-medium">Question Type <span className="text-red-500">*</span></label>
+                      <label className="block mb-1 font-medium"> Drill Type <span className="text-red-500">*</span></label>
                 <select
                   className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
                   value={questionDraft.type}
@@ -1867,7 +1886,9 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
               </div>
                     {/* Question Text with AI Generation */}
                     <div className="mb-4">
-                      <label className="block mb-1 font-medium">Question Text <span className="text-red-500">*</span></label>
+                      <label className="block mb-1 font-medium">
+                        {questionDraft.type === 'M' ? 'Question Text' : 'Drill Instruction'} <span className="text-red-500">*</span>
+                      </label>
               {questionDraft.type === 'F' ? (
                   <div className="mb-4">
                     <div className="space-y-4">
@@ -1876,7 +1897,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                         <div className="flex gap-2">
                     <input
                       className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                            placeholder="Question text"
+                            placeholder="Enter drill instruction"
                             value={questionDraft.text}
                             onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
                             id="question-text-input"
@@ -1952,7 +1973,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                         <div className="flex gap-2">
                           <input
                             className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                            placeholder="Question text"
+                            placeholder={questionDraft.type === 'M' ? "Enter question text" : "Enter drill instruction"}
                             value={questionDraft.text}
                             onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
                             id="question-text-input"
@@ -1964,57 +1985,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                         </div>
                       )}
                     </div>
-                    {/* Content Section */}
-                    <div className="mb-6 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
-                      <div className="flex items-center gap-2 mb-3">
-                        <h3 className="font-medium">Content</h3>
-                        <div className="relative group">
-                          <i className="fa-solid fa-circle-info text-[#4C53B4] cursor-help"></i>
-                          <div className="opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 absolute left-0 top-full mt-2 w-[300px] bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-50">
-                            <div className="absolute -top-2 left-4 w-4 h-4 bg-white border-t border-l border-gray-200 transform rotate-45"></div>
-                            <div className="space-y-3">
-                              <h4 className="font-medium text-gray-800">Content Guide</h4>
-                              <div className="text-sm text-gray-600">
-                                <p className="mb-2"><strong>Title:</strong> A brief, descriptive title for the story or context.</p>
-                                <p className="mb-2"><strong>Context:</strong> Background information or setting that helps students understand the question better.</p>
-                                <p><strong>Sign Language Instructions:</strong> Specific guidance for sign language users.</p>
-                        </div>
-                    </div>
-                </div>
-                        </div>
-                      </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Title</label>
-                    <input
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Enter a title for your story"
-                      value={questionDraft.story_title || ''}
-                      onChange={e => setQuestionDraft({ ...questionDraft, story_title: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Context</label>
-                    <textarea
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Set the scene for your story"
-                      rows={3}
-                      value={questionDraft.story_context || ''}
-                      onChange={e => setQuestionDraft({ ...questionDraft, story_context: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Sign Language Instructions</label>
-                    <textarea
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Add sign language instructions for the story"
-                      rows={2}
-                      value={questionDraft.sign_language_instructions || ''}
-                      onChange={e => setQuestionDraft({ ...questionDraft, sign_language_instructions: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
               {/* Type-specific form for Drag and Drop and Memory Game */}
               {questionDraft.type === 'D' && (
                 <div className="space-y-4">
@@ -2429,9 +2399,9 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                           )}
                         </div>
                       ))}
-                        </div>
                       </div>
                     </div>
+                  </div>
                   )}
                   {q.type === 'F' && (
                     <div className="space-y-2">
