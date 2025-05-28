@@ -12,6 +12,7 @@ import { ClassroomPreferencesProvider } from './contexts/ClassroomPreferencesCon
 import { SuccessModalProvider } from './contexts/SuccessModalContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import SuccessModal from './components/SuccessModal'
+import DrillLeaderboard from './pages/Student/DrillLeaderboard'
 
 function Logout() {
   localStorage.removeItem('access');
@@ -42,6 +43,7 @@ function App() {
               <Route path="/request-password-reset" element={<AuthRoute requireAuth={false}><PasswordReset /></AuthRoute>} />
               <Route path="/reset-password/:token" element={<AuthRoute requireAuth={false}><NewPassword /></AuthRoute>} />
 
+
               {/* Student Routes */}
               <Route path="/s" element={
                 <AuthRoute requiredRole="student">
@@ -49,6 +51,7 @@ function App() {
                 </AuthRoute>
               }>
                 <Route path="*" element={<StudentRoutes />} />
+                <Route path="drill/:id/leaderboard" element={<DrillLeaderboard />} />
               </Route>
 
               {/* Teacher Routes */}

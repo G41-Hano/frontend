@@ -78,7 +78,7 @@ const Stepper = ({ step, setStep }) => (
   </div>
 );
 
-const FileInput = ({ value, onChange, onPreview }) => {
+export const FileInput = ({ value, onChange, onPreview }) => {
   const isFile = value instanceof File;
   const src = isFile ? URL.createObjectURL(value) : (value && value.url ? value.url : '');
   const [inputKey, setInputKey] = useState(0);
@@ -146,7 +146,7 @@ const FileInput = ({ value, onChange, onPreview }) => {
 };
 
 // New component for AI generation button
-const AiGenerateButton = ({ onClick, loading, className = '' }) => (
+export const AiGenerateButton = ({ onClick, loading, className = '' }) => (
   <button
     type="button"
     onClick={onClick}
@@ -973,29 +973,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
     return open.toISOString().slice(0, 16);
   };
 
-  // AI generate for custom list description
-  const generateListDescription = async () => {
-    setAiLoadingListDesc(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setCustomListDesc(`This is a vocabulary list about ${drill.wordlistName || 'your topic'}.`);
-      setNotification({
-        show: true,
-        message: 'Description generated!',
-        type: 'success'
-      });
-    } catch {
-      setNotification({
-        show: true,
-        message: 'Failed to generate description.',
-        type: 'error'
-      });
-    } finally {
-      setAiLoadingListDesc(false);
-      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
-    }
-  };
-
   const validateCustomWordList = () => {
     if (!drill.wordlistName || !customListDesc) return false;
     if (drill.customWordList.length < 3) return false;
@@ -1229,10 +1206,10 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       onChange={e => setCustomListDesc(e.target.value)}
                       placeholder="Describe this word list"
                     />
-                    <AiGenerateButton
+                    {/* <AiGenerateButton
                       onClick={generateListDescription}
                       loading={aiLoadingListDesc}
-                    />
+                    /> */}
                   </div>
                 </div>
                 {/* Add Words */}

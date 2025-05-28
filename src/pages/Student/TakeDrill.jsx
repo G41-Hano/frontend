@@ -9,7 +9,7 @@ import HippoHappy from '../../assets/MascotHippoHappy.gif';
 import HippoSad from '../../assets/MascotHippoSad.gif';
 import HippoWaiting from '../../assets/MascotHippoWaiting.gif';
 import { DndContext, useSensors, useSensor, useDroppable, useDraggable, DragOverlay } from '@dnd-kit/core';
-import { PointerSensor } from '@dnd-kit/core';
+import { PointerSensor } from '@dnd-kit/core';  
 import { Tooltip } from "react-tooltip";
 
 // Custom Draggable component
@@ -605,13 +605,15 @@ const calculateCurrentStep = (introStep, currentWordIdx, currentQuestionIdx, wor
 };
 
 // Points calculation helper
-const calculatePoints = (attempts, timeSpent) => {
+const calculatePoints = (attempts, timeSpent, isCorrect) => {
+  if (!isCorrect) return 0;
   // Base points: 100
   // -20 points per wrong attempt
   // -1 point per 5 seconds spent
+  // Maximum time penalty is 30 points
   const wrongAttempts = attempts || 0;
-  const timePenalty = Math.floor((timeSpent || 0) / 5);
-  const points = Math.max(30, 100 - (wrongAttempts * 20) - timePenalty);
+  const timePenalty = Math.min(30, Math.floor((timeSpent || 0) / 5));
+  const points = Math.max(0, 100 - (wrongAttempts * 20) - timePenalty);
   return points;
 };
 
@@ -1077,31 +1079,6 @@ const TakeDrill = () => {
     }
   };
 
-  // Reset answer when question changes
-  useEffect(() => {
-    if (wordGroups.length > 0 && introStep === 5) {
-      const currentQuestion = wordGroups[currentWordIdx]?.questions[currentQuestionIdx];
-      if (currentQuestion) {
-        setCurrentAnswer(initializeAnswer(currentQuestion));
-      }
-    }
-  }, [currentWordIdx, currentQuestionIdx, introStep, wordGroups]);
-
-  // Timer logic - Update to track time more accurately
-  useEffect(() => {
-    let intervalId;
-    if (introStep === 5) {
-      intervalId = setInterval(() => {
-        const key = `${currentWordIdx}_${currentQuestionIdx}`;
-        setTimeSpent(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-      }, 1000);
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [introStep, currentWordIdx, currentQuestionIdx]);
-
   // Fetch drill and wordlist
   useEffect(() => {
     const fetchDrillAndWordlist = async () => {
@@ -1139,7 +1116,7 @@ const TakeDrill = () => {
             );
             
             questionsByWord[word.id] = wordQuestions.map(q => ({
-            ...q,
+              ...q,
               word: word.word,
               definition: word.definition,
               image: word.image_url,
@@ -1173,7 +1150,63 @@ const TakeDrill = () => {
     
     fetchDrillAndWordlist();
   }, [id]);
-  
+
+  // Reset answer when question changes
+  useEffect(() => {
+    if (wordGroups.length > 0 && introStep === 5) {
+      const currentQuestion = wordGroups[currentWordIdx]?.questions[currentQuestionIdx];
+      if (currentQuestion) {
+        setCurrentAnswer(initializeAnswer(currentQuestion));
+      }
+    }
+  }, [currentWordIdx, currentQuestionIdx, introStep, wordGroups]);
+
+  // Timer logic
+  useEffect(() => {
+    let intervalId;
+    if (introStep === 5) {
+      intervalId = setInterval(() => {
+        const key = `${currentWordIdx}_${currentQuestionIdx}`;
+        setTimeSpent(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+      }, 1000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [introStep, currentWordIdx, currentQuestionIdx]);
+
+  // Leaderboard fetch
+  useEffect(() => {
+    if (introStep === 6) {
+      setLoadingLeaderboard(true);
+      setLeaderboardError(null);
+      api.get(`/api/drills/${id}/results/`)
+        .then(res => {
+          const results = res.data || [];
+          const leaderboardMap = new Map();
+          results.forEach(result => {
+            const studentId = result.student.id;
+            const currentBest = leaderboardMap.get(studentId);
+            if (!currentBest || result.points > currentBest.points) {
+              leaderboardMap.set(studentId, result);
+            }
+          });
+          const leaderboardArr = Array.from(leaderboardMap.values())
+            .map(result => ({
+              id: result.student.id,
+              name: result.student.name,
+              avatar: result.student.avatar,
+              points: result.points
+            }))
+            .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+          setDrillLeaderboard(leaderboardArr);
+        })
+        .catch(() => setLeaderboardError('Failed to load leaderboard'))
+        .finally(() => setLoadingLeaderboard(false));
+    }
+  }, [introStep, id]);
+
   // Show full screen layout immediately with loading state
   if (loading || !drill || wordGroups.length === 0) {
     return (
@@ -1239,38 +1272,6 @@ const TakeDrill = () => {
   const currentQuestions = currentWord.questions;
   const currentQuestion = currentQuestions[currentQuestionIdx];
 
-  // Add leaderboard fetch when summary screen is shown
-  useEffect(() => {
-    if (introStep === 6) {
-      setLoadingLeaderboard(true);
-      setLeaderboardError(null);
-      api.get(`/api/drills/${id}/results/`)
-        .then(res => {
-          // Only show students who have attempted the drill
-          const results = res.data || [];
-          const leaderboardMap = new Map();
-          results.forEach(result => {
-            const studentId = result.student.id;
-            const currentBest = leaderboardMap.get(studentId);
-            if (!currentBest || result.points > currentBest.points) {
-              leaderboardMap.set(studentId, result);
-            }
-          });
-          const leaderboardArr = Array.from(leaderboardMap.values())
-            .map(result => ({
-              id: result.student.id,
-              name: result.student.name,
-              avatar: result.student.avatar,
-              points: result.points
-            }))
-            .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
-          setDrillLeaderboard(leaderboardArr);
-        })
-        .catch(() => setLeaderboardError('Failed to load leaderboard'))
-        .finally(() => setLoadingLeaderboard(false));
-    }
-  }, [introStep, id]);
-
   // Update handleAnswer to save points to backend
   const handleAnswer = async (answer, isCorrect) => {
     setCurrentAnswer(answer);
@@ -1280,7 +1281,7 @@ const TakeDrill = () => {
     if (currentQuestion.type === 'D') {
       if (isCorrect) {
         setAnswerStatus('correct');
-        const points = calculatePoints(attempts[key], timeSpent[key]);
+        const points = calculatePoints(attempts[key], timeSpent[key], true);
         setPoints(prev => ({ ...prev, [key]: points }));
         
         // Submit answer to backend
@@ -1327,7 +1328,7 @@ const TakeDrill = () => {
     
     if (correct || isCorrect) {
       setAnswerStatus('correct');
-      const earnedPoints = calculatePoints(attempts[key], timeSpent[key]);
+      const earnedPoints = calculatePoints(attempts[key], timeSpent[key], true);
       setPoints(prev => ({ ...prev, [key]: earnedPoints }));
 
       // Submit answer to backend

@@ -4,6 +4,7 @@ import api from "../api"
 import { REFRESH_TOKEN, ACCESS_TOKEN } from "../constants"
 import { useState, useEffect } from "react"
 import { useUser } from "../contexts/UserContext"
+import LoadingIndicator from "../components/LoadingIndicator"
 
 /*
   This will protect the routes in case an unauthorized user to access out links
@@ -48,8 +49,6 @@ export default function AuthRoute({children, requireAuth = true, requiredRole = 
       return
     }
     const decoded = jwtDecode(token)
-    console.log("Decoded token: " )
-    console.log(decoded)
     const tokenExpiration = decoded.exp
     setUserRole(decoded.role)
     const now = Date.now() / 1000
@@ -64,7 +63,9 @@ export default function AuthRoute({children, requireAuth = true, requiredRole = 
   }
 
   if (isAuthorized === null) {
-    return <div>Loading...</div>
+    return <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"/>
+      </div>
   }
 
   /*  requires the user to be authenticated before accessing children

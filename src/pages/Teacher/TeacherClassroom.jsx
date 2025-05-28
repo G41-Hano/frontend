@@ -448,14 +448,22 @@ const TeacherClassroom = () => {
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{student.id}</td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center">
-                                  <div className="w-8 h-8 rounded-full bg-[#4C53B4] flex items-center justify-center text-white transform hover:scale-110 transition-transform">
-                                    {student.first_name?.[0] || student.username[0]}
-                                  </div>
+                                  {student.avatar ? (
+                                    <img 
+                                      src={student.avatar} 
+                                      alt={student.first_name?.[0] || student.username[0]} 
+                                      className="w-8 h-8 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-8 h-8 rounded-full bg-[#4C53B4] flex items-center justify-center text-white transform hover:scale-110 transition-transform">
+                                      {student.first_name?.[0] || student.username[0]}
+                                    </div>
+                                  )}
                                   <div className="ml-3">
                                     <div className="text-sm font-medium text-gray-900">
-                                      {student.first_name} {student.last_name}
+                                      {student.name}
                                     </div>
-                                    <div className="text-sm text-gray-500">@{student.username}</div>
+                                    <div className="text-xs text-gray-500">@{student.username}</div>
                                   </div>
                                 </div>
                               </td>
@@ -815,7 +823,7 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
                 navigate(`/t/take-drill/${drill.id}`);
               }}
             >
-              <i className={`fa-solid ${drill.status === 'draft' ? 'fa-eye' : 'fa-play'}`}></i> {drill.status === 'draft' ? 'Preview Drill' : 'Take Drill'}
+              <i className={`fa-solid ${drill.status === 'draft' ? 'fa-eye' : 'fa-play'}`}></i> {drill.status === 'draft' ? 'Preview Drill' : 'Test Drill'}
             </button>
           </div>
         </div>

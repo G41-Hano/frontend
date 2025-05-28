@@ -74,43 +74,33 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
   // Handle final submission
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
-    // Allow submission if either students are selected OR a CSV file is present
-    if (selectedStudents.length === 0 && !csvFile) {
-      setError('Please add at least one student or upload a CSV file.');
-      return;
-    }
-    await createClassroom();
-  };
-
-    // Create classroom helper function
-  const createClassroom = async (skipStudents = false) => {
     setLoading(true);
     setError(null);
-    
-    // Validate required fields
-    if (!formData.name.trim()) {
-      setError('Classroom name is required');
-      setLoading(false);
-      return;
-    }
+    setCsvError(null);
+    setIsProcessingCsv(false);
 
     try {
       // 1. Create the classroom
-      const classroomData = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        color: formData.color || '#7D83D7',
-        is_archived: false,
-        is_hidden: false,
-        order: 0
-      };
-
-      const classroomResponse = await api.post('/api/classrooms/', classroomData);
+      const classroomResponse = await api.post('/api/classrooms/', {
+        name: formData.name,
+        description: formData.description,
+        color: formData.color
+      });
       const classroomId = classroomResponse.data.id;
 
-      // 2. If CSV file is present and not skipping, import students
-      if (!skipStudents && csvFile) {
-        console.log('Uploading CSV to backend:', classroomId, csvFile);
+      // 2. Enroll selected students (manual)
+      if (selectedStudents.length > 0) {
+        try {
+          await api.post(`/api/classrooms/${classroomId}/students/`, {
+            student_ids: selectedStudents.map(s => s.id)
+          });
+        } catch (err) {
+          setError('Some students could not be enrolled manually.');
+        }
+      }
+
+      // 3. Import students from CSV if present
+      if (csvFile) {
         setIsProcessingCsv(true);
         try {
           await importStudentsFromCsv(classroomId, csvFile);
@@ -122,10 +112,12 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
       }
 
       setCreatedClassroom(classroomResponse.data);
-      if (onSuccess) onSuccess(classroomResponse.data);
-      setStep(3);
+      if (onSuccess) {
+        onSuccess(classroomResponse.data);
+      }
+      setStep(3); // Move to success step
     } catch (err) {
-      setError('Failed to create classroom. ' + (err?.error || err?.message || ''));
+      setError(err.response?.data?.error || 'Failed to create classroom');
     } finally {
       setLoading(false);
     }
@@ -343,38 +335,41 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
                     `${student.first_name} ${student.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
                   )
                   .map(student => (
-                    <div 
+                    <div
                       key={student.id}
-                      className="flex items-center justify-between p-2 hover:bg-gray-50 transition-colors"
+                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-300 ${
+                        selectedStudents.some(s => s.id === student.id)
+                          ? 'bg-[#4C53B4] text-white'
+                          : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => {
+                        if (selectedStudents.some(s => s.id === student.id)) {
+                          setSelectedStudents(prev => prev.filter(s => s.id !== student.id));
+                        } else {
+                          setSelectedStudents(prev => [...prev, student]);
+                        }
+                      }}
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#4C53B4] flex items-center justify-center text-white text-sm">
-                          {student.first_name?.[0] || student.username[0]}
+                      {student.avatar ? (
+                        <img 
+                          src={student.avatar}
+                          alt={student.first_name?.[0] || student.username[0]}
+                          className="w-10 h-10 rounded-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-[#4C53B4] flex items-center justify-center text-white text-sm font-medium">
+                          {student.first_name?.[0]?.toUpperCase() || student.username?.[0]?.toUpperCase()}
                         </div>
-                        <div>
-                          <div className="font-medium text-sm">
-                            {student.first_name ? `${student.first_name} ${student.last_name}` : student.username}
-                          </div>
-                          <div className="text-xs text-gray-500">@{student.username}</div>
-                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium">{student.first_name} {student.last_name}</div>
+                        <div className="text-sm opacity-75">@{student.username}</div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (selectedStudents.find(s => s.id === student.id)) {
-                            setSelectedStudents(prev => prev.filter(s => s.id !== student.id));
-                          } else {
-                            setSelectedStudents(prev => [...prev, student]);
-                          }
-                        }}
-                        className={`px-2 py-1 rounded-lg transition-colors text-sm ${
-                          selectedStudents.find(s => s.id === student.id)
-                            ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                            : 'bg-[#4C53B4]/10 text-[#4C53B4] hover:bg-[#4C53B4]/20'
-                        }`}
-                      >
-                        {selectedStudents.find(s => s.id === student.id) ? 'Remove' : 'Add'}
-                      </button>
                     </div>
                   ))
               )}
