@@ -402,9 +402,9 @@ const MyClasses = () => {
   };
 
   //Filter Classrooms
-  const filteredClassrooms = filter === 'active'                    //Filter Active or Hidden Classrooms
-    ? classrooms.filter(c => !c.is_hidden)                          //Show Active Classrooms
-    : classrooms.filter(c => c.is_hidden);                          //Show Hidden Classrooms
+  const filteredClassrooms = filter === 'active'
+    ? classrooms.filter(c => !c.is_hidden && !c.is_archived)  // Show only active, non-archived classrooms
+    : classrooms.filter(c => c.is_hidden && !c.is_archived);  // Show only hidden, non-archived classrooms
 
   if (loading) {
     return (

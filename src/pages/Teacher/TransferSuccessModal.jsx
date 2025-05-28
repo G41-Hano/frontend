@@ -32,11 +32,11 @@ const TransferSuccessModal = ({
           <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
             <i className="fa-solid fa-check text-green-600 text-xl"></i>
           </div>
-          <h2 className="text-xl font-bold text-gray-800">Transfer Successful!</h2>
+          <h2 className="text-xl font-bold text-gray-800">Transfer Request Sent!</h2>
         </div>
 
         <p className="text-gray-600">
-          <span className="font-medium text-gray-800">{studentName}</span> has been successfully transferred to <span className="font-medium text-gray-800">{classroomName}</span>.
+          <span className="font-medium text-gray-800">{studentName}</span> will be transferred to <span className="font-medium text-gray-800">{classroomName} upon request</span>.
         </p>
       </div>
     </div>
