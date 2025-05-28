@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api';
 import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
@@ -61,6 +61,8 @@ const StudentClassroom = () => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
   const [drillResults, setDrillResults] = useState({});
+  const [openMenuDrillId, setOpenMenuDrillId] = useState(null);
+  const menuRef = useRef();
 
   // Sort drills: older drills first, newer drills last
   const getSortedDrills = (drillsToSort) => {
@@ -150,6 +152,32 @@ const StudentClassroom = () => {
 
   // Get color when rendering
   const classroomColor = classroom?.id ? getClassroomColor(classroom.id, id) : '#7D83D7';
+
+  const handleMenuClick = (drillId) => {
+    setOpenMenuDrillId(openMenuDrillId === drillId ? null : drillId);
+  };
+
+  const handleShowLeaderboard = (drillId) => {
+    navigate(`/s/drill/${drillId}/leaderboard`);
+    setOpenMenuDrillId(null);
+  };
+
+  // Close menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpenMenuDrillId(null);
+      }
+    };
+    if (openMenuDrillId !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openMenuDrillId]);
 
   if (error) {
     return (
@@ -293,6 +321,26 @@ const StudentClassroom = () => {
                             <div className="text-right">
                               <div className="text-sm text-gray-500">Total Points</div>
                               <div className="text-lg font-bold text-[#4C53B4]">{drillResults[drill.id] || 0} pts</div>
+                            </div>
+                            {/* Kebab menu button */}
+                            <div className="relative" ref={openMenuDrillId === drill.id ? menuRef : null} onClick={e => e.stopPropagation()}>
+                              <button
+                                className="ml-2 p-2 rounded-full hover:bg-gray-200 focus:outline-none"
+                                onClick={e => { e.stopPropagation(); handleMenuClick(drill.id); }}
+                                aria-label="Open menu"
+                              >
+                                <i className="fa-solid fa-ellipsis-vertical text-xl text-gray-600"></i>
+                              </button>
+                              {openMenuDrillId === drill.id && (
+                                <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 animate-fadeIn">
+                                  <button
+                                    className="w-full text-left px-4 py-3 hover:bg-[#F7D9A0] text-[#4C53B4] font-semibold rounded-xl transition-colors"
+                                    onClick={() => handleShowLeaderboard(drill.id)}
+                                  >
+                                    <i className="fa-solid fa-trophy mr-2"></i> Show Leaderboard
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
