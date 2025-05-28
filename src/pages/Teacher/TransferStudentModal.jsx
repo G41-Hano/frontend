@@ -252,7 +252,7 @@ const TransferStudentModal = ({ isOpen, onClose, classroomId, studentToTransfer,
                       <h3 className="font-medium text-gray-800">
                         {classroom.name}
                       </h3>
-                      <p className="text-sm text-gray-500">{classroom.description}</p>
+                      <p className="text-sm text-gray-500">Teacher: {classroom.teacher_name || 'N/A'}</p>
                     </div>
                   </div>
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center
