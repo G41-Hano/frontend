@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api';
 import ClassroomHeader from './ClassroomHeader';
+import Definitions, {useDefinitionFetcher} from '../../components/gen-ai/GenerateDefinition';
+import CreateCustomWordList from '../../components/CreateCustomWordList';
 
 const initialDrill = {
   title: '',
@@ -437,39 +439,26 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   const [submittingAction, setSubmittingAction] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const questionFormRef = useRef(null);
-  const [aiLoading, setAiLoading] = useState({ 
-    definition: false, 
-    question: false,
-    sentence: false
-  });
+  const [aiLoading, setAiLoading] = useState({ definition: false, question: false });
+  const definitionFetcher = useDefinitionFetcher();
 
   // New: Built-in word lists state
   const [builtinWordLists, setBuiltinWordLists] = useState([]);
   const [customListDesc, setCustomListDesc] = useState('');
   const [aiLoadingListDesc, setAiLoadingListDesc] = useState(false);
-  const [loadingWordLists, setLoadingWordLists] = useState(false);
 
   // Fetch built-in word lists when needed
   useEffect(() => {
     if (step === 1 && drill.wordlistType === 'builtin') {
-      // Skip if we already have the wordlists
-      if (builtinWordLists.length > 0) {
-        return;
-      }
-
-      setLoadingWordLists(true);
       api.get('/api/builtin-wordlist/')
         .then(res => {
           setBuiltinWordLists(res.data);
         })
         .catch(() => {
           setNotification({ show: true, message: 'Failed to load word lists', type: 'error' });
-        })
-        .finally(() => {
-          setLoadingWordLists(false);
         });
     }
-  }, [step, drill.wordlistType, builtinWordLists.length]);
+  }, [step, drill.wordlistType]);
 
   useEffect(() => {
     if (!drill.openDate) return;
@@ -481,18 +470,19 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
     }
   }, [drill.openDate, drill.dueDate]);
 
-  // New function for AI definition generation
+  // Add generateDefinitionForWord function
   const generateDefinitionForWord = async (index, word) => {
-    setAiLoading(prev => ({ ...prev, [`definition_${index}`]: true }));
+    if (!word) return;
+    
+    setAiLoading(prev => ({ ...prev, definition: true }));
     try {
-      // Default definition based on word
-      const defaultDefinition = `This is the definition of ${word}`;
-      const newCustomWordList = [...drill.customWordList];
-      newCustomWordList[index] = {
-        ...newCustomWordList[index],
-        definition: defaultDefinition
-      };
-      setDrill(prev => ({ ...prev, customWordList: newCustomWordList }));
+      const definition = await definitionFetcher(word);
+      handleUpdateCustomWord(index, 'definition', definition);
+      setNotification({
+        show: true,
+        message: 'Definition generated successfully!',
+        type: 'success'
+      });
     } catch (err) {
       console.error('Failed to generate definition:', err);
       setNotification({
@@ -501,7 +491,8 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
         type: 'error'
       });
     } finally {
-      setAiLoading(prev => ({ ...prev, [`definition_${index}`]: false }));
+      setAiLoading(prev => ({ ...prev, definition: false }));
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
     }
   };
 
@@ -522,7 +513,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       
       // Generate default content based on question type
       switch(questionDraft.type) {
-        case 'M': // Multiple Choice
+        case 'M': {
           // Get available words excluding the current word
           const availableWords = getAvailableWords().filter(w => w.word !== selectedQuestionWord);
           
@@ -549,8 +540,9 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           defaultChoices = choices;
           defaultAnswer = correctAnswerPosition;
           break;
+        }
           
-        case 'F': { // <-- open block
+        case 'F': {
           word = selectedQuestionWord.toUpperCase();
           
           // Ensure word is at least 4 letters long
@@ -590,24 +582,30 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           defaultHint = `Hint: ${selectedQuestionWordData.definition || 'A word related to the lesson'}`;
           
           // Create choices for the question (optional, but can help with validation)
-          defaultChoices = letterChoices.map((letter, idx) => ({
+          defaultChoices = letterChoices.map(letter => ({
             text: letter,
             is_correct: missingLetters.includes(letter)
           }));
-          break; // <-- close block
+          break;
         }
-        case 'D': // Sentence Builder
+        case 'D': {
           defaultQuestion = `Build the correct sentence using the given words:`;
           defaultAnswer = selectedQuestionWord;
           break;
+        }
           
-        case 'G': // Memory Game
+        case 'G': {
           defaultQuestion = `Find matching pairs to complete this exercise:`;
           break;
+        }
           
-        case 'P': // Picture Word
+        case 'P': {
           defaultQuestion = `What word connects all these pictures?`;
           defaultAnswer = selectedQuestionWord;
+          break;
+        }
+        
+        default:
           break;
       }
 
@@ -1021,12 +1019,12 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
     }
   }, [drill.wordlistType, drill.wordlistName]);
 
-  // Add Questions step: select word first
-  const getAvailableWords = () => {
+  // Wrap getAvailableWords in useCallback
+  const getAvailableWords = useCallback(() => {
     if (drill.wordlistType === 'builtin') return builtinWords;
     if (drill.wordlistType === 'custom') return drill.customWordList;
     return [];
-  };
+  }, [drill.wordlistType, drill.customWordList, builtinWords]);
 
   // When a word is selected for a question, auto-fill definition/image/video
   useEffect(() => {
@@ -1043,7 +1041,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
         // Optionally, you can prefill question text or content here
       }));
     }
-  }, [selectedQuestionWord, questionEditIdx]);
+  }, [selectedQuestionWord, questionEditIdx, getAvailableWords]);
 
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
@@ -1194,11 +1192,10 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
                   value={drill.wordlistName}
                   onChange={(e) => handleBuiltinListChange(e.target.value)}
-                    disabled={loadingWordLists}
                 >
-                    <option value="">{loadingWordLists ? 'Loading word lists...' : 'Select a list'}</option>
-                    {!loadingWordLists && builtinWordLists.length === 0 && <option disabled>No wordlists found</option>}
-                    {!loadingWordLists && builtinWordLists.map(list => (
+                  <option value="">Select a list</option>
+                  {builtinWordLists.length === 0 && <option disabled>No wordlists found</option>}
+                  {builtinWordLists.map(list => (
                     <option key={list.id} value={list.id}>{list.name}</option>
                   ))}
                 </select>
@@ -1244,58 +1241,16 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     <label className="font-medium">Add Vocabulary Words</label>
                   </div>
                   {drill.customWordList.map((word, index) => (
-                    <div key={index} className="mb-4 p-4 rounded-xl border-2 border-gray-100 flex flex-col gap-2">
-                      <div className="flex gap-4">
-                        <div className="flex-1">
-                          <label className="block text-sm text-gray-600 mb-1">Word <span className="text-red-500">*</span></label>
-                          <input
-                            className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                            value={word.word}
-                            onChange={e => handleUpdateCustomWord(index, 'word', e.target.value)}
-                            placeholder="Enter word"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <label className="block text-sm text-gray-600 mb-1">Definition <span className="text-red-500">*</span></label>
-                          <div className="flex gap-2">
-                            <input
-                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                              value={word.definition}
-                              onChange={e => handleUpdateCustomWord(index, 'definition', e.target.value)}
-                              placeholder="Enter definition"
-                            />
-                            <AiGenerateButton
-                              onClick={() => generateDefinitionForWord(index, word.word)}
-                              loading={aiLoading[`definition_${index}`]}
-                            />
-                          </div>
-                        </div>
-                        <button
-                          className="text-red-500 hover:text-red-700 px-2"
-                          onClick={() => handleRemoveCustomWord(index)}
-                        >
-                          <i className="fa-solid fa-trash"></i>
-                    </button>
-                      </div>
-                      <div className="flex gap-4">
-                        <div className="flex-1">
-                          <label className="block text-sm text-gray-600 mb-1">Image <span className="text-red-500">*</span></label>
-                          <FileInput
-                            value={word.image}
-                            onChange={file => handleUpdateCustomWord(index, 'image', file)}
-                            onPreview={(src, type) => setMediaModal({ open: true, src, type })}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <label className="block text-sm text-gray-600 mb-1">Sign Language Video <span className="text-red-500">*</span></label>
-                          <FileInput
-                            value={word.signVideo}
-                            onChange={file => handleUpdateCustomWord(index, 'signVideo', file)}
-                            onPreview={(src, type) => setMediaModal({ open: true, src, type })}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <CreateCustomWordList 
+                      key={index} 
+                      index={index} 
+                      word={word} 
+                      handleUpdateCustomWord={handleUpdateCustomWord}
+                      handleRemoveCustomWord={handleRemoveCustomWord}
+                      setMediaModal={setMediaModal}
+                      onGenerateDefinition={() => generateDefinitionForWord(index, word.word)}
+                      isGeneratingDefinition={aiLoading.definition}
+                    />
                   ))}
                     <button
                     className="px-3 py-1 rounded-lg bg-[#4C53B4] text-white hover:bg-[#3a4095]"
