@@ -354,11 +354,9 @@ const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
   const [isCorrect, setIsCorrect] = useState(null);
   const [showHint, setShowHint] = useState(false);
 
-  // Update answer state when currentAnswer changes
+  // Update answer state when currentAnswer prop changes
   useEffect(() => {
-    if (currentAnswer !== undefined) {
-      setAnswer(currentAnswer);
-    }
+    setAnswer(currentAnswer || '');
   }, [currentAnswer]);
 
   const handleSubmit = () => {
@@ -398,7 +396,11 @@ const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
         <input
           type="text"
           value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
+          onChange={(e) => {
+            const newValue = e.target.value;
+            setAnswer(newValue);
+            onAnswer(newValue);
+          }}
           placeholder="Enter your answer"
           className="w-full max-w-md border-2 border-gray-200 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
         />
@@ -436,10 +438,38 @@ const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
 const groupQuestionsByWord = (questions) => {
   const map = {};
   questions.forEach(q => {
-    if (!map[q.word]) map[q.word] = { word: q.word, definition: q.definition, image: q.image, signVideo: q.signVideo, questions: [] };
-    map[q.word].questions.push(q);
+    const wordKey = q.word_id || q.word; // Use word_id if available, otherwise use word as key
+    if (!map[wordKey]) {
+      map[wordKey] = {
+        word: q.word,
+        definition: q.definition,
+        image: q.image,
+        signVideo: q.signVideo,
+        questions: []
+      };
+    }
+    map[wordKey].questions.push(q);
   });
-  return Object.values(map);
+  
+  // Convert map to array and maintain word order
+  const sortedGroups = Object.entries(map)
+    .sort(([keyA], [keyB]) => {
+      // Get first question from each group to determine order
+      const firstQuestionA = map[keyA].questions[0];
+      const firstQuestionB = map[keyB].questions[0];
+      return questions.indexOf(firstQuestionA) - questions.indexOf(firstQuestionB);
+    })
+    .map(([, group]) => {
+      // Shuffle questions within each word group
+      const shuffledQuestions = [...group.questions];
+      for (let i = shuffledQuestions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
+      }
+      return { ...group, questions: shuffledQuestions };
+    });
+  
+  return sortedGroups;
 };
 
 // Helper: Progress bar
@@ -537,31 +567,51 @@ const transitions = [
 
 // Calculate total steps for the entire drill
 const calculateTotalSteps = (wordGroups) => {
-  // 1 for global intro
-  // For each word: intro + definition + sign + transition = 4 steps per word
-  // Plus all questions
-  return 1 + (wordGroups.length * 4) + wordGroups.reduce((acc, group) => acc + group.questions.length, 0);
+  let total = 1; // Global intro
+  for (let i = 0; i < wordGroups.length; i++) {
+    total += 4; // 4 steps per word (intro, definition, sign, transition)
+    total += wordGroups[i].questions.length; // Add questions for this word
+  }
+  return total;
 };
 
 // Calculate current step number
 const calculateCurrentStep = (introStep, currentWordIdx, currentQuestionIdx, wordGroups) => {
+  // If we're on the congratulations page, return total steps
+  if (introStep === 6) {
+    return calculateTotalSteps(wordGroups);
+  }
+  
   if (introStep === 0) return 1; // Global intro
   
-  const stepsPerWord = 4; // word intro + definition + sign + transition
-  const completedWordSteps = currentWordIdx * stepsPerWord;
+  let step = 1; // Start after global intro
   
-  if (introStep < 5) {
-    // Still in word intro steps
-    return 1 + completedWordSteps + introStep;
-  } else {
-    // In questions phase
-    const previousWordsQuestions = wordGroups
-      .slice(0, currentWordIdx)
-      .reduce((acc, group) => acc + group.questions.length, 0);
-    
-    // 1 (global intro) + all completed word intros + current word intro + questions so far
-    return 1 + (currentWordIdx + 1) * stepsPerWord + previousWordsQuestions + currentQuestionIdx + 1;
+  // Add completed words
+  for (let i = 0; i < currentWordIdx; i++) {
+    step += 4; // 4 intro steps per completed word
+    step += wordGroups[i].questions.length; // Questions in completed words
   }
+  
+  // Add current word progress
+  if (introStep < 5) {
+    step += introStep - 1; // Subtract 1 because we want progress to show before the step is complete
+  } else {
+    step += 4; // All intro steps for current word are done
+    step += currentQuestionIdx; // Only count completed questions
+  }
+  
+  return step;
+};
+
+// Points calculation helper
+const calculatePoints = (attempts, timeSpent) => {
+  // Base points: 100
+  // -20 points per wrong attempt
+  // -1 point per 5 seconds spent
+  const wrongAttempts = attempts || 0;
+  const timePenalty = Math.floor((timeSpent || 0) / 5);
+  const points = Math.max(30, 100 - (wrongAttempts * 20) - timePenalty);
+  return points;
 };
 
 // --- Blank Buster (FillInBlankQuestion) ---
@@ -975,10 +1025,39 @@ const TakeDrill = () => {
   const [points, setPoints] = useState({});
   const [answerStatus, setAnswerStatus] = useState(null);
   const [wordGroups, setWordGroups] = useState([]);
-  const [currentAnswer, setCurrentAnswer] = useState(null);
+  const [currentAnswer, setCurrentAnswer] = useState('');
   const [wrongAnswers, setWrongAnswers] = useState([]);
 
-  // Timer logic
+  // Initialize or reset currentAnswer based on question type
+  const initializeAnswer = (question) => {
+    if (!question) return '';
+    
+    switch (question.type) {
+      case 'M':
+        return -1;
+      case 'F':
+        return Array(question.pattern.split('_').length - 1).fill(undefined);
+      case 'D':
+        return Array(question.dragItems?.length || 0).fill(null);
+      case 'G':
+        return [];
+      case 'P':
+      default:
+        return '';
+    }
+  };
+
+  // Reset answer when question changes
+  useEffect(() => {
+    if (wordGroups.length > 0 && introStep === 5) {
+      const currentQuestion = wordGroups[currentWordIdx]?.questions[currentQuestionIdx];
+      if (currentQuestion) {
+        setCurrentAnswer(initializeAnswer(currentQuestion));
+      }
+    }
+  }, [currentWordIdx, currentQuestionIdx, introStep, wordGroups]);
+
+  // Timer logic - Update to track time more accurately
   useEffect(() => {
     let intervalId;
     if (introStep === 5) {
@@ -987,9 +1066,9 @@ const TakeDrill = () => {
         setTimeSpent(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
       }, 1000);
     }
-    
-    return () => { 
-      if (intervalId) clearInterval(intervalId); 
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
     };
   }, [introStep, currentWordIdx, currentQuestionIdx]);
 
@@ -1004,13 +1083,49 @@ const TakeDrill = () => {
         if (drillData.custom_wordlist) {
           const wordlistRes = await api.get(`/api/wordlist/${drillData.custom_wordlist}/`);
           const words = wordlistRes.data.words || [];
-          mergedQuestions = (drillData.questions || []).map((q, idx) => ({
+          
+          // Create a map of questions by word
+          const questionsByWord = {};
+          const questions = drillData.questions || [];
+          
+          // Calculate how many questions each word should have
+          const totalQuestions = questions.length;
+          const totalWords = words.length;
+          const baseQuestionsPerWord = Math.floor(totalQuestions / totalWords);
+          const extraQuestions = totalQuestions % totalWords;
+          
+          // Initialize question counters for each word
+          const wordQuestionCounts = words.map((_, index) => 
+            baseQuestionsPerWord + (index < extraQuestions ? 1 : 0)
+          );
+          
+          // Distribute questions to words
+          let currentQuestionIndex = 0;
+          words.forEach((word, wordIndex) => {
+            const questionsForThisWord = wordQuestionCounts[wordIndex];
+            const wordQuestions = questions.slice(
+              currentQuestionIndex,
+              currentQuestionIndex + questionsForThisWord
+            );
+            
+            questionsByWord[word.id] = wordQuestions.map(q => ({
             ...q,
-            word: words[idx]?.word || `Word ${idx + 1}`,
-            definition: words[idx]?.definition || '',
-            image: words[idx]?.image_url || null,
-            signVideo: words[idx]?.video_url || null,
-          }));
+              word: word.word,
+              definition: word.definition,
+              image: word.image_url,
+              signVideo: word.video_url,
+              word_id: word.id
+            }));
+            
+            currentQuestionIndex += questionsForThisWord;
+          });
+          
+          // Then merge into final array maintaining word grouping
+          mergedQuestions = [];
+          words.forEach(word => {
+            const wordQuestions = questionsByWord[word.id] || [];
+            mergedQuestions.push(...wordQuestions);
+          });
         } else {
           mergedQuestions = drillData.questions || [];
         }
@@ -1025,10 +1140,10 @@ const TakeDrill = () => {
         setLoading(false);
       }
     };
-
+    
     fetchDrillAndWordlist();
   }, [id]);
-
+  
   // Show full screen layout immediately with loading state
   if (loading || !drill || wordGroups.length === 0) {
     return (
@@ -1062,7 +1177,7 @@ const TakeDrill = () => {
       </div>
     );
   }
-
+  
   if (error) {
     return (
       <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
@@ -1081,18 +1196,103 @@ const TakeDrill = () => {
       </div>
     );
   }
-
+  
   // Calculate progress once
   const totalSteps = wordGroups.length > 0 ? calculateTotalSteps(wordGroups) : 1;
   const currentStep = wordGroups.length > 0 
     ? calculateCurrentStep(introStep, currentWordIdx, currentQuestionIdx, wordGroups) 
     : 1;
-  const progress = (currentStep / totalSteps) * 100;
+  const progress = Math.min(((currentStep) / totalSteps) * 100, introStep === 6 ? 100 : 99);
 
   // Current word/question
   const currentWord = wordGroups[currentWordIdx];
   const currentQuestions = currentWord.questions;
   const currentQuestion = currentQuestions[currentQuestionIdx];
+
+  // Handle answer with updated points calculation
+  const handleAnswer = (answer, isCorrect) => {
+    setCurrentAnswer(answer);
+    const key = `${currentWordIdx}_${currentQuestionIdx}`;
+    
+    // For Sentence Builder (type D)
+    if (currentQuestion.type === 'D') {
+      if (isCorrect) {
+        setAnswerStatus('correct');
+        const points = calculatePoints(attempts[key], timeSpent[key]);
+        setPoints(prev => ({ ...prev, [key]: points }));
+      } else if (answer.some(a => a !== null)) {
+        setAnswerStatus('wrong');
+        setAttempts(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+      } else {
+        setAnswerStatus(null);
+      }
+      return;
+    }
+    
+    // Handle other question types
+    let correct = false;
+    
+    if (currentQuestion.type === 'M') {
+      correct = parseInt(answer) === parseInt(currentQuestion.answer);
+    } else if (currentQuestion.type === 'F') {
+      if (Array.isArray(answer)) {
+        const userAnswer = currentQuestion.pattern.split(' ').map((char, idx) => {
+          if (char === '_') {
+            const selectedIdx = answer[idx - currentQuestion.pattern.split(' ').slice(0, idx).filter(c => c === '_').length];
+            return selectedIdx !== undefined ? currentQuestion.letterChoices[selectedIdx] : '';
+          }
+          return char;
+        }).join('').replace(/ /g, '');
+        correct = userAnswer.toUpperCase() === (currentQuestion.answer || '').toUpperCase();
+      }
+    } else if (currentQuestion.type === 'P') {
+      correct = (answer || '').toLowerCase().trim() === (currentQuestion.answer || '').toLowerCase().trim();
+    } else if (currentQuestion.type === 'G') {
+      correct = Array.isArray(answer) && answer.length === (currentQuestion.memoryCards?.length || 0);
+    }
+    
+    if (correct || isCorrect) {
+      setAnswerStatus('correct');
+      const points = calculatePoints(attempts[key], timeSpent[key]);
+      setPoints(prev => ({ ...prev, [key]: points }));
+    } else {
+      setAnswerStatus('wrong');
+      if (currentQuestion.type === 'M') {
+        setWrongAnswers(prev => prev.includes(answer) ? prev : [...prev, answer]);
+      }
+      setAttempts(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+    }
+  };
+
+  const handleNext = () => {
+    if (introStep < 5) {
+      // Still in word intro steps
+      setIntroStep(introStep + 1);
+    } else {
+      // In questions phase
+      if (currentQuestionIdx < currentWord.questions.length - 1) {
+        // More questions for current word
+        const nextQuestion = currentWord.questions[currentQuestionIdx + 1];
+        setCurrentAnswer(initializeAnswer(nextQuestion));
+        setCurrentQuestionIdx(currentQuestionIdx + 1);
+        setAnswerStatus(null);
+      } else if (currentWordIdx < wordGroups.length - 1) {
+        // Move to next word
+        const nextWord = wordGroups[currentWordIdx + 1];
+        setCurrentWordIdx(currentWordIdx + 1);
+        setCurrentQuestionIdx(0);
+        setIntroStep(1); // Reset to word intro
+        setAnswerStatus(null);
+        if (nextWord?.questions[0]) {
+          setCurrentAnswer(initializeAnswer(nextWord.questions[0]));
+        }
+      } else {
+        // End of drill
+        setIntroStep(6);
+      }
+    }
+    setWrongAnswers([]);
+  };
 
   // --- FLOW ---
   if (introStep === 0) {
@@ -1127,7 +1327,7 @@ const TakeDrill = () => {
           mascot={HippoIdle}
           text={`Hi I'm Hano, and today we'll learn about ${drill.wordlist_name || drill.title}. Are you ready to learn? Click Next to start!`}
         />
-        <button
+            <button
           className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
           onClick={() => setIntroStep(1)}
         >
@@ -1144,12 +1344,12 @@ const TakeDrill = () => {
           {/* Back button */}
           <button
             className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-            onClick={() => navigate(-1)}
+              onClick={() => navigate(-1)}
             aria-label="Exit drill"
             style={{ minWidth: 48, minHeight: 48 }}
-          >
+            >
             <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
-          </button>
+            </button>
           {/* Progress bar */}
           <div className="flex-1 flex justify-center">
             <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
@@ -1157,8 +1357,8 @@ const TakeDrill = () => {
                 className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
                 style={{ width: `${progress}%` }}
               />
-            </div>
           </div>
+        </div>
           {/* Points */}
           <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
             Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
@@ -1310,84 +1510,6 @@ const TakeDrill = () => {
     if (answerStatus === 'wrong' && 
         ((currentQuestion.type === 'D' && currentAnswer?.every(a => a !== null)) ||
          currentQuestion.type !== 'D')) mascot = HippoSad;
-  
-  const handleAnswer = (answer, isCorrect) => {
-    if (currentQuestion.type === 'D') {
-      // For Sentence Builder
-      setCurrentAnswer(answer);
-      if (isCorrect) {
-        setAnswerStatus('correct');
-        const key = `${currentWordIdx}_${currentQuestionIdx}`;
-        const wrong = (attempts[key] || 0);
-        const time = timeSpent[key] || 0;
-        const earned = Math.max(30, 100 - wrong * 20 - Math.floor(time / 5));
-        setPoints(prev => ({ ...prev, [key]: earned }));
-      } else if (answer.some(a => a !== null)) {
-        // Only set wrong status if there's at least one answer
-        setAnswerStatus('wrong');
-        const key = `${currentWordIdx}_${currentQuestionIdx}`;
-        setAttempts(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-      } else {
-        // Reset status when all answers are cleared
-        setAnswerStatus(null);
-      }
-    } else {
-      // Handle other question types...
-      let correct = false;
-      
-      if (currentQuestion.type === 'M') {
-        correct = parseInt(answer) === parseInt(currentQuestion.answer);
-      } else if (currentQuestion.type === 'F') {
-        if (Array.isArray(answer)) {
-          const userAnswer = currentQuestion.pattern.split(' ').map((char, idx) => {
-            if (char === '_') {
-              const selectedIdx = answer[idx - currentQuestion.pattern.split(' ').slice(0, idx).filter(c => c === '_').length];
-              return selectedIdx !== undefined ? currentQuestion.letterChoices[selectedIdx] : '';
-            }
-            return char;
-          }).join('').replace(/ /g, '');
-          correct = userAnswer.toUpperCase() === (currentQuestion.answer || '').toUpperCase();
-        }
-      } else if (currentQuestion.type === 'P') {
-        correct = (answer || '').toLowerCase().trim() === (currentQuestion.answer || '').toLowerCase().trim();
-      } else if (currentQuestion.type === 'G') {
-        correct = Array.isArray(answer) && answer.length === (currentQuestion.memoryCards?.length || 0);
-      }
-
-      setCurrentAnswer(answer);
-      
-      if (correct) {
-        setAnswerStatus('correct');
-        const key = `${currentWordIdx}_${currentQuestionIdx}`;
-        const wrong = (attempts[key] || 0);
-        const time = timeSpent[key] || 0;
-        const earned = Math.max(30, 100 - wrong * 20 - Math.floor(time / 5));
-        setPoints(prev => ({ ...prev, [key]: earned }));
-      } else {
-        setAnswerStatus('wrong');
-        if (currentQuestion.type === 'M') {
-          setWrongAnswers(prev => prev.includes(answer) ? prev : [...prev, answer]);
-        }
-        const key = `${currentWordIdx}_${currentQuestionIdx}`;
-        setAttempts(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-      }
-    }
-  };
-  const handleNext = () => {
-    setCurrentAnswer(null);
-    setWrongAnswers([]);
-    if (currentQuestionIdx < currentQuestions.length - 1) {
-      setCurrentQuestionIdx(currentQuestionIdx + 1);
-      setAnswerStatus(null);
-    } else if (currentWordIdx < wordGroups.length - 1) {
-      setCurrentWordIdx(currentWordIdx + 1);
-      setCurrentQuestionIdx(0);
-      setIntroStep(1);
-      setAnswerStatus(null);
-    } else {
-      setIntroStep(6);
-    }
-  };
   
     return (
       <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
@@ -1545,24 +1667,24 @@ const TakeDrill = () => {
             </div>
         </div>
         <div className="w-full max-w-2xl mx-auto flex flex-col items-center animate-fadeIn">
-          <img src={mascot} alt="Hippo" className="w-48 h-48 mb-4" />
+          <img src={HippoHappy} alt="Hippo" className="w-48 h-48 mb-4" />
           <h2 className="text-4xl font-bold text-[#8e44ad] mb-4">Congratulations!</h2>
           <div className="text-2xl mb-2">You've completed the drill!</div>
           <div className="text-xl mb-6">Total Points: <span className="font-bold text-[#f39c12]">{Object.values(points).reduce((a, b) => a + (b || 0), 0)}</span></div>
-                <button
+            <button
             className="mt-8 px-12 py-5 bg-[#4C53B4] text-white rounded-2xl text-2xl font-bold hover:bg-[#3a4095] shadow-lg"
-            onClick={() => {
-              setIntroStep(0);
-              setCurrentWordIdx(0);
-              setCurrentQuestionIdx(0);
-              setAttempts({});
-              setTimeSpent({});
-              setPoints({});
-              setAnswerStatus(null);
-            }}
-                >
-            Retake Drill
-                </button>
+              onClick={() => {
+                setIntroStep(0);
+                setCurrentWordIdx(0);
+                setCurrentQuestionIdx(0);
+                setAttempts({});
+                setTimeSpent({});
+                setPoints({});
+                setAnswerStatus(null);
+              }}
+            >
+              Retake Drill
+            </button>
       </div>
     </div>
   );
