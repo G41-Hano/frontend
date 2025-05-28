@@ -402,9 +402,14 @@ const MyClasses = () => {
   };
 
   //Filter Classrooms
-  const filteredClassrooms = filter === 'active'                    //Filter Active or Hidden Classrooms
-    ? classrooms.filter(c => !c.is_hidden)                          //Show Active Classrooms
-    : classrooms.filter(c => c.is_hidden);                          //Show Hidden Classrooms
+  let filteredClassrooms = [];
+  if (filter === 'active') {
+    filteredClassrooms = classrooms.filter(c => !c.is_hidden && !c.is_archived);
+  } else if (filter === 'hidden') {
+    filteredClassrooms = classrooms.filter(c => c.is_hidden && !c.is_archived);
+  } else if (filter === 'archived') {
+    filteredClassrooms = classrooms.filter(c => c.is_archived);
+  }
 
   if (loading) {
     return (
@@ -499,7 +504,7 @@ const MyClasses = () => {
             >
               <i className="fa-solid fa-filter text-gray-500 group-hover:text-[#4C53B4] transition-colors"></i>
               <span className="text-sm font-medium text-gray-700">
-                {filter === 'active' ? 'All Classrooms' : 'Hidden Classrooms'}
+                {filter === 'active' ? 'All Classrooms' : filter === 'hidden' ? 'Hidden Classrooms' : 'Archived Classrooms'}
               </span>
               <i className="fa-solid fa-chevron-down text-xs text-gray-500 group-hover:text-[#4C53B4] transition-transform duration-300 group-hover:rotate-180"></i>
             </button>
@@ -530,6 +535,18 @@ const MyClasses = () => {
                 >
                   <i className={`fa-solid fa-check text-xs ${filter === 'hidden' ? 'opacity-100' : 'opacity-0'}`}></i>
                   <span>Hidden Classrooms</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setFilter('archived');
+                    setOpenMenuId(null);
+                  }}
+                  className={`w-full px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors ${
+                    filter === 'archived' ? 'text-[#4C53B4] font-medium' : 'text-gray-600'
+                  }`}
+                >
+                  <i className={`fa-solid fa-check text-xs ${filter === 'archived' ? 'opacity-100' : 'opacity-0'}`}></i>
+                  <span>Archived Classrooms</span>
                 </button>
               </div>
             )}
