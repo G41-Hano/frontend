@@ -76,14 +76,29 @@ const StudentClassroom = () => {
   };
 
   // Fetch drill results for a specific drill
-  const fetchDrillResults = async (drillId) => {
+const fetchDrillResults = async (drillId) => {
     try {
       const response = await api.get(`/api/drills/${drillId}/results/`);
-      // Calculate total points by summing up all points from all attempts
-      const totalPoints = response.data.reduce((sum, result) => sum + (result.points || 0), 0);
-      setDrillResults(prev => ({ ...prev, [drillId]: totalPoints }));
+      console.log('Drill Results for Drill', drillId, ':', response.data);
+      const drillResultsForStudent = response.data; // Should contain only the current student's results
+
+      if (drillResultsForStudent.length > 0) {
+        // Find the best attempt (highest score)
+        const bestAttempt = drillResultsForStudent.reduce((best, current) => {
+          return (best.points || 0) > (current.points || 0) ? best : current;
+        }, drillResultsForStudent[0]); // Initialize with the first result
+
+        // Calculate total points for the best attempt by summing points_awarded from question_results
+        const totalPointsForBestAttempt = (bestAttempt.question_results || []).reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
+        setDrillResults(prev => ({ ...prev, [drillId]: totalPointsForBestAttempt }));
+
+      } else {
+        // No results for this drill for the current student
+        setDrillResults(prev => ({ ...prev, [drillId]: 0 }));
+      }
+
     } catch (error) {
-      console.error('Error fetching drill results:', error);
+      console.error('Error fetching drill results for drill', drillId, ':', error.response?.data || error.message);
       setDrillResults(prev => ({ ...prev, [drillId]: 0 }));
     }
   };

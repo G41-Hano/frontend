@@ -4,10 +4,6 @@ import MyClasses from '../pages/Student/MyClasses';
 import StudentClassroom from '../pages/Student/StudentClassroom';
 import TakeDrill from '../pages/Student/TakeDrill';
 import Profile from '../pages/Student/Profile';
-import InteractiveLearning from '../components/InteractiveLearning';
-import InteractiveModule from '../components/InteractiveModule';
-import StoryBasedLearning from '../components/StoryBasedLearning';
-import VocabularyAdventure from '../components/VocabularyAdventure';
 import Badges from '../pages/Student/Badges';
 import DrillLeaderboard from '../pages/Student/DrillLeaderboard';
 
@@ -21,12 +17,6 @@ const StudentRoutes = () => {
       <Route path="/profile" element={<Profile />} />
       <Route path="/badges" element={<Badges />} />
       <Route path="/s/drill/:id/leaderboard" element={<DrillLeaderboard />} />
-
-      {/*routes for testing only*/}
-      <Route path="/interactive-learning" element={<InteractiveLearning />} />
-      <Route path="/interactive-module" element={<InteractiveModule />} />
-      <Route path="/story-based-learning" element={<StoryBasedLearning />} />
-      <Route path="/vocabulary-adventure" element={<VocabularyAdventure />} />
     </Routes>
   );
 };

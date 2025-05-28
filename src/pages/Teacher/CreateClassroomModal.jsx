@@ -416,7 +416,7 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
                       Creating...
                     </>
                   ) : (
-                    'Create Classroom'
+                    'Submit'
                   )}
                 </button>
               </div>
@@ -431,8 +431,8 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
             
             <div className="space-y-2">
               <h3 className="text-2xl font-bold text-gray-800">
-                Classroom Created!
-              </h3>
+                Classroom Created Successfully!
+              </h3> 
               <p className="text-gray-600">
                 Share this class code with your students
               </p>

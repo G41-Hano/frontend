@@ -34,10 +34,6 @@ const emptyQuestion = {
   dropZones: [], // For Drag and Drop questions
   memoryCards: [], // For Memory Game questions
   pictureWord: [], // For Picture Word questions
-
-  story_title: '',
-  story_context: '',
-  sign_language_instructions: '',
 };
 
 const Stepper = ({ step, setStep }) => (
@@ -715,9 +711,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
         const base = {
           text: q.text,
           type: q.type,
-          story_title: q.story_title,
-          story_context: q.story_context,
-          sign_language_instructions: q.sign_language_instructions,
         };
         if (q.type === 'M' || q.type === 'F') {
           base.answer = q.answer;
@@ -1495,41 +1488,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     </div>
                 </div>
               )}
-              {/* Content Section 
-              <div className="mb-6 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
-                <h3 className="font-medium mb-3">Content</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Title</label>
-                    <input
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Enter a title for your story"
-                      value={questionDraft.story_title || ''}
-                      onChange={e => setQuestionDraft({ ...questionDraft, story_title: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Context</label>
-                    <textarea
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Set the scene for your story"
-                      rows={3}
-                      value={questionDraft.story_context || ''}
-                      onChange={e => setQuestionDraft({ ...questionDraft, story_context: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Sign Language Instructions</label>
-                    <textarea
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Add sign language instructions for the story"
-                      rows={2}
-                      value={questionDraft.sign_language_instructions || ''}
-                      onChange={e => setQuestionDraft({ ...questionDraft, sign_language_instructions: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div> */}
+              
               {/* Type-specific form for Drag and Drop and Memory Game */}
               {questionDraft.type === 'D' && (
                 <div className="space-y-4">

@@ -134,7 +134,7 @@ const UpdateClassroom = ({ isOpen, onClose, classroom, onSuccess }) => {
                     Updating...
                   </>
                 ) : (
-                  'Update Classroom'
+                  'Save Changes'
                 )}
               </button>
             </div>
