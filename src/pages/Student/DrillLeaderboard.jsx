@@ -10,6 +10,7 @@ const DrillLeaderboard = () => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [classroomId, setClassroomId] = useState(null);
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -18,6 +19,7 @@ const DrillLeaderboard = () => {
         // First get the drill details to get the classroom ID
         const drillResponse = await api.get(`/api/drills/${id}/`);
         const classroomId = drillResponse.data.classroom;
+        setClassroomId(classroomId);
 
         // Get all students in the classroom
         const classroomResponse = await api.get(`/api/classrooms/${classroomId}/students/`);
@@ -94,12 +96,12 @@ const DrillLeaderboard = () => {
           }}
         >
           <button
-            onClick={() => navigate('/s/classes')}
+            onClick={() => navigate(`/s/classes/${classroomId}`)}
             className="inline-flex items-center gap-2 px-6 py-3 mb-8 bg-white border-2 border-[#4C53B4] text-[#4C53B4] font-bold rounded-xl shadow hover:bg-[#f3f6fd] transition-colors text-lg"
             style={{ position: 'relative', zIndex: 20 }}
           >
             <i className="fa-solid fa-arrow-left text-[#4C53B4] text-base"></i>
-            Back to My Classes
+            Back to Classroom
           </button>
           <div className="absolute inset-0 bg-blue-100/60 pointer-events-none rounded-2xl" />
           <div className="relative z-10">

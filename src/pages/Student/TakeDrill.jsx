@@ -8,6 +8,8 @@ import HippoCurious from '../../assets/MascotHippoCurious.gif';
 import HippoHappy from '../../assets/MascotHippoHappy.gif';
 import HippoSad from '../../assets/MascotHippoSad.gif';
 import HippoWaiting from '../../assets/MascotHippoWaiting.gif';
+import DrillLeaderboard from './DrillLeaderboard';
+import { Tooltip } from "react-tooltip";
 
 const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer, answerStatus, wrongAnswers }) => {
   return (
@@ -655,6 +657,31 @@ const calculateCurrentStep = (introStep, currentWordIdx, currentQuestionIdx, wor
   }
 };
 
+// Simple modal for user details
+const UserModal = ({ user, onClose }) => {
+  if (!user) return null;
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl p-8 shadow-xl min-w-[320px] relative animate-scaleIn">
+        <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-gray-700">
+          <i className="fa-solid fa-xmark text-xl"></i>
+        </button>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-[#e09b1a]">
+            {user.avatar ? (
+              <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-[#4C53B4] font-bold text-3xl flex items-center justify-center h-full">{user.name?.[0]?.toUpperCase() || '?'}</span>
+            )}
+          </div>
+          <div className="text-2xl font-bold text-[#4C53B4]">{user.name}</div>
+          <div className="text-lg text-gray-700">Points: <span className="font-bold text-[#e09b1a]">{user.points}</span></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const TakeDrill = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -671,6 +698,10 @@ const TakeDrill = () => {
   const [wordGroups, setWordGroups] = useState([]);
   const [currentAnswer, setCurrentAnswer] = useState(null);
   const [wrongAnswers, setWrongAnswers] = useState([]);
+  const [drillLeaderboard, setDrillLeaderboard] = useState([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   // Timer logic
   const timerRef = useRef(null);
@@ -736,6 +767,38 @@ const TakeDrill = () => {
     
     fetchDrillAndWordlist();
   }, [id]);
+  
+  // Fetch leaderboard when summary screen is shown (must be before any conditional returns)
+  useEffect(() => {
+    if (introStep === 6) {
+      setLoadingLeaderboard(true);
+      setLeaderboardError(null);
+      api.get(`/api/drills/${id}/results/`)
+        .then(res => {
+          // Only show students who have attempted the drill
+          const results = res.data || [];
+          const leaderboardMap = new Map();
+          results.forEach(result => {
+            const studentId = result.student.id;
+            const currentBest = leaderboardMap.get(studentId);
+            if (!currentBest || result.points > currentBest.points) {
+              leaderboardMap.set(studentId, result);
+            }
+          });
+          const leaderboardArr = Array.from(leaderboardMap.values())
+            .map(result => ({
+              id: result.student.id,
+              name: result.student.name,
+              avatar: result.student.avatar,
+              points: result.points
+            }))
+            .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+          setDrillLeaderboard(leaderboardArr);
+        })
+        .catch(() => setLeaderboardError('Failed to load leaderboard'))
+        .finally(() => setLoadingLeaderboard(false));
+    }
+  }, [introStep, id]);
   
   // Show full screen layout immediately with loading state
   if (loading || !drill || wordGroups.length === 0) {
@@ -1214,57 +1277,138 @@ const TakeDrill = () => {
     // Summary
     return (
       <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
-        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
+        {/* Header always on top */}
+        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6 z-30 relative">
           {/* Back button */}
-                      <button
+          <button
             className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
             onClick={() => navigate(-1)}
             aria-label="Exit drill"
             style={{ minWidth: 48, minHeight: 48 }}
           >
             <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
-                      </button>
+          </button>
           {/* Progress bar */}
           <div className="flex-1 flex justify-center">
             <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
               <div className="bg-[#f39c12] h-4 rounded-full transition-all" style={{ width: `100%` }}></div>
-                      </div>
-              </div>
+            </div>
+          </div>
           {/* Points */}
           <div className="text-lg font-bold text-[#4C53B4] min-w-[90px] text-right">
             Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
-            </div>
-        </div>
-        <div className="w-full max-w-2xl mx-auto flex flex-col items-center animate-fadeIn">
-          <img src={HippoHappy} alt="Hippo" className="w-48 h-48 mb-4" />
-          <h2 className="text-4xl font-bold text-[#8e44ad] mb-4">Congratulations!</h2>
-          <div className="text-2xl mb-2">You've completed the drill!</div>
-          <div className="text-xl mb-6">Total Points: <span className="font-bold text-[#f39c12]">{Object.values(points).reduce((a, b) => a + (b || 0), 0)}</span></div>
-          <div className="flex gap-6 mt-8">
-            <button
-              className="px-12 py-5 bg-[#4C53B4] text-white rounded-2xl text-2xl font-bold hover:bg-[#3a4095] shadow-lg"
-              onClick={() => {
-                setIntroStep(0);
-                setCurrentWordIdx(0);
-                setCurrentQuestionIdx(0);
-                setAttempts({});
-                setTimeSpent({});
-                setPoints({});
-                setAnswerStatus(null);
-              }}
-            >
-              Retake Drill
-            </button>
-            <button
-              className="px-12 py-5 bg-white text-[#4C53B4] rounded-2xl text-2xl font-bold hover:bg-gray-100 shadow-lg border-2 border-[#4C53B4]"
-              onClick={() => navigate(`/s/drill/${id}/leaderboard`)}
-            >
-              Go to Leaderboards
-            </button>
           </div>
+        </div>
+        {/* Congratulations section centered, but with lower z-index so header is clickable */}
+        <div className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none">
+          <div className="flex flex-col items-center justify-center w-full max-w-xl bg-transparent rounded-2xl p-10 animate-fadeIn pointer-events-auto">
+            <img src={HippoHappy} alt="Hippo" className="w-48 h-48 mb-4 mx-auto" />
+            <h2 className="text-4xl font-bold text-[#8e44ad] mb-4 text-center">Congratulations!</h2>
+            <div className="text-2xl mb-2 text-center">You've completed the drill!</div>
+            <div className="text-xl mb-6 text-center">Total Points: <span className="font-bold text-[#f39c12]">{Object.values(points).reduce((a, b) => a + (b || 0), 0)}</span></div>
+            <div className="flex gap-6 mt-8 justify-center">
+              <button
+                className="px-12 py-5 bg-[#4C53B4] text-white rounded-2xl text-2xl font-bold hover:bg-[#3a4095] shadow-lg"
+                onClick={() => {
+                  setIntroStep(0);
+                  setCurrentWordIdx(0);
+                  setCurrentQuestionIdx(0);
+                  setAttempts({});
+                  setTimeSpent({});
+                  setPoints({});
+                  setAnswerStatus(null);
+                }}
+              >
+                Retake Drill
+              </button>
+            </div>
+          </div>
+        </div>
+        {/* Leaderboard panel with interactive features, fixed to bottom-right */}
+        <div className="fixed bottom-8 right-8 w-[370px] min-h-[400px] bg-white/90 rounded-2xl shadow-2xl border-2 border-gray-100 p-6 flex flex-col items-center animate-fadeIn z-20">
+          <h3 className="text-2xl font-extrabold text-[#e09b1a] text-center mb-4 tracking-wide flex items-center justify-center gap-2">
+            <span>Leaderboard</span>
+          </h3>
+          {loadingLeaderboard ? (
+            <div className="text-center text-gray-500 py-12">Loading...</div>
+          ) : leaderboardError ? (
+            <div className="text-center text-red-500 py-12">{leaderboardError}</div>
+          ) : drillLeaderboard.length === 0 ? (
+            <div className="text-center text-gray-400 py-12">No students have attempted this drill yet.</div>
+          ) : (
+            <div className="w-full">
+              {/* Top 3 Podium */}
+              <div className="flex justify-center items-end gap-4 mb-6">
+                {[1, 0, 2].map((idx, pos) => {
+                  const student = drillLeaderboard[idx];
+                  if (!student) return <div key={pos} className="w-20" />;
+                  const rank = pos === 0 ? 2 : pos === 1 ? 1 : 3;
+                  const borderColors = [
+                    'border-purple-400',
+                    'border-yellow-400',
+                    'border-orange-400'
+                  ];
+                  const size = pos === 1 ? 'w-20 h-20' : 'w-14 h-14';
+                  const ring = pos === 1 ? 'ring-4 ring-yellow-300' : '';
+                  return (
+                    <div
+                      key={student.id}
+                      className={`flex flex-col items-center cursor-pointer transition-all duration-200 hover:scale-105 group`}
+                      onClick={() => setSelectedUser(student)}
+                      data-tip data-for={`podium-tip-${student.id}`}
+                    >
+                      <div className="flex flex-col items-center mb-1">
+                        <span className={`font-extrabold text-lg ${rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-purple-400' : 'text-orange-400'}`}>{rank}</span>
+                        {rank === 1 && (
+                          <span className="-mt-1 text-yellow-400 text-2xl drop-shadow-lg">👑</span>
+                        )}
+                      </div>
+                      <div className={`relative ${size} rounded-full overflow-hidden border-4 ${borderColors[pos]} bg-white flex items-center justify-center ${ring} group-hover:ring-4 group-hover:ring-[#e09b1a]`}>
+                        {student.avatar ? (
+                          <img src={student.avatar} alt={student.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-[#4C53B4] font-bold text-lg">{student.name?.[0]?.toUpperCase() || '?'}</span>
+                        )}
+                      </div>
+                      <div className={`mt-2 text-center ${pos === 1 ? 'font-extrabold text-base' : 'font-bold text-sm'} text-gray-800 group-hover:text-[#e09b1a]`}>
+                        {student.name}
+                      </div>
+                      <div className="text-center text-gray-600 font-bold text-sm">{student.points}</div>
+                      <Tooltip id={`podium-tip-${student.id}`} effect="solid" place="top">
+                        <span>{student.name}<br/>Points: {student.points}</span>
+                      </Tooltip>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Table for the rest */}
+              <div className="w-full bg-white/80 rounded-xl shadow p-2">
+                <div className="flex font-bold text-[#e09b1a] text-base mb-1">
+                  <div className="flex-1">NAME</div>
+                  <div className="w-16 text-right">PTS</div>
+                </div>
+                {drillLeaderboard.slice(3).map((student) => (
+                  <div
+                    key={student.id}
+                    className="flex items-center border-t border-gray-200 py-1 cursor-pointer transition-all duration-150 hover:bg-[#fffbe6] hover:scale-[1.01]"
+                    onClick={() => setSelectedUser(student)}
+                    data-tip data-for={`row-tip-${student.id}`}
+                  >
+                    <div className="flex-1 font-semibold text-gray-700 text-sm hover:text-[#e09b1a]">{student.name}</div>
+                    <div className="w-16 text-right font-bold text-gray-700 text-sm">{student.points}</div>
+                    <Tooltip id={`row-tip-${student.id}`} effect="solid" place="top">
+                      <span>{student.name}<br/>Points: {student.points}</span>
+                    </Tooltip>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* User details modal */}
+          <UserModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+        </div>
       </div>
-    </div>
-  );
+    );
   }
   return null;
 };
