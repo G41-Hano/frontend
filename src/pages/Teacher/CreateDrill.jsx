@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api';
 import ClassroomHeader from './ClassroomHeader';
@@ -22,22 +22,25 @@ const initialDrill = {
 const emptyQuestion = {
   text: '',
   type: 'M', 
+  pattern: '', // For Blank Buster
+  hint: '',    // For hint
+  answer: '',  // For Blank Buster and other types
   choices: [
     { text: '', media: null },
     { text: '', media: null },
     { text: '', media: null },
     { text: '', media: null },
   ],
-  answer: 0,
-  blankPosition: null, // For Fill in the Blank questions
+  blankPosition: null,
   dragItems: [], // For Drag and Drop questions
   dropZones: [], // For Drag and Drop questions
   memoryCards: [], // For Memory Game questions
   pictureWord: [], // For Picture Word questions
-
   story_title: '',
   story_context: '',
   sign_language_instructions: '',
+  sentence: '', // For Drag and Drop sentence with blanks
+  letterChoices: [], // For Blank Buster letter choices
 };
 
 const Stepper = ({ step, setStep }) => (
@@ -382,7 +385,7 @@ const PictureWordQuestionForm = ({ question, onChange }) => {
         {(question.pictureWord || []).map((pic, index) => (
           <div key={pic.id} className="border rounded-lg p-4 bg-white">
             <div className="flex justify-between items-start mb-2">
-              <span className="text-sm text-gray-600">Picture {index + 1}</span>
+              <span className="text-sm text-gray-600 mb-2 block">Picture {index + 1}</span>
               <button
                 type="button"
                 onClick={() => removePicture(pic.id)}
@@ -437,21 +440,26 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const questionFormRef = useRef(null);
   const [aiLoading, setAiLoading] = useState({ definition: false, question: false });
+  const definitionFetcher = useDefinitionFetcher();
 
   // New: Built-in word lists state
   const [builtinWordLists, setBuiltinWordLists] = useState([]);
   const [customListDesc, setCustomListDesc] = useState('');
-  const [aiLoadingListDesc, setAiLoadingListDesc] = useState(false);
+  const [loadingWordLists, setLoadingWordLists] = useState(false);
 
   // Fetch built-in word lists when needed
   useEffect(() => {
     if (step === 1 && drill.wordlistType === 'builtin') {
+      setLoadingWordLists(true);
       api.get('/api/builtin-wordlist/')
         .then(res => {
           setBuiltinWordLists(res.data);
         })
         .catch(() => {
           setNotification({ show: true, message: 'Failed to load word lists', type: 'error' });
+        })
+        .finally(() => {
+          setLoadingWordLists(false);
         });
     }
   }, [step, drill.wordlistType]);
@@ -466,29 +474,156 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
     }
   }, [drill.openDate, drill.dueDate]);
 
+  // Add generateDefinitionForWord function
+  const generateDefinitionForWord = async (index, word) => {
+    if (!word) return;
+    
+    setAiLoading(prev => ({ ...prev, definition: true }));
+    try {
+      const definition = await definitionFetcher(word);
+      handleUpdateCustomWord(index, 'definition', definition);
+      setNotification({
+        show: true,
+        message: 'Definition generated successfully!',
+        type: 'success'
+      });
+    } catch (err) {
+      console.error('Failed to generate definition:', err);
+      setNotification({
+        show: true,
+        message: 'Failed to generate definition: ' + (err.message || 'Unknown error'),
+        type: 'error'
+      });
+    } finally {
+      setAiLoading(prev => ({ ...prev, definition: false }));
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    }
+  };
+
   // New function for AI question generation
   const generateQuestion = async () => {
     setAiLoading(prev => ({ ...prev, question: true }));
     try {
-      // TODO: Replace with actual AI API call
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API delay
-      const fakeQuestion = {
-        ...emptyQuestion,
-        text: `What is the main purpose of a ${drill.word}?`,
-        choices: [
-          { text: drill.definition, media: null },
-          { text: 'Wrong answer 1', media: null },
-          { text: 'Wrong answer 2', media: null },
-          { text: 'Wrong answer 3', media: null },
-        ],
-        answer: 0,
+      let defaultQuestion = '';
+      let defaultAnswer = '';
+      let defaultChoices = [];
+      let defaultPattern = '';
+      let defaultHint = '';
+      let word = '';
+      let pattern = '';
+      let missingLetters = [];
+      let letterChoices = [];
+      const allPossibleLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+      
+      // Generate default content based on question type
+      switch(questionDraft.type) {
+        case 'M': {
+          // Get available words excluding the current word
+          const availableWords = getAvailableWords().filter(w => w.word !== selectedQuestionWord);
+          
+          // Shuffle available words for random selection
+          const shuffledWords = [...availableWords].sort(() => Math.random() - 0.5);
+          
+          // Create choices array with correct definition and other word definitions
+          let choices = [];
+          
+          // Randomly place the correct answer
+          const correctAnswerPosition = Math.floor(Math.random() * 4); // Random position 0-3
+          
+          // Fill all positions
+          for (let i = 0; i < 4; i++) {
+            if (i === correctAnswerPosition) {
+              choices[i] = { text: selectedQuestionWordData.definition || 'Correct definition here', media: null };
+            } else {
+              const otherWord = shuffledWords[choices.filter((c, idx) => idx !== correctAnswerPosition && c !== undefined).length];
+              choices[i] = { text: otherWord?.definition || `Alternative word definition ${i + 1}`, media: null };
+            }
+          }
+
+          defaultQuestion = `What is the definition of "${selectedQuestionWord}"?`;
+          defaultChoices = choices;
+          defaultAnswer = correctAnswerPosition;
+          break;
+        }
+          
+        case 'F': {
+          word = selectedQuestionWord.toUpperCase();
+          
+          // Ensure word is at least 4 letters long
+          if (word.length < 4) {
+            throw new Error('Word must be at least 4 letters long for Blank Buster');
+          }
+          
+          // Create pattern with first and last letters visible
+          pattern = word.split('').map((char, idx) => 
+            idx === 0 || idx === word.length - 1 ? char : '_'
+          ).join(' ');
+          
+          // Find missing letter indices
+          const missingIndices = word.split('').reduce((acc, char, idx) => {
+            if (idx !== 0 && idx !== word.length - 1) acc.push(idx);
+            return acc;
+          }, []);
+          
+          // Get missing letters
+          missingLetters = missingIndices.map(idx => word[idx]);
+          
+          // Create letter choices: include missing letters and some random letters
+          letterChoices = [
+            ...missingLetters,
+            ...allPossibleLetters
+              .filter(l => !missingLetters.includes(l))
+              .sort(() => Math.random() - 0.5)
+              .slice(0, Math.max(0, 6 - missingLetters.length))
+          ].sort(() => Math.random() - 0.5);
+          
+          // Ensure unique letter choices
+          letterChoices = [...new Set(letterChoices)];
+          
+          defaultQuestion = `Complete the word by filling in the missing letters`;
+          defaultPattern = pattern;
+          defaultAnswer = word;
+          defaultHint = `Hint: ${selectedQuestionWordData.definition || 'A word related to the lesson'}`;
+          
+          // Create choices for the question (optional, but can help with validation)
+          defaultChoices = letterChoices.map(letter => ({
+            text: letter,
+            is_correct: missingLetters.includes(letter)
+          }));
+          break;
+        }
+        case 'D': {
+          defaultQuestion = `Build the correct sentence using the given words`;
+          defaultAnswer = selectedQuestionWord;
+          break;
+        }
+          
+        case 'G': {
+          defaultQuestion = `Find matching pairs to complete this exercise`;
+          break;
+        }
+          
+        case 'P': {
+          defaultQuestion = `What word connects all these pictures?`;
+          defaultAnswer = selectedQuestionWord;
+          break;
+        }
+        
+        default:
+          break;
+      }
+
+      const newQuestionDraft = {
+        ...questionDraft,
+        text: defaultQuestion,
+        answer: defaultAnswer,
+        pattern: defaultPattern,
+        hint: defaultHint,
+        letterChoices: questionDraft.type === 'F' ? letterChoices : undefined,
+        choices: defaultChoices
       };
-      setQuestionDraft(fakeQuestion);
-      setNotification({
-        show: true,
-        message: 'Question generated successfully!',
-        type: 'success'
-      });
+
+      setQuestionDraft(newQuestionDraft);
     } catch (err) {
       console.error('Failed to generate question:', err);
       setNotification({
@@ -498,7 +633,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       });
     } finally {
       setAiLoading(prev => ({ ...prev, question: false }));
-      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
     }
   };
 
@@ -515,7 +649,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   };
 
   // New function for built-in word list selection
-  const handleBuiltinListChange = (listId) => {
+  const handleBuiltinListChange = async (listId) => {
     setDrill(prev => ({
       ...prev,
       wordlistName: listId,
@@ -523,21 +657,36 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       definition: '',
     }));
 
-    // Fetch words for the selected built-in word list
     if (listId) {
-      api.get(`/api/builtin-wordlist/${listId}/`)
-        .then(res => {
-          const words = res.data.words || [];
+      try {
+        const response = await api.get(`/api/builtin-wordlist/${listId}/`);
+        const words = response.data.words || [];
+        setBuiltinWords(words);
           setDrill(prev => ({
             ...prev,
             builtinWords: words,
           }));
-          console.log('Updated builtinWords:', words); // Debugging line
-        })
-        .catch(err => {
-          console.error('Error fetching words:', err); // Debugging line
-          setNotification({ show: true, message: 'Failed to load words', type: 'error' });
+        
+        if (words.length === 0) {
+          setNotification({
+            show: true,
+            message: 'Selected word list has no words.',
+            type: 'warning'
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching words:', err);
+        setNotification({
+          show: true,
+          message: 'Failed to load words',
+          type: 'error'
         });
+        setBuiltinWords([]);
+        setDrill(prev => ({
+          ...prev,
+          builtinWords: [],
+        }));
+      }
     }
   };
 
@@ -608,15 +757,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           }
         }
       }
-      if (q.type === 'F') {
-        for (const c of q.choices) {
-          if (!c.text) {
-            alert('Each possible answer in Fill in the Blank must have text.');
-            setSubmittingAction(null);
-            return;
-          }
-        }
-      }
       if (q.type === 'G') {
         if (!q.memoryCards || q.memoryCards.length < 2) {
           alert('Memory game must have at least 2 cards.');
@@ -638,7 +778,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       }
       if (q.type === 'P') {
         if (!q.text) {
-          alert('Picture Word questions must have a question text.');
+          alert('Picture Word questions must have a drill instructions.');
           setSubmittingAction(null);
           return;
         }
@@ -734,8 +874,15 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
             return choice;
           });
         }
+        if (q.type === 'F') {
+          base.pattern = q.pattern;
+          base.hint = q.hint;
+          base.letterChoices = q.letterChoices;
+        }
         if (q.type === 'D') {
+          base.sentence = q.sentence || '';
           base.dragItems = Array.isArray(q.dragItems) ? q.dragItems : [];
+          base.incorrectChoices = Array.isArray(q.incorrectChoices) ? q.incorrectChoices : [];
           base.dropZones = Array.isArray(q.dropZones) ? q.dropZones : [];
         }
         if (q.type === 'G') {
@@ -830,29 +977,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
     return open.toISOString().slice(0, 16);
   };
 
-  // AI generate for custom list description
-  const generateListDescription = async () => {
-    setAiLoadingListDesc(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setCustomListDesc(`This is a vocabulary list about ${drill.wordlistName || 'your topic'}.`);
-      setNotification({
-        show: true,
-        message: 'Description generated!',
-        type: 'success'
-      });
-    } catch {
-      setNotification({
-        show: true,
-        message: 'Failed to generate description.',
-        type: 'error'
-      });
-    } finally {
-      setAiLoadingListDesc(false);
-      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
-    }
-  };
-
   const validateCustomWordList = () => {
     if (!drill.wordlistName || !customListDesc) return false;
     if (drill.customWordList.length < 3) return false;
@@ -876,12 +1000,12 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
     }
   }, [drill.wordlistType, drill.wordlistName]);
 
-  // Add Questions step: select word first
-  const getAvailableWords = () => {
+  // Wrap getAvailableWords in useCallback
+  const getAvailableWords = useCallback(() => {
     if (drill.wordlistType === 'builtin') return builtinWords;
     if (drill.wordlistType === 'custom') return drill.customWordList;
     return [];
-  };
+  }, [drill.wordlistType, drill.customWordList, builtinWords]);
 
   // When a word is selected for a question, auto-fill definition/image/video
   useEffect(() => {
@@ -894,11 +1018,11 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
         ...q,
         text: '',
         choices: emptyQuestion.choices.map(() => ({ text: '', media: null })),
-        answer: 0,
+        answer: '',
         // Optionally, you can prefill question text or content here
       }));
     }
-  }, [selectedQuestionWord, questionEditIdx]);
+  }, [selectedQuestionWord, questionEditIdx, getAvailableWords]);
 
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
@@ -1044,6 +1168,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
             {drill.wordlistType === 'builtin' && (
               <div className="mb-6">
                 <label className="block mb-2 font-medium">Select Word List <span className="text-red-500">*</span></label>
+                <div className="relative">
                 <select
                   className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
                   value={drill.wordlistName}
@@ -1055,6 +1180,12 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     <option key={list.id} value={list.id}>{list.name}</option>
                   ))}
                 </select>
+                  {loadingWordLists && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <i className="fa-solid fa-spinner fa-spin text-[#4C53B4]"></i>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             {drill.wordlistType === 'custom' && (
@@ -1092,10 +1223,14 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   </div>
                   {drill.customWordList.map((word, index) => (
                     <CreateCustomWordList 
-                      key={index} index={index} word={word} 
+                      key={index} 
+                      index={index} 
+                      word={word} 
                       handleUpdateCustomWord={handleUpdateCustomWord}
                       handleRemoveCustomWord={handleRemoveCustomWord}
                       setMediaModal={setMediaModal}
+                      onGenerateDefinition={() => generateDefinitionForWord(index, word.word)}
+                      isGeneratingDefinition={aiLoading.definition}
                     />
                   ))}
                     <button
@@ -1125,7 +1260,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                 </button>
                 <button
                   className="px-6 py-2 rounded-xl bg-[#4C53B4] text-white hover:bg-[#3a4095] hover:scale-105 transition"
-                      onClick={() => {
+                  onClick={async () => {
                     if (drill.wordlistType === 'custom' && !validateCustomWordList()) {
                       setNotification({
                         show: true,
@@ -1134,18 +1269,81 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       });
                       return;
                     }
-                    if (drill.wordlistType === 'builtin' && (!drill.wordlistName || builtinWords.length === 0)) {
+                    
+                    if (drill.wordlistType === 'builtin') {
+                      if (!drill.wordlistName) {
                         setNotification({
                           show: true,
-                        message: 'Select a word list with at least 1 word.',
+                          message: 'Please select a word list.',
                         type: 'error',
                       });
                       return;
                     }
+
+                      // Check if words are already loaded for this wordlist
+                      if (builtinWords.length > 0 && drill.builtinWords?.length > 0) {
                     setStep(2);
+                        return;
+                      }
+                      
+                      try {
+                        // Set loading state
+                        setSubmittingAction('loading');
+                        
+                        // Fetch words one final time to ensure we have them
+                        const response = await api.get(`/api/builtin-wordlist/${drill.wordlistName}/`);
+                        const words = response.data.words || [];
+                        
+                        if (words.length === 0) {
+                          setNotification({
+                            show: true,
+                            message: 'Selected word list has no words.',
+                            type: 'error',
+                          });
+                          setSubmittingAction(null);
+                          return;
+                        }
+                        
+                        // Update builtinWords state
+                        setBuiltinWords(words);
+                        // Update drill state with the words
+                        setDrill(prev => ({
+                          ...prev,
+                          builtinWords: words
+                        }));
+                        
+                        // Clear loading state and proceed
+                        setSubmittingAction(null);
+                        
+                        // Proceed to next step
+                        setStep(2);
+                      } catch (error) {
+                        console.error('Error fetching words:', error);
+                        setNotification({
+                          show: true,
+                          message: 'Failed to load words. Please try again.',
+                          type: 'error',
+                        });
+                        setSubmittingAction(null);
+                        return;
+                      }
+                    } else {
+                      setStep(2);
+                    }
                   }}
-                  disabled={drill.wordlistType === 'custom' ? !validateCustomWordList() : (!drill.wordlistName || builtinWords.length === 0)}
-                >Continue</button>
+                  disabled={
+                    drill.wordlistType === 'custom' 
+                      ? !validateCustomWordList() 
+                      : !drill.wordlistName || submittingAction === 'loading'
+                  }
+                >
+                  {submittingAction === 'loading' ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin mr-2"></i>
+                      Loading words...
+                    </>
+                  ) : 'Continue'}
+                </button>
                   </div>
                   </div>
                         </div>
@@ -1171,7 +1369,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   <div className="text-gray-600 mb-2">Definition: {q.definition}</div>
                   {/* Preview for question types */}
                   <div className="mb-2">
-                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Multiple Choice' : q.type === 'F' ? 'Fill in the Blank' : q.type === 'D' ? 'Drag and Drop' : q.type === 'G' ? 'Memory Game' : q.type === 'P' ? 'Picture Word' : ''}
+                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Smart Select' : q.type === 'F' ? 'Blank Busters' : q.type === 'D' ? 'Sentence Builder' : q.type === 'G' ? 'Memory Game' : q.type === 'P' ? 'Four Pics One Word' : ''}
                   </div>
                   <div className="mb-2">
                     <span className="font-semibold">Question:</span> {q.type === 'F' ? (
@@ -1179,9 +1377,16 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     ) : q.text}
                     </div>
                   {q.type === 'M' && (
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="mt-2">
+                      <div className="p-4 bg-[#F7F9FC] rounded-lg border border-[#4C53B4]/10">
+                        <div className="flex flex-wrap gap-2">
                       {(q.choices || []).map((c, i) => (
-                        <div key={i} className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}>
+                            <div key={i} className={`relative w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}>
+                              {q.answer === i && (
+                                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#4C53B4] border-2 border-white flex items-center justify-center">
+                                  <i className="fa-solid fa-check text-white text-sm"></i>
+                                </div>
+                              )}
                           {c.media ? (
                             (() => {
                               let src = null;
@@ -1207,46 +1412,56 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                           )}
                         </div>
                       ))}
+                      </div>
                     </div>
+                  </div>
                   )}
                   {q.type === 'F' && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {(q.choices || []).map((c, i) => (
-                        <div key={i} className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}>
-                          {c.text ? (
-                            <span className="text-center break-words w-full text-xs">{c.text}</span>
-                          ) : (
-                            <span className="text-gray-300 text-xs">No content</span>
-                          )}
+                    <div className="space-y-2">
+                      <div className="font-mono text-xl tracking-wider text-[#4C53B4] bg-[#EEF1F5] p-4 rounded-xl text-center">
+                        {q.pattern}
+                      </div>
+                      {q.hint && (
+                        <div className="text-sm text-gray-500">
+                          <span className="font-medium">Hint:</span> {q.hint}
                         </div>
-                      ))}
-                      <div className="w-full text-xs text-gray-500 mt-2">Correct: Choice {q.answer + 1}</div>
+                      )}
+                      <div className="text-sm text-[#4C53B4] bg-[#EEF1F5]/50 p-2 rounded">
+                        <span className="font-medium">Answer:</span> {q.answer}
+                        </div>
                     </div>
                   )}
                   {q.type === 'D' && (
                     <div className="mt-2">
-                      <div className="mb-2 font-semibold">Drag and Drop Mapping:</div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="font-medium mb-1">Drag Items</div>
-                          <ul className="space-y-1">
-                            {(q.dragItems || []).map((item, i) => (
-                              <li key={i} className="px-2 py-1 bg-white border rounded">{item.text}</li>
-                            ))}
-                          </ul>
+                      <div className="mb-4 p-4 bg-[#F7F9FC] rounded-lg border border-[#4C53B4]/10">
+                        {/* Sentence with Blanks */}
+                        <div className="p-4 bg-white rounded-lg border border-gray-200">
+                          {(q.sentence || '').split('_').map((part, index, array) => (
+                            <span key={index}>
+                              {part}
+                              {index < array.length - 1 && (
+                                <span className="inline-block min-w-[100px] h-8 mx-2 bg-[#EEF1F5] border-2 border-dashed border-[#4C53B4]/30 rounded-lg align-middle"></span>
+                              )}
+                            </span>
+                          ))}
                           </div>
-                        <div>
-                          <div className="font-medium mb-1">Drop Zones</div>
-                          <ul className="space-y-1">
-                            {(q.dropZones || []).map((zone, i) => (
-                              <li key={i} className="px-2 py-1 bg-white border rounded flex items-center gap-2">
-                                <span>{zone.text}</span>
-                                {zone.correctItemIndex !== null && (q.dragItems || []).length > 0 && (q.dragItems || [])[zone.correctItemIndex] && (
-                                  <span className="ml-2 text-xs text-gray-500">→ {(q.dragItems || [])[zone.correctItemIndex].text}</span>
-                                )}
-                              </li>
+                        {/* Available Words */}
+                        <div className="mt-4">
+                          <div className="text-sm text-gray-600 mb-2">Choices:</div>
+                          <div className="flex flex-wrap gap-2">
+                            {[...(q.dragItems || []), ...(q.incorrectChoices || [])].map((item, i) => (
+                              <div
+                                key={i}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium 
+                                  ${item.isCorrect 
+                                    ? 'bg-[#4C53B4]/10 text-[#4C53B4] border-2 border-[#4C53B4]/20' 
+                                    : 'bg-gray-100 text-gray-600 border-2 border-gray-200'
+                                  }`}
+                              >
+                                {item.text}
+                              </div>
                             ))}
-                          </ul>
+                          </div>
                       </div>
                       </div>
                     </div>
@@ -1404,7 +1619,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   <>
               {/* Question Type Selection */}
               <div className="mb-4">
-                      <label className="block mb-1 font-medium">Question Type <span className="text-red-500">*</span></label>
+                      <label className="block mb-1 font-medium"> Drill Type <span className="text-red-500">*</span></label>
                 <select
                   className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
                   value={questionDraft.type}
@@ -1414,58 +1629,287 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       ...questionDraft,
                       type: newType,
                       text: '',
-                      choices: emptyQuestion.choices.map(() => ({ text: '', media: null })),
-                      answer: 0,
-                      dragItems: newType === 'D' ? [] : [],
-                      dropZones: newType === 'D' ? [] : [],
-                      memoryCards: newType === 'G' ? [] : [],
-                      pictureWord: newType === 'P' ? [] : [],
+                      choices: newType === 'M' ? emptyQuestion.choices.map(() => ({ text: '', media: null })) : [],
+                      answer: '',
+                      pattern: newType === 'F' ? '' : undefined,
+                      hint: newType === 'F' ? '' : undefined,
+                      dragItems: newType === 'D' ? [] : undefined,
+                      dropZones: newType === 'D' ? [] : undefined,
+                      memoryCards: newType === 'G' ? [] : undefined,
+                      pictureWord: newType === 'P' ? [] : undefined,
                     });
                   }}
                 >
                   <option value="M">Smart Select</option>
                   <option value="F">Blank Busters</option>
-                  {/* <option value="D">Drag and Drop</option> */}
+                  <option value="D">Sentence Builder</option>
                   <option value="G">Memory Game</option>
                   <option value="P">Four Pics One Word</option>
                 </select>
+
+                {/* Preview Text and Popover */}
+                <div className="mt-2 flex items-center gap-2 text-sm text-[#4C53B4]">
+                  <div className="relative group">
+                    <div className="flex items-center gap-1 cursor-help">
+                      <i className="fa-solid fa-circle-info"></i>
+                      <span>Hover to preview question</span>
+                    </div>
+
+                    {/* Popover Content */}
+                    <div className="opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 absolute left-0 top-full mt-2 w-[400px] bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-50">
+                      <div className="absolute -top-2 left-4 w-4 h-4 bg-white border-t border-l border-gray-200 transform rotate-45"></div>
+                      
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-[#4C53B4]">
+                            {questionDraft.type === 'M' ? 'Smart Select' :
+                             questionDraft.type === 'F' ? 'Blank Busters' :
+                             questionDraft.type === 'D' ? 'Sentence Builder' :
+                             questionDraft.type === 'G' ? 'Memory Game' :
+                             'Four Pics One Word'} Preview
+                          </div>
+                          <div className="text-xs text-gray-500">How students will see it</div>
+                        </div>
+
+                        {/* Smart Select Preview */}
+                        {questionDraft.type === 'M' && (
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium">Choose the correct answer:</div>
+                            <div className="text-sm text-gray-700 mb-2">What is the definition of "backpack"?</div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="p-3 rounded-lg border-2 border-[#4C53B4] bg-[#FFF] text-[#4C53B4] cursor-pointer text-sm">
+                                A bag carried on your back for holding books and supplies
+                              </div>
+                              <div className="p-3 rounded-lg border-2 border-gray-200 hover:border-[#4C53B4] hover:bg-[#EEF1F5] cursor-pointer text-sm">
+                                A type of shoe worn for hiking
+                              </div>
+                              <div className="p-3 rounded-lg border-2 border-gray-200 hover:border-[#4C53B4] hover:bg-[#EEF1F5] cursor-pointer text-sm">
+                                A small pocket in front of pants
+                              </div>
+                              <div className="p-3 rounded-lg border-2 border-gray-200 hover:border-[#4C53B4] hover:bg-[#EEF1F5] cursor-pointer text-sm">
+                                A strap used to secure items
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Blank Busters Preview */}
+                        {questionDraft.type === 'F' && (
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium">Fill in the missing letters:</div>
+                            <div className="flex items-center justify-center gap-1">
+                              {['B','_','_','K','P','_','C','K'].map((letter, i) => (
+                                <div 
+                                  key={`letter-${i}-${letter}`}
+                                  className={`w-8 h-8 flex items-center justify-center rounded ${
+                                    letter === '_' 
+                                      ? 'bg-[#EEF1F5] text-[#4C53B4]' 
+                                      : 'bg-[#4C53B4] text-white'
+                                  } font-bold text-lg`}
+                                >
+                                  {letter}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap justify-center gap-2 mt-2">
+                              {['A', 'E', 'C', 'O', 'A'].map((letter, i) => (
+                                <div 
+                                  key={`choice-${i}-${letter}`}
+                                  className="w-8 h-8 flex items-center justify-center rounded bg-white border-2 border-[#4C53B4] text-[#4C53B4] cursor-pointer hover:bg-[#EEF1F5] font-bold text-lg"
+                                >
+                                  {letter}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="text-sm text-gray-600 bg-yellow-50 p-2 rounded-lg">
+                              <i className="fa-solid fa-lightbulb text-yellow-500 mr-1"></i>
+                              Hint: Something you carry on your back
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Drag and Drop Preview */}
+                        {questionDraft.type === 'D' && (
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium">Fill in the blanks:</div>
+                            <div className="p-4 bg-[#F7F9FC] rounded-lg text-sm">
+                              A <span className="inline-block w-24 border-b-2 border-[#4C53B4] mx-1"></span> is worn on your 
+                              <span className="inline-block w-24 border-b-2 border-[#4C53B4] mx-1"></span>.
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              <div className="px-3 py-1 bg-white border-2 border-[#4C53B4] rounded text-sm text-[#4C53B4] cursor-move hover:bg-[#EEF1F5]">
+                                backpack
+                              </div>
+                              <div className="px-3 py-1 bg-white border-2 border-[#4C53B4] rounded text-sm text-[#4C53B4] cursor-move hover:bg-[#EEF1F5]">
+                                back
+                              </div>
+                              <div className="px-3 py-1 bg-white border-2 border-[#4C53B4] rounded text-sm text-[#4C53B4] cursor-move hover:bg-[#EEF1F5]">
+                                shoulders
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Memory Game Preview */}
+                        {questionDraft.type === 'G' && (
+                          <div className="space-y-3">
+                            <div className="text-sm font-medium">Match the pairs:</div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="aspect-square bg-[#4C53B4] rounded-lg flex items-center justify-center text-white p-2 cursor-pointer hover:bg-[#3a4095] transition-colors">
+                                <img 
+                                  src="https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=150&h=150&fit=crop" 
+                                  alt="Backpack"
+                                  className="w-full h-full object-cover rounded"
+                                />
+                              </div>
+                              <div className="aspect-square bg-[#4C53B4] rounded-lg flex items-center justify-center text-white p-2 cursor-pointer hover:bg-[#3a4095] transition-colors">
+                                <div className="text-sm text-center">A bag carried on the back, used to carry books and supplies</div>
+                              </div>
+                            </div>
+                            <div className="text-xs text-center text-gray-500">
+                              Click cards to find matching pairs
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Four Pics One Word Preview */}
+                        {questionDraft.type === 'P' && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                <img 
+                                  src="https://images.unsplash.com/photo-1622560480605-d83c853bc5c3?w=150&h=150&fit=crop" 
+                                  alt="School backpack"
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                <img 
+                                  src="https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=150&h=150&fit=crop" 
+                                  alt="Backpack front view"
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                <img 
+                                  src="https://images.unsplash.com/photo-1581605405669-fcdf81165afa?w=150&h=150&fit=crop" 
+                                  alt="Hiking backpack"
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                <img 
+                                  src="https://images.unsplash.com/photo-1577733966973-d680bffd2e80?w=150&h=150&fit=crop" 
+                                  alt="Student wearing backpack"
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            </div>
+                            <div className="text-center font-bold text-xl text-[#4C53B4]">
+                              BACKPACK
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="text-xs text-gray-500 mt-2">
+                          <i className="fa-solid fa-circle-info mr-1"></i>
+                          This is just a preview. You can customize all content when creating your question.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
                     {/* Question Text with AI Generation */}
                     <div className="mb-4">
-                      <label className="block mb-1 font-medium">Question Text <span className="text-red-500">*</span></label>
+                      <label className="block mb-1 font-medium">
+                        {questionDraft.type === 'M' ? 'Question Text' : 'Drill Instruction'} <span className="text-red-500">*</span>
+                      </label>
               {questionDraft.type === 'F' ? (
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="mb-4">
+                    <div className="space-y-4">
+                      {/* Question Text */}
+                      <div>
+                        <div className="flex gap-2">
                     <input
                       className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Enter text before the blank"
-                      value={questionDraft.text.split('_')[0] || ''}
-                      onChange={e => {
-                        const parts = questionDraft.text.split('_');
-                        setQuestionDraft({
-                          ...questionDraft,
-                          text: e.target.value + '_' + (parts[1] || '')
-                        });
-                      }}
+                            placeholder="Enter drill instruction"
+                            value={questionDraft.text}
+                            onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
+                            id="question-text-input"
+                          />
+                          <AiGenerateButton
+                            onClick={generateQuestion}
+                            loading={aiLoading.question}
                     />
-                    <span className="text-gray-500">_</span>
+                        </div>
+                      </div>
+                      {/* Word Pattern */}
+                      <div>
+                        <label className="block mb-1 font-medium">Word Pattern <span className="text-red-500">*</span></label>
+                        <div className="flex gap-2 items-center">
                     <input
-                      className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Enter text after the blank"
-                      value={questionDraft.text.split('_')[1] || ''}
+                            className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4] font-mono text-lg tracking-wider"
+                            placeholder="e.g., W _ _ D _ _ T"
+                            value={questionDraft.pattern || ''}
                       onChange={e => {
-                        const parts = questionDraft.text.split('_');
-                        setQuestionDraft({
-                          ...questionDraft,
-                          text: (parts[0] || '') + '_' + e.target.value
-                        });
-                      }}
+                              const pattern = e.target.value.toUpperCase();
+                              setQuestionDraft({ ...questionDraft, pattern });
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="px-3 py-2 rounded-xl bg-[#EEF1F5] text-[#4C53B4] hover:bg-[#4C53B4] hover:text-white transition-colors"
+                            onClick={() => {
+                              if (selectedQuestionWord) {
+                                const word = selectedQuestionWord.toUpperCase();
+                                const pattern = word.split('').map((char, idx) => idx === 0 || (idx !== word.length - 1 && Math.random() > 0.7) ? char : '_').join(' ');
+                                // --- letterChoices logic ---
+                                const missingLetters = word.split('').filter((char, idx) => pattern.split(' ')[idx] === '_');
+                                const allPossibleLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+                                let letterChoices = [
+                                  ...missingLetters,
+                                  ...allPossibleLetters.filter(l => !missingLetters.includes(l)).sort(() => Math.random() - 0.5).slice(0, Math.max(0, 5 - missingLetters.length))
+                                ];
+                                letterChoices = letterChoices.sort(() => Math.random() - 0.5);
+                                setQuestionDraft(prev => ({ ...prev, pattern, answer: word, letterChoices }));
+                              }
+                            }}
+                          >
+                            <i className="fa-solid fa-wand-magic-sparkles"></i> Generate Pattern
+                          </button>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Use underscores (_) for blank letters and spaces between each character. First letter is typically shown.
+                        </p>
+                      </div>
+                      {/* Correct Answer */}
+                      <div>
+                        <label className="block mb-1 font-medium">Correct Answer <span className="text-red-500">*</span></label>
+                        <input
+                          className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                          placeholder="Enter the complete word"
+                          value={questionDraft.answer || ''}
+                          onChange={e => setQuestionDraft({ ...questionDraft, answer: e.target.value.toUpperCase() })}
+                        />
+                      </div>
+                      {/* Hint Section */}
+                      <div>
+                        <label className="block mb-1 font-medium">Hint (Optional)</label>
+                        <input
+                          className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                          placeholder="Provide a hint for students"
+                          value={questionDraft.hint || ''}
+                          onChange={e => setQuestionDraft({ ...questionDraft, hint: e.target.value })}
                     />
+                      </div>
+                    </div>
                   </div>
                       ) : (
                         <div className="flex gap-2">
                           <input
                             className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                            placeholder="Question text"
+                            placeholder={questionDraft.type === 'M' ? "Enter question text" : "Enter drill instruction"}
                             value={questionDraft.text}
                             onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
                             id="question-text-input"
@@ -1477,75 +1921,119 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                         </div>
                       )}
                     </div>
-                    {/* Choices for Fill in the Blank */}
-                    {questionDraft.type === 'F' && (
-                  <div className="mb-4">
-                    <label className="block mb-1 font-medium">Possible Answers</label>
-                    <div className="flex gap-2 mb-2">
-                      {questionDraft.choices.map((c, i) => (
-                        <div key={i} className="flex-1 flex flex-col gap-1">
-                          <input
-                            className="w-full border-2 border-gray-100 rounded-xl px-2 py-1 focus:border-[#4C53B4]"
-                            placeholder={`Answer ${i+1}`}
-                            value={c.text}
-                            onChange={e => handleChoiceChange(i, 'text', e.target.value)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                </div>
-              )}
-              {/* Content Section 
-              <div className="mb-6 p-4 bg-[#F7F9FC] rounded-xl border border-gray-200">
-                <h3 className="font-medium mb-3">Content</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Title</label>
-                    <input
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Enter a title for your story"
-                      value={questionDraft.story_title || ''}
-                      onChange={e => setQuestionDraft({ ...questionDraft, story_title: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Context</label>
-                    <textarea
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Set the scene for your story"
-                      rows={3}
-                      value={questionDraft.story_context || ''}
-                      onChange={e => setQuestionDraft({ ...questionDraft, story_context: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Sign Language Instructions</label>
-                    <textarea
-                      className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                      placeholder="Add sign language instructions for the story"
-                      rows={2}
-                      value={questionDraft.sign_language_instructions || ''}
-                      onChange={e => setQuestionDraft({ ...questionDraft, sign_language_instructions: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div> */}
               {/* Type-specific form for Drag and Drop and Memory Game */}
               {questionDraft.type === 'D' && (
                 <div className="space-y-4">
-                  {/* Drag Items Section */}
+                        {/* Sentence with Blanks */}
                   <div className="space-y-2">
-                    <label className="block font-medium">Drag Items (What students will drag)</label>
-                    <div className="text-sm text-gray-500 mb-2">Example: Countries, dates, names, etc.</div>
+                          <label className="block font-medium">Sentence with Blanks <span className="text-red-500">*</span></label>
+                          <div className="text-sm text-gray-500 mb-2">
+                            Use underscores (_) to indicate blank spaces. Example: "A backpack is a _ you wear on your _, with straps over your shoulders"
+                          </div>
+                          <div className="flex gap-2">
+                            <textarea
+                              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                              placeholder="Enter the sentence with blanks (_)..."
+                              value={questionDraft.sentence || ''}
+                              onChange={e => {
+                                const sentence = e.target.value;
+                                // Count blanks
+                                const blankCount = (sentence.match(/_/g) || []).length;
+                                let dragItems = questionDraft.dragItems || [];
+                                if (blankCount > dragItems.length) {
+                                  // Add empty answers
+                                  dragItems = [...dragItems, ...Array(blankCount - dragItems.length).fill({ text: '', isCorrect: true })];
+                                } else if (blankCount < dragItems.length) {
+                                  // Remove extra answers
+                                  dragItems = dragItems.slice(0, blankCount);
+                                }
+                                setQuestionDraft({ ...questionDraft, sentence, dragItems });
+                              }}
+                              rows={3}
+                            />
+                            <AiGenerateButton
+                              onClick={async () => {
+                                setAiLoading(prev => ({ ...prev, sentence: true }));
+                                try {
+                                  // Get the definition
+                                  const definition = selectedQuestionWordData.definition || '';
+                                  if (!definition) {
+                                    setNotification({
+                                      show: true,
+                                      message: 'No definition available to generate sentence',
+                                      type: 'error'
+                                    });
+                                    return;
+                                  }
+                                  // Create initial sentence with the word
+                                  const word = selectedQuestionWord;
+                                  const initialSentence = `${definition}`;
+                                  const allWords = initialSentence.split(/\s+/);
+                                  // Decide if we want to blank out the main word (50% chance)
+                                  const blankMainWord = Math.random() < 0.5;
+                                  // Select 2-3 additional random words to blank out (excluding very short words)
+                                  const eligibleWords = allWords.slice(2).filter(word => word.length > 3);
+                                  const numAdditionalBlanks = Math.min(Math.floor(Math.random() * 2) + 1, eligibleWords.length);
+                                  const wordsToBlank = new Set();
+                                  if (blankMainWord) {
+                                    wordsToBlank.add(word.toLowerCase());
+                                  }
+                                  while (wordsToBlank.size < (blankMainWord ? numAdditionalBlanks + 1 : numAdditionalBlanks) && eligibleWords.length > 0) {
+                                    const randomWord = eligibleWords[Math.floor(Math.random() * eligibleWords.length)];
+                                    const cleanWord = randomWord.toLowerCase().replace(/[.,!?]/g, '');
+                                    if (cleanWord !== word.toLowerCase()) {
+                                      wordsToBlank.add(cleanWord);
+                                    }
+                                  }
+                                  const sentenceWithBlanks = allWords.map((word, index) => {
+                                    if (index === 0 || index === 2) return word;
+                                    const cleanWord = word.toLowerCase().replace(/[.,!?]/g, '');
+                                    return wordsToBlank.has(cleanWord) ? '_' : word;
+                                  }).join(' ');
+                                  const dragItems = Array.from(wordsToBlank).map(word => ({ text: word, isCorrect: true }));
+                                  const otherWords = allWords.map(w => w.toLowerCase().replace(/[.,!?]/g, '')).filter(w => w.length > 3 && !wordsToBlank.has(w) && w !== 'is');
+                                  const additionalChoices = otherWords.filter((w, i, arr) => arr.indexOf(w) === i).slice(0, Math.max(0, 5 - dragItems.length));
+                                  const incorrectChoices = additionalChoices.map(word => ({ text: word, isCorrect: false }));
+                                  setQuestionDraft(prev => ({
+                                    ...prev,
+                                    sentence: sentenceWithBlanks,
+                                    dragItems: dragItems,
+                                    incorrectChoices: incorrectChoices
+                                  }));
+                                } catch (err) {
+                                  console.error('Failed to generate sentence:', err);
+                                  setNotification({
+                                    show: true,
+                                    message: 'Failed to generate sentence: ' + (err.message || 'Unknown error'),
+                                    type: 'error'
+                                  });
+                                } finally {
+                                  setAiLoading(prev => ({ ...prev, sentence: false }));
+                                }
+                              }}
+                              loading={aiLoading.sentence}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Drag Items (Answers) */}
+                        <div className="space-y-2">
+                          <label className="block font-medium">Correct Answers (in order)</label>
+                          <div className="text-sm text-gray-500 mb-2">
+                            Add answers in the correct order matching each blank in your sentence.
+                          </div>
                     {(questionDraft.dragItems || []).map((item, index) => (
                       <div key={index} className="flex gap-2">
+                              <div className="w-8 flex items-center justify-center font-medium text-gray-500">
+                                #{index + 1}
+                              </div>
                         <input
                           className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                          placeholder={`Drag Item ${index + 1}`}
+                                placeholder={`Answer for blank ${index + 1}`}
                           value={item.text}
                           onChange={e => {
-                            const newItems = [...questionDraft.dragItems];
-                            newItems[index] = { ...newItems[index], text: e.target.value };
+                                  const newItems = [...(questionDraft.dragItems || [])];
+                                  newItems[index] = { ...newItems[index], text: e.target.value, isCorrect: true };
                             setQuestionDraft({ ...questionDraft, dragItems: newItems });
                           }}
                         />
@@ -1560,67 +2048,69 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                         </button>
                       </div>
                     ))}
+                          {(() => {
+                            const blankCount = (questionDraft.sentence || '').match(/_/g)?.length || 0;
+                            const currentAnswers = (questionDraft.dragItems || []).length;
+                            const hasEnoughAnswers = currentAnswers >= blankCount;
+
+                            return (
+                              <>
+                                {hasEnoughAnswers && blankCount > 0 && (
+                                  <div className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-lg">
+                                    <i className="fa-solid fa-circle-info mr-2"></i>
+                                    You have added all needed answers ({currentAnswers}/{blankCount} blanks)
+                                  </div>
+                                )}
                     <button
-                      className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]"
+                                  className={`w-full px-4 py-2 border-2 border-dashed rounded-xl transition-all ${
+                                    hasEnoughAnswers
+                                      ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                                      : 'border-gray-300 text-gray-500 hover:border-[#4C53B4] hover:text-[#4C53B4]'
+                                  }`}
                       onClick={() => {
+                                    if (!hasEnoughAnswers) {
                         setQuestionDraft({
                           ...questionDraft,
-                          dragItems: [...questionDraft.dragItems, { text: '', isCorrect: false }]
+                                        dragItems: [...(questionDraft.dragItems || []), { text: '', isCorrect: true }]
                         });
+                                    }
                       }}
+                                  disabled={hasEnoughAnswers}
                     >
-                      <i className="fa-solid fa-plus mr-2"></i> Add Drag Item
+                                  <i className="fa-solid fa-plus mr-2"></i> Add Correct Answer
                     </button>
+                              </>
+                            );
+                          })()}
                   </div>
-                  {/* Drop Zones Section */}
+
+                        {/* Incorrect Choices */}
                   <div className="space-y-2">
-                    <label className="block font-medium">Drop Zones (Where students will drop items)</label>
-                    <div className="text-sm text-gray-500 mb-2">Example: Capitals, definitions, answers, etc.</div>
-                    {(questionDraft.dropZones || []).map((zone, index) => (
-                      <div key={index} className="flex flex-col gap-2">
-                        <div className="flex gap-2">
+                          <label className="block font-medium">Incorrect Choices</label>
+                          <div className="text-sm text-gray-500 mb-2">
+                            Add incorrect options to make the game more challenging.
+                          </div>
+                          {(questionDraft.incorrectChoices || []).map((item, index) => (
+                            <div key={index} className="flex gap-2">
                           <input
                             className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                            placeholder={`Drop Zone ${index + 1}`}
-                            value={zone.text}
+                                placeholder="Enter an incorrect choice"
+                                value={item.text}
                             onChange={e => {
-                              const newZones = [...questionDraft.dropZones];
-                              newZones[index] = { ...newZones[index], text: e.target.value };
-                              setQuestionDraft({ ...questionDraft, dropZones: newZones });
+                                  const newItems = [...(questionDraft.incorrectChoices || [])];
+                                  newItems[index] = { text: e.target.value, isCorrect: false };
+                                  setQuestionDraft({ ...questionDraft, incorrectChoices: newItems });
                             }}
                           />
                           <button
                             className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl"
                             onClick={() => {
-                              const newZones = questionDraft.dropZones.filter((_, i) => i !== index);
-                              setQuestionDraft({ ...questionDraft, dropZones: newZones });
+                                  const newItems = questionDraft.incorrectChoices.filter((_, i) => i !== index);
+                                  setQuestionDraft({ ...questionDraft, incorrectChoices: newItems });
                             }}
                           >
                             <i className="fa-solid fa-trash"></i>
                           </button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="text-sm text-gray-600">Correct Answer:</label>
-                          <select
-                            className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-                            value={zone.correctItemIndex ?? ''}
-                            onChange={e => {
-                              const newZones = [...questionDraft.dropZones];
-                              newZones[index] = { 
-                                ...newZones[index], 
-                                correctItemIndex: e.target.value === '' ? null : parseInt(e.target.value)
-                              };
-                              setQuestionDraft({ ...questionDraft, dropZones: newZones });
-                            }}
-                          >
-                            <option value="">Select correct answer</option>
-                            {(questionDraft.dragItems || []).map((item, i) => (
-                              <option key={i} value={i}>
-                                {item.text || `Drag Item ${i + 1}`}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
                       </div>
                     ))}
                     <button
@@ -1628,13 +2118,20 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       onClick={() => {
                         setQuestionDraft({
                           ...questionDraft,
-                          dropZones: [...questionDraft.dropZones, { text: '', correctItemIndex: null }]
+                                incorrectChoices: [...(questionDraft.incorrectChoices || []), { text: '', isCorrect: false }]
                         });
                       }}
                     >
-                      <i className="fa-solid fa-plus mr-2"></i> Add Drop Zone
+                            <i className="fa-solid fa-plus mr-2"></i> Add Incorrect Choice
                     </button>
                   </div>
+
+                        {(questionDraft.sentence || questionDraft.text) && (questionDraft.dragItems?.length > 0 || questionDraft.incorrectChoices?.length > 0) && (
+                          <div className="text-sm text-gray-500 mt-2">
+                            <i className="fa-solid fa-shuffle mr-1"></i>
+                            All choices will be randomly shuffled when shown to students.
+                          </div>
+                        )}
                 </div>
               )}
               {questionDraft.type === 'G' && (
@@ -1673,23 +2170,25 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-              {/* Correct Answer Selection - Only show for Multiple Choice and Fill in the Blank */}
-              {(questionDraft.type === 'M' || questionDraft.type === 'F') && (
-                <div className="mb-4">
+                        {/* Correct Answer Dropdown */}
+                        <div className="mt-4">
                   <label className="block mb-1 font-medium">Correct Answer</label>
                   <select
                     className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
                     value={questionDraft.answer}
-                    onChange={e => setQuestionDraft({ ...questionDraft, answer: parseInt(e.target.value) })}
+                            onChange={e => setQuestionDraft(prev => ({ ...prev, answer: parseInt(e.target.value) }))}
                   >
-                    {questionDraft.choices.map((_, i) => (
+                            <option value="">Select correct answer</option>
+                            {questionDraft.choices.map((c, i) => (
                       <option key={i} value={i}>
-                        {questionDraft.type === 'F' ? `Answer ${i+1}` : `Choice ${i+1}`}
+                                Choice {i + 1}: {c.text || (c.media ? 
+                                  (c.media instanceof File ? c.media.name : 
+                                   c.media.url ? c.media.url.split('/').pop() : 
+                                   '(Media)') : '(Empty)')}
                       </option>
                     ))}
                   </select>
+                        </div>
                 </div>
               )}
               {/* Add/Edit Question Buttons */}
@@ -1708,7 +2207,10 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                             definition: selectedQuestionWordData.definition,
                             image: selectedQuestionWordData.image,
                             signVideo: selectedQuestionWordData.signVideo,
-                      choices: questionDraft.choices.map(c => ({ ...c }))
+                      choices: questionDraft.choices.map(c => ({ ...c })),
+                      letterChoices: questionDraft.type === 'F' ? [...(questionDraft.letterChoices || [])] : undefined,
+                      dragItems: questionDraft.type === 'D' ? [...(questionDraft.dragItems || [])] : undefined,
+                      incorrectChoices: questionDraft.type === 'D' ? [...(questionDraft.incorrectChoices || [])] : undefined,
                     };
                     if (questionEditIdx !== null) {
                       const updatedQuestions = [...drill.questions];
@@ -1730,8 +2232,13 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                           !selectedQuestionWord ||
                     !questionDraft.text || 
                     (questionDraft.type === 'M' && questionDraft.choices.some(c => !c.text && !c.media)) ||
-                    (questionDraft.type === 'F' && questionDraft.choices.some(c => !c.text)) ||
-                    (questionDraft.type === 'D' && ((questionDraft.dragItems || []).length === 0 || (questionDraft.dropZones || []).length === 0)) ||
+                          (questionDraft.type === 'F' && (!questionDraft.pattern || !questionDraft.answer)) ||
+                          (questionDraft.type === 'D' && (
+                            !questionDraft.text ||
+                            !questionDraft.sentence ||
+                            (questionDraft.dragItems || []).length === 0 || 
+                            !(questionDraft.sentence || '').includes('_') // Check if sentence has blanks
+                          )) ||
                     (questionDraft.type === 'G' && (
                       !questionDraft.memoryCards || 
                       questionDraft.memoryCards.length < 2 || 
@@ -1785,7 +2292,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                   <div className="text-gray-600 mb-2">Definition: {q.definition}</div>
                   {/* Preview for question types */}
                   <div className="mb-2">
-                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Multiple Choice' : q.type === 'F' ? 'Fill in the Blank' : q.type === 'D' ? 'Drag and Drop' : q.type === 'G' ? 'Memory Game' : q.type === 'P' ? 'Picture Word' : ''}
+                    <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Smart Select' : q.type === 'F' ? 'Blank Busters' : q.type === 'D' ? 'Sentence Builder' : q.type === 'G' ? 'Memory Game' : q.type === 'P' ? 'Four Pics One Word' : ''}
                   </div>
                   <div className="mb-2">
                     <span className="font-semibold">Question:</span> {q.type === 'F' ? (
@@ -1793,9 +2300,16 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     ) : q.text}
                     </div>
                   {q.type === 'M' && (
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="mt-2">
+                      <div className="p-4 bg-[#F7F9FC] rounded-lg border border-[#4C53B4]/10">
+                        <div className="flex flex-wrap gap-2">
                       {(q.choices || []).map((c, i) => (
-                        <div key={i} className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}>
+                            <div key={i} className={`relative w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}>
+                              {q.answer === i && (
+                                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#4C53B4] border-2 border-white flex items-center justify-center">
+                                  <i className="fa-solid fa-check text-white text-sm"></i>
+                                </div>
+                              )}
                           {c.media ? (
                             (() => {
                               let src = null;
@@ -1821,46 +2335,56 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                           )}
                         </div>
                       ))}
+                      </div>
                     </div>
+                  </div>
                   )}
                   {q.type === 'F' && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {(q.choices || []).map((c, i) => (
-                        <div key={i} className={`w-32 h-24 px-1 py-1 rounded-lg border flex flex-col items-center justify-center ${q.answer === i ? 'border-[#4C53B4] bg-[#EEF1F5]' : 'border-gray-200 bg-white'}`}>
-                          {c.text ? (
-                            <span className="text-center break-words w-full text-xs">{c.text}</span>
-                          ) : (
-                            <span className="text-gray-300 text-xs">No content</span>
-                          )}
+                    <div className="space-y-2">
+                      <div className="font-mono text-xl tracking-wider text-[#4C53B4] bg-[#EEF1F5] p-4 rounded-xl text-center">
+                        {q.pattern}
+                      </div>
+                      {q.hint && (
+                        <div className="text-sm text-gray-500">
+                          <span className="font-medium">Hint:</span> {q.hint}
                         </div>
-                      ))}
-                      <div className="w-full text-xs text-gray-500 mt-2">Correct: Choice {q.answer + 1}</div>
+                      )}
+                      <div className="text-sm text-[#4C53B4] bg-[#EEF1F5]/50 p-2 rounded">
+                        <span className="font-medium">Answer:</span> {q.answer}
+                        </div>
                     </div>
                   )}
                   {q.type === 'D' && (
                     <div className="mt-2">
-                      <div className="mb-2 font-semibold">Drag and Drop Mapping:</div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="font-medium mb-1">Drag Items</div>
-                          <ul className="space-y-1">
-                            {(q.dragItems || []).map((item, i) => (
-                              <li key={i} className="px-2 py-1 bg-white border rounded">{item.text}</li>
-                            ))}
-                          </ul>
+                      <div className="mb-4 p-4 bg-[#F7F9FC] rounded-lg border border-[#4C53B4]/10">
+                        {/* Sentence with Blanks */}
+                        <div className="p-4 bg-white rounded-lg border border-gray-200">
+                          {(q.sentence || '').split('_').map((part, index, array) => (
+                            <span key={index}>
+                              {part}
+                              {index < array.length - 1 && (
+                                <span className="inline-block min-w-[100px] h-8 mx-2 bg-[#EEF1F5] border-2 border-dashed border-[#4C53B4]/30 rounded-lg align-middle"></span>
+                              )}
+                            </span>
+                          ))}
                           </div>
-                        <div>
-                          <div className="font-medium mb-1">Drop Zones</div>
-                          <ul className="space-y-1">
-                            {(q.dropZones || []).map((zone, i) => (
-                              <li key={i} className="px-2 py-1 bg-white border rounded flex items-center gap-2">
-                                <span>{zone.text}</span>
-                                {zone.correctItemIndex !== null && (q.dragItems || []).length > 0 && (q.dragItems || [])[zone.correctItemIndex] && (
-                                  <span className="ml-2 text-xs text-gray-500">→ {(q.dragItems || [])[zone.correctItemIndex].text}</span>
-                                )}
-                              </li>
+                        {/* Available Words */}
+                        <div className="mt-4">
+                          <div className="text-sm text-gray-600 mb-2">Choices:</div>
+                          <div className="flex flex-wrap gap-2">
+                            {[...(q.dragItems || []), ...(q.incorrectChoices || [])].map((item, i) => (
+                              <div
+                                key={i}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium 
+                                  ${item.isCorrect 
+                                    ? 'bg-[#4C53B4]/10 text-[#4C53B4] border-2 border-[#4C53B4]/20' 
+                                    : 'bg-gray-100 text-gray-600 border-2 border-gray-200'
+                                  }`}
+                              >
+                                {item.text}
+                              </div>
                             ))}
-                          </ul>
+                          </div>
                       </div>
                       </div>
                     </div>
