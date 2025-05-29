@@ -53,9 +53,9 @@ const importStudentsFromCsv = async (classroomId, file) => {
       `/api/classrooms/${classroomId}/import-students/`,
       formData
     );
-    return response.data;
+    return response;
   } catch (error) {
-    throw error.response?.data || error;
+    throw error.response || error;
   }
 };
 

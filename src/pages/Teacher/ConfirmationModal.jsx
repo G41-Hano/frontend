@@ -1,7 +1,15 @@
-import React from 'react';
+import {useState} from 'react';
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
+  const [isLoading, setIsLoading] = useState(false)
+
   if (!isOpen) return null;
+
+  const handleClick = async () => {
+    setIsLoading(true)
+    await onConfirm()
+    setIsLoading(false)
+  }
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
@@ -41,12 +49,18 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
             </span>
           </button>
           <button
-            onClick={onConfirm}
+            onClick={handleClick}
+            disabled={isLoading}
             className="px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all transform hover:scale-105 hover:shadow-lg flex items-center gap-2 group"
           >
             <span className="flex items-center gap-2">
-              <i className="fa-solid fa-trash"></i>
-              Yes, Remove
+              {
+                isLoading ? (
+                  <i className="fa-solid fa-circle-notch animate-spin"/>
+                ) : (
+                  <><i className="fa-solid fa-trash"/> Yes, Remove</>
+                )
+              }
             </span>
           </button>
         </div>

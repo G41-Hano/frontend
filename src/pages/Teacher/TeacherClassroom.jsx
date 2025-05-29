@@ -508,6 +508,7 @@ const TeacherClassroom = () => {
       <EnrollStudentsModal
         isOpen={isEnrollModalOpen}
         onClose={() => setIsEnrollModalOpen(false)}
+        students={students}
         classroomId={id}
         onEnrollSuccess={handleEnrollSuccess}
       />
