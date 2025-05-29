@@ -14,6 +14,8 @@ const SuccessModal = () => {
         return 'user-minus';
       case 'transfer':
         return 'user-arrow-right';
+      case 'update-classroom':
+        return 'pen';
       default:
         return 'check-circle';
     }
@@ -29,6 +31,8 @@ const SuccessModal = () => {
         return `Successfully removed ${student} from the classroom`;
       case 'transfer':
         return `Successfully transferred ${student} to the new classroom`;
+      case 'update-classroom':
+        return 'Classroom details updated successfully';
       default:
         return 'Operation completed successfully';
     }
@@ -58,6 +62,7 @@ const SuccessModal = () => {
             {successType === 'enroll' && getMessage()}
             {successType === 'transfer' && getMessage()}
             {successType === 'default' && getMessage()}
+            {successType === 'update-classroom' && getMessage()}
           </p>
           {
             showEnrollmentLog &&

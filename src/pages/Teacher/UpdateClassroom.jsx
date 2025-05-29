@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../api';
+import { useSuccessModal } from '../../contexts/SuccessModalContext';
+
 
 const UpdateClassroom = ({ isOpen, onClose, classroom, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -9,6 +11,7 @@ const UpdateClassroom = ({ isOpen, onClose, classroom, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [fetchingData, setFetchingData] = useState(false);
+  const { showSuccessModal } = useSuccessModal();
 
   // Fetch current classroom data when opened
   useEffect(() => {
@@ -48,6 +51,7 @@ const UpdateClassroom = ({ isOpen, onClose, classroom, onSuccess }) => {
         onSuccess(response.data);
       }
       onClose();
+      showSuccessModal('update-classroom')
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update classroom');
     } finally {
