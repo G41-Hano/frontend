@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import api, { importStudentsFromCsv } from '../../api';
 import { ACCESS_TOKEN } from '../../constants';
+import EnrollmentLog from './EnrollmentLog';
 
 const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
   const [step, setStep] = useState(1);
@@ -28,7 +29,7 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
   const fileInputRef = useRef(null);
   const [selectedMethod, setSelectedMethod] = useState("add")
 
-  // Fetch available students
+
   const fetchStudents = async () => {
     setIsLoadingStudents(true);
     try {
@@ -46,7 +47,9 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
         throw new Error('No data received from API');
       }
 
-      setAvailableStudents(response.data);
+      let data = response.data
+      data = [...data].sort((a, b) => a.last_name.localeCompare(b.last_name))
+      setAvailableStudents(data);
       
     } catch (error) {
       console.error('Error details:', {
@@ -62,6 +65,11 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
+  useEffect(()=>{
+    if (isOpen)
+      fetchStudents()
+  }, [isOpen])
+
   // Handle form submission for step 1
   const handleStep1Submit = async (e) => {
     e.preventDefault();
@@ -71,7 +79,7 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
     }
     setError(null);
     setStep(2);
-    await fetchStudents(); // Wait for students to be fetched
+    // await fetchStudents(); // Wait for students to be fetched
   };
 
   // Handle final submission
@@ -237,6 +245,7 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
               </label>
               <input
                 type="text"
+                disabled={loading}
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
@@ -268,12 +277,8 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
               <button
                 type="submit"
                 className="px-4 py-2 rounded-xl text-white font-semibold bg-gradient-to-r from-[#4C53B4] to-[#6f75d6] hover:from-[#3a4095] hover:to-[#5c63c4] transition-all duration-200 transform hover:scale-[1.02]"
-                disabled={isLoadingStudents}
               >
-                {isLoadingStudents ?
-                <i className="fa-solid fa-spinner fa-spin"/> :
-                "Next Step"
-                }
+                Next
               </button>
             </div>
           </form>
@@ -372,13 +377,17 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
                         className="p-3 py-0 text-sm font-semibold text-[#4C53B4] bg-[#EEF1F5] rounded-lg hover:bg-[#4C53B4] hover:text-white transition-all duration-300 flex items-center gap-2 justify-center"
                         >Clear</button>
                       </div>
-                      <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
-                        placeholder="Search by name or username..."
-                      />
+                      <div className="relative">
+                        <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"/>
+                        <input
+                          type="text"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-2 py-2 rounded-xl border border-gray-200 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
+                          placeholder="Search by name or username..."
+                          disabled={loading}
+                        />
+                      </div>
                     </div>
                   <div className="h-[250px] overflow-y-auto border border-gray-200 rounded-xl">
                     {isLoadingStudents ? (
@@ -419,10 +428,12 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
                                 : 'border-gray-100 hover:border-[#4C53B4]/50'
                               }`}
                             onClick={() => {
-                              if (selectedStudents.some(s => s.id === student.id)) {
-                                setSelectedStudents(prev => prev.filter(s => s.id !== student.id));
-                              } else {
-                                setSelectedStudents(prev => [...prev, student]);
+                              if (!loading) {
+                                if (selectedStudents.some(s => s.id === student.id)) {
+                                  setSelectedStudents(prev => prev.filter(s => s.id !== student.id));
+                                } else {
+                                  setSelectedStudents(prev => [...prev, student]);
+                                }
                               }
                             }}
                           >
@@ -563,36 +574,7 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
             }
             {
               showEnrollmentLog && (
-                <div className='flex gap-2 text-left transition-all duration-200 text-sm'>
-                  {
-                    enrolledNames.length > 0  && (
-                      <div className='flex-1 bg-gray-100 border-2 border-gray-200 px-4 py-2.5 rounded-2xl'>
-                        <p className="font-semibold text-[#4C53B4] text-base">
-                          <i className="fa-solid fa-check-circle mr-2 text-green-500"/>Successfully Enrolled ({enrolledNames.length})
-                        </p>
-                        <ol className='list-decimal pl-5'>
-                          {enrolledNames.map((user, index) => (
-                            <li key={index}>{user}</li>
-                          ))}
-                        </ol>
-                      </div>
-                    )
-                  }
-                  {
-                    notEnrolledNames.length > 0 && (
-                      <div className='flex-1 bg-gray-100 border-2 border-gray-200 px-4 py-2.5 rounded-2xl'>
-                        <p className="font-semibold text-[#4C53B4] text-base">
-                          <i className="fa-solid fa-circle-xmark mr-2 text-red-500"/>Failed to Enroll ({notEnrolledNames.length})
-                        </p>
-                        <ol className='list-decimal pl-5'>
-                          {notEnrolledNames.map((user, index) => (
-                            <li key={index}>{user}</li>
-                          ))}
-                        </ol>
-                      </div>
-                    )
-                  }
-                </div>
+                <EnrollmentLog enrolledNames={enrolledNames} notEnrolledNames={notEnrolledNames}/>
               )
             }
             

@@ -1,8 +1,10 @@
 import { useSuccessModal } from '../contexts/SuccessModalContext';
-import React from 'react';
+import {useState} from 'react';
+import EnrollmentLog from '../pages/Teacher/EnrollmentLog';
 
 const SuccessModal = () => {
   const { showSuccess, successType, successData, hideSuccessModal } = useSuccessModal();
+  const [showEnrollmentLog, setShowEnrollmentLog] = useState(false)
 
   const getIcon = () => {
     switch (successType) {
@@ -57,15 +59,32 @@ const SuccessModal = () => {
             {successType === 'transfer' && getMessage()}
             {successType === 'default' && getMessage()}
           </p>
-          <button
-            onClick={hideSuccessModal}
-            className="px-6 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
-          >
-            <span className="flex items-center gap-2">
-              <i className="fa-solid fa-check"></i>
-              Close
-            </span>
-          </button>
+          {
+            showEnrollmentLog &&
+            <EnrollmentLog enrolledNames={successData?.enrolledNames} notEnrolledNames={successData?.notEnrolledNames}/>
+          }
+          <div className="flex justify-center gap-3 mt-3">
+            {
+              successType === 'enroll' && (
+                <button
+                  onClick={()=>setShowEnrollmentLog(prev => !prev)}
+                  className="px-6 py-2.5 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition-colors text-sm"
+                >
+                  {showEnrollmentLog ? "Hide student enrollment log" : "Show student enrollment log"}
+                </button>
+              )
+            }
+            
+            <button
+              onClick={()=>{hideSuccessModal(); setShowEnrollmentLog(false)}}
+              className="px-6 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
+            >
+              <span className="flex items-center gap-2">
+                <i className="fa-solid fa-check"></i>
+                Close
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
