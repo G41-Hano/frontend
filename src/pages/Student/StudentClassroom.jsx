@@ -81,8 +81,10 @@ const StudentClassroom = () => {
   const fetchDrillResults = async (drillId) => {
     try {
       const response = await api.get(`/api/drills/${drillId}/results/`);
-      // Get the best score from all attempts
-      const bestScore = Math.max(...response.data.map(result => result.points || 0));
+      // Get the best score from all attempts, default to 0 if no results
+      const bestScore = response.data.length > 0 
+        ? Math.max(...response.data.map(result => result.points || 0)) 
+        : 0;
       setDrillResults(prev => ({ ...prev, [drillId]: bestScore }));
     } catch (error) {
       console.error('Error fetching drill results:', error);

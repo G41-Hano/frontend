@@ -445,17 +445,21 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   // New: Built-in word lists state
   const [builtinWordLists, setBuiltinWordLists] = useState([]);
   const [customListDesc, setCustomListDesc] = useState('');
-  const [aiLoadingListDesc, setAiLoadingListDesc] = useState(false);
+  const [loadingWordLists, setLoadingWordLists] = useState(false);
 
   // Fetch built-in word lists when needed
   useEffect(() => {
     if (step === 1 && drill.wordlistType === 'builtin') {
+      setLoadingWordLists(true);
       api.get('/api/builtin-wordlist/')
         .then(res => {
           setBuiltinWordLists(res.data);
         })
         .catch(() => {
           setNotification({ show: true, message: 'Failed to load word lists', type: 'error' });
+        })
+        .finally(() => {
+          setLoadingWordLists(false);
         });
     }
   }, [step, drill.wordlistType]);
@@ -576,7 +580,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           // Ensure unique letter choices
           letterChoices = [...new Set(letterChoices)];
           
-          defaultQuestion = `Complete the word by filling in the missing letters:`;
+          defaultQuestion = `Complete the word by filling in the missing letters`;
           defaultPattern = pattern;
           defaultAnswer = word;
           defaultHint = `Hint: ${selectedQuestionWordData.definition || 'A word related to the lesson'}`;
@@ -589,13 +593,13 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           break;
         }
         case 'D': {
-          defaultQuestion = `Build the correct sentence using the given words:`;
+          defaultQuestion = `Build the correct sentence using the given words`;
           defaultAnswer = selectedQuestionWord;
           break;
         }
           
         case 'G': {
-          defaultQuestion = `Find matching pairs to complete this exercise:`;
+          defaultQuestion = `Find matching pairs to complete this exercise`;
           break;
         }
           
@@ -1963,7 +1967,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                                   }
                                   // Create initial sentence with the word
                                   const word = selectedQuestionWord;
-                                  const initialSentence = `A ${word} is ${definition}`;
+                                  const initialSentence = `${definition}`;
                                   const allWords = initialSentence.split(/\s+/);
                                   // Decide if we want to blank out the main word (50% chance)
                                   const blankMainWord = Math.random() < 0.5;

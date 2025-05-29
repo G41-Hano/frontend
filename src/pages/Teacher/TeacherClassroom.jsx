@@ -298,9 +298,6 @@ const TeacherClassroom = () => {
     }
   };
 
-    // Get color when rendering
-  const classroomColor = classroom?.teacher?.id ? getClassroomColor(classroom.teacher.id, id) : '#7D83D7';
-
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
       {/* Header */}
@@ -727,7 +724,7 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
             navigate(`/t/take-drill/${drill.id}`);
           }}
         >
-          <i className={`fa-solid ${drill.status === 'draft' ? 'fa-eye' : 'fa-play'}`}></i> {drill.status === 'draft' ? 'Preview Drill' : 'Take Drill'}
+          <i className="fa-solid fa-eye"></i> Preview Drill
         </button>
         <button 
           className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-gray-700" 
@@ -798,15 +795,6 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
           <div className="flex-1 flex flex-col gap-2">
             <div className="text-gray-500 text-sm">Open: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
             <div className="text-gray-500 text-sm">Due: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
-            <div className="mt-2">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-gray-500 font-medium">Progress</span>
-                <span className="text-xs text-gray-600 font-bold">0%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-green-500 h-2 rounded-full" style={{ width: '0%' }}></div>
-              </div>
-            </div>
           </div>
           <div className="flex flex-col items-end gap-2 md:items-center md:flex-row">
             {drill.status === 'draft' && (
@@ -823,7 +811,7 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
                 navigate(`/t/take-drill/${drill.id}`);
               }}
             >
-              <i className={`fa-solid ${drill.status === 'draft' ? 'fa-eye' : 'fa-play'}`}></i> {drill.status === 'draft' ? 'Preview Drill' : 'Test Drill'}
+              <i className="fa-solid fa-eye"></i> Preview Drill
             </button>
           </div>
         </div>

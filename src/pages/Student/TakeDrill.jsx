@@ -31,13 +31,13 @@ const Droppable = ({ id, children }) => {
   return children({ isOver, setNodeRef });
 };
 
-const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer, answerStatus, wrongAnswers }) => {
+const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer, answerStatus, wrongAnswers = [] }) => {
   return (
     <div className="animate-fadeIn">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mx-auto">
         {question.choices.map((choice, index) => {
           const isSelected = currentAnswer === index;
-          const isWrong = wrongAnswers.includes(index);
+          const isWrong = wrongAnswers?.includes(index);
           const isCorrect = answerStatus === 'correct' && isSelected;
           
           let buttonClass = 'p-6 rounded-2xl text-center transition-all transform hover:scale-105 ';
@@ -355,27 +355,18 @@ const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
   const [isCorrect, setIsCorrect] = useState(null);
   const [showHint, setShowHint] = useState(false);
 
-  // Update answer state when currentAnswer prop changes
   useEffect(() => {
     setAnswer(currentAnswer || '');
   }, [currentAnswer]);
 
   const handleSubmit = () => {
-    // Debug logs
-    console.log('Question object:', question);
-    console.log('User answer:', answer);
-    
-    // Get the correct answer from the question object
     const correctAnswer = question.answer?.toLowerCase().trim() || '';
     const userAnswer = answer.toLowerCase().trim();
-    
-    console.log('Correct answer:', correctAnswer);
-    console.log('User answer (processed):', userAnswer);
-    console.log('Are they equal?', correctAnswer === userAnswer);
-    
     const isAnswerCorrect = userAnswer === correctAnswer;
     setIsCorrect(isAnswerCorrect);
-    onAnswer(answer); // Pass the answer instead of the boolean
+    if (isAnswerCorrect) {
+      onAnswer(answer, true); // Only call onAnswer with isCorrect=true if correct
+    }
   };
 
   return (
@@ -397,11 +388,7 @@ const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
         <input
           type="text"
           value={answer}
-          onChange={(e) => {
-            const newValue = e.target.value;
-            setAnswer(newValue);
-            onAnswer(newValue);
-          }}
+          onChange={(e) => setAnswer(e.target.value)}
           placeholder="Enter your answer"
           className="w-full max-w-md border-2 border-gray-200 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
         />
@@ -1053,12 +1040,16 @@ const TakeDrill = () => {
   const [points, setPoints] = useState({});
   const [answerStatus, setAnswerStatus] = useState(null);
   const [wordGroups, setWordGroups] = useState([]);
-  const [currentAnswer, setCurrentAnswer] = useState('');
+  const [currentAnswer, setCurrentAnswer] = useState(null);
   const [wrongAnswers, setWrongAnswers] = useState([]);
   const [drillLeaderboard, setDrillLeaderboard] = useState([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [isTeacherPreview] = useState(() => {
+    const path = window.location.pathname;
+    return path.startsWith('/t/');
+  });
 
   // Initialize or reset currentAnswer based on question type
   const initializeAnswer = (question) => {
@@ -1274,6 +1265,12 @@ const TakeDrill = () => {
 
   // Update handleAnswer to save points to backend
   const handleAnswer = async (answer, isCorrect) => {
+    if (isTeacherPreview) {
+      // For teacher preview, just set the answer without validation
+      setCurrentAnswer(answer);
+      return;
+    }
+
     setCurrentAnswer(answer);
     const key = `${currentWordIdx}_${currentQuestionIdx}`;
     
@@ -1352,33 +1349,24 @@ const TakeDrill = () => {
   };
 
   const handleNext = () => {
-    if (introStep < 5) {
-      // Still in word intro steps
-      setIntroStep(introStep + 1);
-    } else {
-      // In questions phase
-      if (currentQuestionIdx < currentWord.questions.length - 1) {
-        // More questions for current word
-        const nextQuestion = currentWord.questions[currentQuestionIdx + 1];
-        setCurrentAnswer(initializeAnswer(nextQuestion));
+    // Allow proceeding if it's teacher preview OR if student has answered
+    if (isTeacherPreview || (!isTeacherPreview && currentAnswer !== null)) {
+      setCurrentAnswer(null);
+      setAnswerStatus(null);
+      setWrongAnswers([]);
+
+      if (introStep < 5) {
+        setIntroStep(introStep + 1);
+      } else if (currentQuestionIdx < wordGroups[currentWordIdx]?.questions?.length - 1) {
         setCurrentQuestionIdx(currentQuestionIdx + 1);
-        setAnswerStatus(null);
       } else if (currentWordIdx < wordGroups.length - 1) {
-        // Move to next word
-        const nextWord = wordGroups[currentWordIdx + 1];
         setCurrentWordIdx(currentWordIdx + 1);
         setCurrentQuestionIdx(0);
-        setIntroStep(1); // Reset to word intro
-        setAnswerStatus(null);
-        if (nextWord?.questions[0]) {
-          setCurrentAnswer(initializeAnswer(nextWord.questions[0]));
-        }
+        setIntroStep(1);
       } else {
-        // End of drill
-        setIntroStep(6);
+        setIntroStep(6); // Show congratulations/summary screen
       }
     }
-    setWrongAnswers([]);
   };
 
   // --- FLOW ---
@@ -1716,18 +1704,18 @@ const TakeDrill = () => {
       </div>
         </div>
         
-        {/* Next button */}
-        {answerStatus === 'correct' && (
-              <button
+        {/* Next button - Show for teacher preview or when student has correct answer */}
+        {(isTeacherPreview || answerStatus === 'correct') && (
+          <button
             className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg transition-all hover:scale-105"
             onClick={handleNext}
-              >
+          >
             Next
-              </button>
+          </button>
         )}
-                        </div>
-                      );
-                    }
+      </div>
+    );
+  }
   if (introStep === 6) {
     // Summary
     return (
