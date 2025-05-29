@@ -5,6 +5,20 @@ import Definitions, { useDefinitionFetcher } from "./gen-ai/GenerateDefinition";
 export default function CreateCustomWordList({index,word,handleUpdateCustomWord,handleRemoveCustomWord,setMediaModal}) {
   const {isLoading, error, definitions, getDefinition} = useDefinitionFetcher()
 
+  // Image preview logic
+  const imageSrc = typeof word.image === 'string'
+    ? word.image
+    : word.image instanceof File
+      ? URL.createObjectURL(word.image)
+      : null;
+
+  // Video preview logic
+  const videoSrc = typeof word.signVideo === 'string'
+    ? word.signVideo
+    : word.signVideo instanceof File
+      ? URL.createObjectURL(word.signVideo)
+      : null;
+
   return (<div className="mb-4 p-4 rounded-xl border-2 border-gray-100 flex flex-col gap-2">
       <div className="flex gap-4">
         <div className="flex-1">
@@ -55,6 +69,17 @@ export default function CreateCustomWordList({index,word,handleUpdateCustomWord,
             onChange={file => handleUpdateCustomWord(index, 'image', file)}
             onPreview={(src, type) => setMediaModal({ open: true, src, type })}
           />
+          {imageSrc && (
+            <div className="relative mt-2 w-full">
+              <img
+                src={imageSrc}
+                alt="preview"
+                className="w-full h-48 object-cover rounded border cursor-pointer"
+                style={{ maxWidth: '300px', maxHeight: '300px' }}
+                onClick={() => setMediaModal({ open: true, src: imageSrc, type: 'image/*' })}
+              />
+            </div>
+          )}
         </div>
         <div className="flex-1">
           <label className="block text-sm text-gray-600 mb-1">Sign Language Video</label>
@@ -63,6 +88,17 @@ export default function CreateCustomWordList({index,word,handleUpdateCustomWord,
             onChange={file => handleUpdateCustomWord(index, 'signVideo', file)}
             onPreview={(src, type) => setMediaModal({ open: true, src, type })}
           />
+          {videoSrc && (
+            <div className="relative mt-2 w-full">
+              <video
+                src={videoSrc}
+                controls
+                className="w-full h-48 object-cover rounded border cursor-pointer bg-black"
+                style={{ maxWidth: '300px', maxHeight: '300px' }}
+                onClick={() => setMediaModal({ open: true, src: videoSrc, type: 'video/*' })}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
