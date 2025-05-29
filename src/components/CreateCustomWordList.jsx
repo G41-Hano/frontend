@@ -55,7 +55,6 @@ export default function CreateCustomWordList({index,word,handleUpdateCustomWord,
             onChange={file => handleUpdateCustomWord(index, 'image', file)}
             onPreview={(src, type) => setMediaModal({ open: true, src, type })}
           />
-      
         </div>
         <div className="flex-1">
           <label className="block text-sm text-gray-600 mb-1">Sign Language Video</label>
