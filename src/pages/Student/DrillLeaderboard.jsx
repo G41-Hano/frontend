@@ -11,6 +11,7 @@ const DrillLeaderboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [classroomId, setClassroomId] = useState(null);
+  const [drillName, setDrillName] = useState('');
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
@@ -19,7 +20,9 @@ const DrillLeaderboard = () => {
         // First get the drill details to get the classroom ID
         const drillResponse = await api.get(`/api/drills/${id}/`);
         const classroomId = drillResponse.data.classroom;
+        const drillName = drillResponse.data.title;
         setClassroomId(classroomId);
+        setDrillName(drillName);
 
         // Get all students in the classroom
         const classroomResponse = await api.get(`/api/classrooms/${classroomId}/students/`);
@@ -105,9 +108,9 @@ const DrillLeaderboard = () => {
           </button>
           <div className="absolute inset-0 bg-blue-100/60 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
-            <h3 className="text-3xl font-extrabold text-[#e09b1a] text-center mb-8 tracking-wide flex items-center justify-center gap-2">
-              <span>- DRILL LEADERBOARD -</span>
-            </h3>
+            <h2 className="text-3xl font-extrabold text-[#e09b1a] text-center mb-8 tracking-wide flex items-center justify-center gap-2">
+              <span>- {drillName} Leaderboard -</span>
+            </h2>
             {loading ? (
               <div className="text-center text-gray-500 py-12">Loading...</div>
             ) : error ? (
