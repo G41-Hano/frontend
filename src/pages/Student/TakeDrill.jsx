@@ -313,6 +313,13 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
 
   return (
     <div className="flex flex-col items-center">
+      <div className="text-center text-2xl font-bold mb-4 text-[#8e44ad]">
+        {matched.length === shuffledCards.length && shuffledCards.length > 0
+          ? 'All pairs matched!'
+          : flipped.length === 2
+            ? 'Checking...'
+            : 'Flip two cards to find a match.'}
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 max-w-3xl mx-auto">
         {shuffledCards.map((card) => {
           const isFlipped = flipped.includes(card.id) || matched.includes(card.id);
@@ -339,13 +346,6 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
           );
         })}
       </div>
-      <div className="mt-6 text-center text-lg text-[#8e44ad] font-semibold">
-        {matched.length === shuffledCards.length && shuffledCards.length > 0
-          ? 'All pairs matched!'
-          : flipped.length === 2
-            ? 'Checking...'
-            : 'Flip two cards to find a match.'}
-      </div>
     </div>
   );
 };
@@ -371,6 +371,11 @@ const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
 
   return (
     <div className="space-y-6">
+      {isCorrect !== null && (
+        <div className={`text-center text-2xl font-bold mb-4 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+          {isCorrect ? 'Correct!' : 'Try again!'}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         {(question.pictureWord || []).map((pic, index) => (
           <div key={pic.id} className="border rounded-lg p-4 bg-white">
@@ -410,11 +415,6 @@ const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
           <div className="text-sm text-gray-600">
             <i className="fa-solid fa-lightbulb mr-2"></i>
             Look at the pictures carefully and try to find a common word that connects them all.
-          </div>
-        )}
-        {isCorrect !== null && (
-          <div className={`text-lg font-semibold ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-            {isCorrect ? 'Correct!' : 'Try again!'}
           </div>
         )}
       </div>
@@ -756,6 +756,16 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
 
   return (
     <div className="animate-fadeIn">
+      {checked && isCorrect === false && (
+        <div className="text-center text-2xl font-bold mb-4 text-red-600">
+          Try again!
+        </div>
+      )}
+      {checked && isCorrect === true && (
+        <div className="text-center text-2xl font-bold mb-4 text-green-600">
+          Correct!
+        </div>
+      )}
       <div className="flex justify-center gap-2 mb-8">{display}</div>
       <div className="flex flex-wrap justify-center gap-4 mb-6">
         {availableChoices.map(({ letter, idx }) => (
@@ -782,16 +792,6 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
         <div className="text-lg text-gray-700 text-center mb-2">
           <i className="fa-solid fa-lightbulb text-yellow-500 mr-2"></i>
           {safeQuestion.hint.replace(/^Hint: /i, '')}
-        </div>
-      )}
-      {checked && isCorrect === false && (
-        <div className="text-center text-2xl font-bold mt-2 text-red-600">
-          Try again!
-        </div>
-      )}
-      {checked && isCorrect === true && (
-        <div className="text-center text-2xl font-bold mt-2 text-green-600">
-          Correct!
         </div>
       )}
     </div>
@@ -958,6 +958,16 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
       onDragEnd={handleDragEnd}
     >
       <div className="animate-fadeIn">
+        {showTryAgain && (
+          <div className="text-2xl font-bold text-red-500 animate-fadeIn mb-4">
+            Try again!
+          </div>
+        )}
+        {isCorrect && (
+          <div className="text-center text-2xl font-bold mb-4 text-green-600">
+            Correct!
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-center gap-2 mb-12 text-2xl">
           {display}
         </div>
@@ -985,16 +995,6 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
             <i className="fa-solid fa-info-circle mr-1"></i>
             Drag words to fill blanks. Click a filled blank to remove its answer.
           </div>
-          {showTryAgain && (
-            <div className="text-2xl font-bold text-red-500 animate-fadeIn">
-              Try again!
-            </div>
-          )}
-          {isCorrect && (
-            <div className="text-3xl font-bold text-emerald-500 animate-fadeIn">
-              Correct!
-            </div>
-          )}
         </div>
       </div>
     </DndContext>

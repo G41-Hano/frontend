@@ -36,9 +36,6 @@ const emptyQuestion = {
   dropZones: [], // For Drag and Drop questions
   memoryCards: [], // For Memory Game questions
   pictureWord: [], // For Picture Word questions
-  story_title: '',
-  story_context: '',
-  sign_language_instructions: '',
   sentence: '', // For Drag and Drop sentence with blanks
   letterChoices: [], // For Blank Buster letter choices
 };
@@ -855,9 +852,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
         const base = {
           text: q.text,
           type: q.type,
-          story_title: q.story_title,
-          story_context: q.story_context,
-          sign_language_instructions: q.sign_language_instructions,
         };
         if (q.type === 'M' || q.type === 'F') {
           base.answer = q.answer;
