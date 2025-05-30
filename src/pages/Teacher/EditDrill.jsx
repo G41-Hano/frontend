@@ -306,6 +306,29 @@ const PictureWordQuestionForm = ({ question, onChange, setMediaModal }) => {
   );
 };
 
+const safeCreateObjectURL = (file) => {
+  try {
+    // Handle null or undefined
+    if (!file) return null;
+    
+    // If it's already a string URL, return it
+    if (typeof file === 'string') return file;
+    
+    // If it's an object with a URL, return the URL
+    if (file && typeof file === 'object') {
+      if (file.url) return file.url;
+      if (file instanceof File) return URL.createObjectURL(file);
+    }
+    
+    // Log unexpected input type
+    console.warn('Unexpected media type:', typeof file, file);
+    return null;
+  } catch (error) {
+    console.error('Error creating object URL:', error, file);
+    return null;
+  }
+};
+
 const EditDrill = () => {
   const [step, setStep] = useState(0);
   const [drill, setDrill] = useState(null);
@@ -1273,7 +1296,8 @@ const EditDrill = () => {
                       <i className="fa-solid fa-trash"></i>
                     </button>
                   </div>
-                  <div className="font-medium mb-2">Q{idx+1}: {q.text}</div>
+                  <div className="font-medium mb-2">Word: {q.word}</div>
+                  <div className="text-gray-600 mb-2">Definition: {q.definition}</div>
                   {/* Preview for question types */}
                   <div className="mb-2">
                     <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Smart Select' : q.type === 'F' ? 'Blank Busters' : q.type === 'D' ? 'Sentence Builder' : q.type === 'G' ? 'Memory Game' : q.type === 'P' ? 'Four Pics One Word' : ''}
@@ -1299,10 +1323,10 @@ const EditDrill = () => {
                                   let src = null;
                                   let type = '';
                                   if (c.media instanceof File) {
-                                    src = URL.createObjectURL(c.media);
+                                    src = safeCreateObjectURL(c.media);
                                     type = c.media.type;
                                   } else if (c.media && c.media.url) {
-                                    src = c.media.url;
+                                    src = safeCreateObjectURL(c.media);
                                     type = c.media.type || '';
                                   }
                               if (type.startsWith('image/')) {
@@ -1387,7 +1411,7 @@ const EditDrill = () => {
                                   return (
                             <div key={i} className="w-32 h-24 border rounded flex flex-col items-center justify-center bg-white p-1">
                               {card.media ? (
-                                <img src={typeof card.media === 'string' ? card.media : URL.createObjectURL(card.media)} alt="card" className="max-h-16 max-w-full mb-1" />
+                                <img src={typeof card.media === 'string' ? card.media : safeCreateObjectURL(card.media)} alt="card" className="max-h-16 max-w-full mb-1" />
                             ) : null}
                               <span className="text-xs text-center">{card.content}</span>
                               <span className="text-xs text-gray-400">Pair: {pairContent || <span className="text-gray-300">None</span>}</span>
@@ -1408,10 +1432,10 @@ const EditDrill = () => {
                                 let src = null;
                                 let type = '';
                                 if (pic.media instanceof File) {
-                                  src = URL.createObjectURL(pic.media);
+                                  src = safeCreateObjectURL(pic.media);
                                   type = pic.media.type;
                                 } else if (pic.media && pic.media.url) {
-                                  src = pic.media.url;
+                                  src = safeCreateObjectURL(pic.media);
                                   type = pic.media.type || '';
                                 }
                                 if (type.startsWith('image/')) {
@@ -2114,8 +2138,9 @@ const EditDrill = () => {
             </div>
             <div className="mb-6">
               {drill.questions.map((q, idx) => (
-                <div key={idx} className="mb-4 p-4 rounded-xl border-2 border-gray-100 bg-[#F7F9FC]">
-                  <div className="font-medium mb-2">Q{idx+1}: {q.text}</div>
+                <div key={idx} className="mb-4 p-4 rounded-xl border-2 border-gray-100 bg-[#F7F9FC] relative">
+                <div className="font-medium mb-2">Word: {q.word}</div>
+                <div className="text-gray-600 mb-2">Definition: {q.definition}</div>
                   {/* Preview for question types */}
                   <div className="mb-2">
                     <span className="font-semibold">Type:</span> {q.type === 'M' ? 'Smart Select' : q.type === 'F' ? 'Blank Busters' : q.type === 'D' ? 'Sentence Builder' : q.type === 'G' ? 'Memory Game' : q.type === 'P' ? 'Four Pics One Word' : ''}
@@ -2141,10 +2166,10 @@ const EditDrill = () => {
                                   let src = null;
                                   let type = '';
                                   if (c.media instanceof File) {
-                                    src = URL.createObjectURL(c.media);
+                                    src = safeCreateObjectURL(c.media);
                                     type = c.media.type;
                                   } else if (c.media && c.media.url) {
-                                    src = c.media.url;
+                                    src = safeCreateObjectURL(c.media);
                                     type = c.media.type || '';
                                   }
                               if (type.startsWith('image/')) {
@@ -2229,7 +2254,7 @@ const EditDrill = () => {
                                   return (
                             <div key={i} className="w-32 h-24 border rounded flex flex-col items-center justify-center bg-white p-1">
                               {card.media ? (
-                                <img src={typeof card.media === 'string' ? card.media : URL.createObjectURL(card.media)} alt="card" className="max-h-16 max-w-full mb-1" />
+                                <img src={typeof card.media === 'string' ? card.media : safeCreateObjectURL(card.media)} alt="card" className="max-h-16 max-w-full mb-1" />
                             ) : null}
                               <span className="text-xs text-center">{card.content}</span>
                               <span className="text-xs text-gray-400">Pair: {pairContent || <span className="text-gray-300">None</span>}</span>
@@ -2250,10 +2275,10 @@ const EditDrill = () => {
                                 let src = null;
                                 let type = '';
                                 if (pic.media instanceof File) {
-                                  src = URL.createObjectURL(pic.media);
+                                  src = safeCreateObjectURL(pic.media);
                                   type = pic.media.type;
                                 } else if (pic.media && pic.media.url) {
-                                  src = pic.media.url;
+                                  src = safeCreateObjectURL(pic.media);
                                   type = pic.media.type || '';
                                 }
                                 if (type.startsWith('image/')) {
