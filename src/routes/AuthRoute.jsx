@@ -79,8 +79,8 @@ export default function AuthRoute({children, requireAuth = true, requiredRole = 
   */
   if (!requireAuth && isAuthorized) {
     if (userRole != null) {
-      if (userRole === 'student') return <Navigate to="/s" />  //student home page
-      if (userRole === 'teacher') return <Navigate to="/t" /> //teacher home page
+      if (userRole === 'student') return <Navigate to="/s/home" />  //student home page
+      if (userRole === 'teacher') return <Navigate to="/t/classes" /> //teacher home page
     }
     return
   }

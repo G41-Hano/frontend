@@ -20,6 +20,13 @@ const ViewDrillResults = () => {
     studentsAnsweredCurrentQuestion: 0 
   });
 
+  // Helper function to get absolute URL for media
+  const getMediaUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `http://127.0.0.1:8000${url}`;
+  };
+
   useEffect(() => {
     const fetchDrillAndResults = async () => {
       try {
@@ -137,6 +144,7 @@ const ViewDrillResults = () => {
 
   const ImageWithFallback = ({ src, alt, className }) => {
     const [error, setError] = useState(false);
+    const absoluteSrc = getMediaUrl(src);
     
     return error ? (
       <div className={`${className} bg-gray-100 flex items-center justify-center`}>
@@ -144,7 +152,7 @@ const ViewDrillResults = () => {
       </div>
     ) : (
       <img 
-        src={src} 
+        src={absoluteSrc} 
         alt={alt} 
         className={className}
         onError={() => setError(true)}
@@ -185,7 +193,7 @@ const ViewDrillResults = () => {
         </div>
       </div>
       
-      {/* Stats Cards */}
+      {/* Stats Cards 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="bg-[#F7F9FC] p-4 rounded-xl border border-gray-100 shadow-sm">
           <div className="text-sm text-gray-500 mb-1">Total Students</div>
@@ -199,13 +207,12 @@ const ViewDrillResults = () => {
           <div className="text-sm text-gray-500 mb-1">Incorrect Answers</div>
           <div className="text-2xl font-bold text-red-500">{stats.incorrect}</div>
         </div>
-        {/* 
         <div className="bg-[#F0F4FF] p-4 rounded-xl border border-blue-100 shadow-sm">
           <div className="text-sm text-gray-500 mb-1">Avg. Time (min)</div>
           <div className="text-2xl font-bold text-blue-600">{stats.avgTime}</div>
         </div>
-        */}
       </div>
+      */}
       
       {/* Question Navigation */}
       <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -243,8 +250,8 @@ const ViewDrillResults = () => {
         <div className="mb-4">
           <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
             {questions[questionIdx]?.type === 'M' && 'Multiple Choice'}
-            {questions[questionIdx]?.type === 'F' && 'Fill in the Blank'}
-            {questions[questionIdx]?.type === 'D' && 'Drag and Drop'}
+            {questions[questionIdx]?.type === 'F' && 'Blank Busters'}
+            {questions[questionIdx]?.type === 'D' && 'Sentence Builder'}
             {questions[questionIdx]?.type === 'G' && 'Memory Game'}
             {questions[questionIdx]?.type === 'P' && 'Picture Word'}
           </span>
@@ -293,18 +300,35 @@ const ViewDrillResults = () => {
                       />
                     </div>
                   )}
+                  {choice.video && (
+                    <div className="mt-2">
+                      <video 
+                        src={getMediaUrl(choice.video)}
+                        className="max-h-32 rounded-lg object-cover"
+                        controls
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Fill in the Blank Answer */}
+        {/* Blank Busters Answer */}
         {questions[questionIdx]?.type === 'F' && (
           <div className="mb-4">
+            <div className="font-mono text-xl tracking-wider text-[#4C53B4] bg-[#EEF1F5] p-4 rounded-xl text-center mb-4">
+              {questions[questionIdx].pattern}
+            </div>
+            {questions[questionIdx].hint && (
+              <div className="text-sm text-gray-500 mb-4">
+                <span className="font-medium">Hint:</span> {questions[questionIdx].hint}
+              </div>
+            )}
             <h4 className="font-semibold text-gray-700 mb-2">Correct Answer:</h4>
             <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-              {questions[questionIdx].choices[parseInt(questions[questionIdx].answer)]?.text}
+              {questions[questionIdx].answer}
             </div>
           </div>
         )}
@@ -312,24 +336,32 @@ const ViewDrillResults = () => {
         {/* Drag and Drop Items */}
         {questions[questionIdx]?.type === 'D' && (
           <div className="mb-4">
-            <h4 className="font-semibold text-gray-700 mb-2">Drag Items and Drop Zones:</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h5 className="text-sm font-medium text-gray-600 mb-2">Drag Items:</h5>
-                <div className="space-y-2">
-                  {questions[questionIdx].dragItems?.map((item, idx) => (
-                    <div key={idx} className="p-2 bg-gray-50 border border-gray-200 rounded">
-                      {item.text}
-                    </div>
-                  ))}
-                </div>
+            <div className="mb-4 p-4 bg-[#F7F9FC] rounded-lg border border-[#4C53B4]/10">
+              {/* Sentence with Blanks */}
+              <div className="p-4 bg-white rounded-lg border border-gray-200">
+                {(questions[questionIdx].sentence || '').split('_').map((part, index, array) => (
+                  <span key={index}>
+                    {part}
+                    {index < array.length - 1 && (
+                      <span className="inline-block min-w-[100px] h-8 mx-2 bg-[#EEF1F5] border-2 border-dashed border-[#4C53B4]/30 rounded-lg align-middle"></span>
+                    )}
+                  </span>
+                ))}
               </div>
-              <div>
-                <h5 className="text-sm font-medium text-gray-600 mb-2">Drop Zones:</h5>
-                <div className="space-y-2">
-                  {questions[questionIdx].dropZones?.map((zone, idx) => (
-                    <div key={idx} className="p-2 bg-gray-50 border border-gray-200 rounded">
-                      {zone.text}
+              {/* Available Words */}
+              <div className="mt-4">
+                <div className="text-sm text-gray-600 mb-2">Choices:</div>
+                <div className="flex flex-wrap gap-2">
+                  {[...(questions[questionIdx].dragItems || []), ...(questions[questionIdx].incorrectChoices || [])].map((item, i) => (
+                    <div
+                      key={i}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium 
+                        ${item.isCorrect 
+                          ? 'bg-[#4C53B4]/10 text-[#4C53B4] border-2 border-[#4C53B4]/20' 
+                          : 'bg-gray-100 text-gray-600 border-2 border-gray-200'
+                        }`}
+                    >
+                      {item.text}
                     </div>
                   ))}
                 </div>
@@ -347,7 +379,7 @@ const ViewDrillResults = () => {
                 <div key={idx} className="aspect-square bg-gray-50 border border-gray-200 rounded-lg p-2 flex flex-col items-center justify-center">
                   {card.media && (
                     <ImageWithFallback 
-                      src={`http://127.0.0.1:8000${card.media.url}`} 
+                      src={card.media.url} 
                       alt={card.content || `Card ${idx + 1}`}
                       className="max-h-32 max-w-full object-contain mb-2"
                     />
