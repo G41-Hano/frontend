@@ -481,7 +481,7 @@ const EditDrill = () => {
 
             return {
               ...q,
-              answer: q.type === 'P' ? q.answer : answerIdx,
+              answer: q.type === 'P' ? q.answer : q.type === 'F' ? q.answer : answerIdx, 
               choices,
               memoryCards,
               pictureWord
@@ -1248,6 +1248,8 @@ const EditDrill = () => {
                           choices: q.choices ? q.choices.map(c => ({ ...c })) : [],
                           dragItems: q.dragItems ? [...q.dragItems] : [],
                           dropZones: q.dropZones ? [...q.dropZones] : [],
+                          memoryCards: q.memoryCards ? q.memoryCards.map(card => ({...card})) : [],
+                          pictureWord: q.pictureWord ? q.pictureWord.map(pic => ({...pic})) : [],
                         });
                         setQuestionEditIdx(idx);
                         setSelectedQuestionWord(q.word || '');
@@ -2052,7 +2054,8 @@ const EditDrill = () => {
                 </div>
               </div>
                )}
-            </div>
+               </div>
+
                 {/* Add/Edit Question Buttons */}
             {questionDraft && (
                 <div className="flex justify-end gap-2">
@@ -2074,6 +2077,12 @@ const EditDrill = () => {
                         letterChoices: questionDraft.type === 'F' ? [...(questionDraft.letterChoices || [])] : undefined,
                         dragItems: questionDraft.type === 'D' ? [...(questionDraft.dragItems || [])] : undefined,
                         incorrectChoices: questionDraft.type === 'D' ? [...(questionDraft.incorrectChoices || [])] : undefined,
+                        answer:
+                          questionDraft.type === 'F'
+                            ? selectedQuestionWord // For Blank Busters, answer should be the word itself
+                            : questionDraft.type === 'M'
+                              ? questionDraft.answer // For MCQ, keep as index
+                              : questionDraft.answer, // For others, keep as is
                       };
                       if (questionEditIdx !== null) {
                         const updatedQuestions = [...drill.questions];
@@ -2120,6 +2129,17 @@ const EditDrill = () => {
                   </button>
               </div>
             )}
+            
+            {/* Continue Button */}
+            <div className="flex justify-end mt-4">
+              <button
+                className="px-6 py-2 rounded-xl bg-[#4C53B4] text-white hover:bg-[#3a4095] hover:scale-105 transition"
+                onClick={() => setStep(3)}
+                disabled={drill.questions.length === 0}
+              >
+                Continue
+              </button>
+            </div>
             </>     
         )}
         {step === 3 && (

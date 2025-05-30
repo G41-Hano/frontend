@@ -858,6 +858,8 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           story_title: q.story_title,
           story_context: q.story_context,
           sign_language_instructions: q.sign_language_instructions,
+          word: q.word,
+          definition: q.definition,
         };
         if (q.type === 'M' || q.type === 'F') {
           base.answer = q.answer;
@@ -2211,6 +2213,13 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       letterChoices: questionDraft.type === 'F' ? [...(questionDraft.letterChoices || [])] : undefined,
                       dragItems: questionDraft.type === 'D' ? [...(questionDraft.dragItems || [])] : undefined,
                       incorrectChoices: questionDraft.type === 'D' ? [...(questionDraft.incorrectChoices || [])] : undefined,
+                      // --- Apply the same answer logic as in EditDrill.jsx ---
+                      answer:
+                        questionDraft.type === 'F'
+                          ? selectedQuestionWord // For Blank Busters, answer should be the word itself (string)
+                          : questionDraft.type === 'M'
+                            ? questionDraft.answer // For Smart Select (MCQ), keep as the selected index (number)
+                            : questionDraft.answer, // For others, keep as is (string, JSON, etc.)
                     };
                     if (questionEditIdx !== null) {
                       const updatedQuestions = [...drill.questions];
