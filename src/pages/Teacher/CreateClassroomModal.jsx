@@ -518,7 +518,7 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
                       Creating...
                     </>
                   ) : (csvFile || selectedStudents.length > 0) ? (
-                    'Create Classroom'
+                    'Submit'
                   ) : (
                     'Skip Adding Students'
                   )
