@@ -19,6 +19,7 @@ function Form({ route, method, userType }) { /* route is for the route when subm
     const [showPassword, setShowPassword] = useState(false); 
     const [showConfirmPassword, setShowConfirmPassword] = useState(false); 
     const [usernameStatus, setUsernameStatus] = useState({ checking: false, available: null }); 
+    const [emailStatus, setEmailStatus] = useState({ checking: false, available: null }); 
 
     const name = method === "login" ? "Log in to your Account" : `${userType} Registration`;
     const btnName = method === "login" ? "Login Now" : "Register";
@@ -46,7 +47,7 @@ function Form({ route, method, userType }) { /* route is for the route when subm
                 // If response indicates username exists
                 if (response.data.exists || response.data.message === "Username already exists") {
                     setUsernameStatus({ checking: false, available: false });
-                    setErrors(prev => ({ ...prev, username: "This username is already taken" }));
+                    setErrors(prev => ({ ...prev, username: "This username is already taken. Please try a different username." }));
                 } else {
                     setUsernameStatus({ checking: false, available: true });
                     setErrors(prev => ({ ...prev, username: "" }));
@@ -71,6 +72,50 @@ function Form({ route, method, userType }) { /* route is for the route when subm
         const timeoutId = setTimeout(checkUsername, 300);   // Wait 300ms after last username change before checking
         return () => clearTimeout(timeoutId);               // Cleanup function to clear timeout if username changes again
     }, [formData.username, method]);
+
+    // Check username availability when username changes
+    useEffect(() => {
+        const checkEmail = async () => {
+
+            if (method === "login" || !formData.email) {
+                setEmailStatus({ checking: false, available: null });
+                setErrors(prev => ({ ...prev, email: "" }));
+                return;
+            }
+
+            setEmailStatus({ checking: true, available: null }); 
+
+            try {
+                const response = await api.post(`/api/user/check-email/`, { email: formData.email });
+                console.log('Email check response:', response); 
+                
+                // If response indicates email exists
+                if (response.data.exists || response.data.message === "This email address is already taken") {
+                    setEmailStatus({ checking: false, available: false });
+                    setErrors(prev => ({ ...prev, email: "This email address is already taken. Please try a different email." }));
+                } else {
+                    setEmailStatus({ checking: false, available: true });
+                    setErrors(prev => ({ ...prev, email: "" }));
+                }
+            } catch (error) {
+                console.log('Email check error:', error.response); // Temporary debug log
+                
+                // If error response indicates email exists
+                if (error.response?.data?.exists || 
+                    error.response?.data?.message === "This email address already exists" ||
+                    error.response?.status === 400) {
+                    setEmailStatus({ checking: false, available: false });
+                    setErrors(prev => ({ ...prev, email: "This email is already taken" }));
+                } else {
+                    setEmailStatus({ checking: false, available: true });
+                    setErrors(prev => ({ ...prev, email: "" }));
+                }
+            }
+        };
+
+        const timeoutId = setTimeout(checkEmail, 300);   
+        return () => clearTimeout(timeoutId);              
+    }, [formData.email, method]);
 
 
     const validateForm = () => {
@@ -151,7 +196,16 @@ function Form({ route, method, userType }) { /* route is for the route when subm
         if (method !== "login" && !usernameStatus.available) {
             setErrors(prev => ({
                 ...prev,
-                username: "This username is already taken"
+                username: "This username is already taken. Please try a different username."
+            }));
+            return;
+        }
+
+        // Check email availability for registration
+        if (method !== "login" && !emailStatus.available) {
+            setErrors(prev => ({
+                ...prev,
+                email: "This email is already used. Please try a different email."
             }));
             return;
         }
@@ -203,7 +257,14 @@ function Form({ route, method, userType }) { /* route is for the route when subm
                     if (error.response?.data?.username) {
                         setErrors(prev => ({
                             ...prev,
-                            username: "This username is already taken"
+                            username: "This username is already taken. Please try a different username."
+                        }));
+                        return;
+                    }
+                    else if (error.response?.data?.email) {
+                        setErrors(prev => ({
+                            ...prev,
+                            email: "This email is already taken"
                         }));
                         return;
                     }
@@ -294,8 +355,33 @@ function Form({ route, method, userType }) { /* route is for the route when subm
                                 placeholder="Email"
                                 className={`input w-full pl-12 pr-4 py-3 rounded-2xl bg-white/50 border-2 ${errors.email ? 'border-red-500' : 'border-gray-200'} focus:border-[#4C53B4] focus:outline-none focus:ring-2 focus:ring-[#4C53B4]/20 transition-all duration-200`}
                             />
+                            {/* Email availability indicator - Only shown for registration */}
+                            {method !== "login" && formData.email && (
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2">
+                                    {emailStatus.checking ? (
+                                        <div className="w-5 h-5 border-2 border-gray-300 border-t-[#4C53B4] rounded-full animate-spin"></div>
+                                    ) : emailStatus.available === true ? (
+                                        <i className="fa-solid fa-check text-green-500"></i>
+                                    ) : emailStatus.available === false ? (
+                                        <i className="fa-solid fa-xmark text-red-500"></i>
+                                    ) : null}
+                                </span>
+                            )}
                         </div>
                         {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+                        {/* Email availability message - Only shown for registration */}
+                        {method !== "login" && formData.email && !errors.email && (
+                            <p className={`text-sm mt-1 ${
+                                emailStatus.available === true ? 'text-green-500' :
+                                emailStatus.available === false ? 'text-red-500' :
+                                'text-gray-500'
+                            }`}>
+                                {emailStatus.checking ? 'Checking availability...' :
+                                emailStatus.available === true ? 'Email is available' :
+                                emailStatus.available === false ? 'Email is taken' :
+                                ''}
+                            </p>
+                        )}
                     </div>
                 </div>
             )}
