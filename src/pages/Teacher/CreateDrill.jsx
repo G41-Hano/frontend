@@ -33,7 +33,6 @@ const emptyQuestion = {
   ],
   blankPosition: null,
   dragItems: [], // For Drag and Drop questions
-  dropZones: [], // For Drag and Drop questions
   memoryCards: [], // For Memory Game questions
   pictureWord: [], // For Picture Word questions
   sentence: '', // For Drag and Drop sentence with blanks
@@ -879,7 +878,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           base.sentence = q.sentence || '';
           base.dragItems = Array.isArray(q.dragItems) ? q.dragItems : [];
           base.incorrectChoices = Array.isArray(q.incorrectChoices) ? q.incorrectChoices : [];
-          base.dropZones = Array.isArray(q.dropZones) ? q.dropZones : [];
         }
         if (q.type === 'G') {
           base.memoryCards = Array.isArray(q.memoryCards) ? q.memoryCards.map(card => {
@@ -1630,7 +1628,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       pattern: newType === 'F' ? '' : undefined,
                       hint: newType === 'F' ? '' : undefined,
                       dragItems: newType === 'D' ? [] : undefined,
-                      dropZones: newType === 'D' ? [] : undefined,
                       memoryCards: newType === 'G' ? [] : undefined,
                       pictureWord: newType === 'P' ? [] : undefined,
                     });

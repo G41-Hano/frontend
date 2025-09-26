@@ -368,7 +368,6 @@ const EditDrill = () => {
     ],
     blankPosition: null,
     dragItems: [], // For Drag and Drop questions
-    dropZones: [], // For Drag and Drop questions
     memoryCards: [], // For Memory Game questions
     pictureWord: [], // For Picture Word questions
     sentence: '', // For Drag and Drop sentence with blanks
@@ -565,7 +564,6 @@ const EditDrill = () => {
       answer: 0,
       blankPosition: null,
       dragItems: [],
-      dropZones: [],
     });
     setQuestionEditIdx(null);
   };
@@ -1244,7 +1242,6 @@ const EditDrill = () => {
                           ...q,
                           choices: q.choices ? q.choices.map(c => ({ ...c })) : [],
                           dragItems: q.dragItems ? [...q.dragItems] : [],
-                          dropZones: q.dropZones ? [...q.dropZones] : [],
                           memoryCards: q.memoryCards ? q.memoryCards.map(card => ({...card})) : [],
                           pictureWord: q.pictureWord ? q.pictureWord.map(pic => ({...pic})) : [],
                         });
@@ -1509,8 +1506,6 @@ const EditDrill = () => {
                                 answer: '',
                                 pattern: newType === 'F' ? '' : undefined,
                                 hint: newType === 'F' ? '' : undefined,
-                                dragItems: newType === 'D' ? [] : undefined,
-                                dropZones: newType === 'D' ? [] : undefined,
                                 memoryCards: newType === 'G' ? [] : undefined,
                                 pictureWord: newType === 'P' ? [] : undefined,
                       });
