@@ -94,142 +94,6 @@ const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer, answerStatu
   );
 };
 
-const FillInBlankQuestion = ({ question, onAnswer, currentAnswer }) => {
-  // For fill in the blank, split the text by underscore
-  const parts = question.text.split('_');
-  
-  return (
-    <div className="animate-fadeIn">
-      <div className="text-xl mb-6 text-center">
-        {parts[0]}
-        <span className="inline-block min-w-[120px] border-b-2 border-[#8e44ad] mx-1 text-center font-bold text-[#8e44ad]">
-          {currentAnswer !== null && question.choices[currentAnswer] ? question.choices[currentAnswer].text : '_____'}
-        </span>
-        {parts[1]}
-      </div>
-      
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-6">
-        {question.choices.map((choice, index) => (
-          <button
-            key={index}
-            className={`p-3 rounded-lg text-center transition-all ${
-              currentAnswer === index 
-                ? 'bg-[#8e44ad] text-white shadow-lg scale-105 border-2 border-[#9b59b6]' 
-                : 'bg-white border-2 border-gray-200 hover:border-[#9b59b6] hover:shadow-md'
-            }`}
-            onClick={() => onAnswer(index)}
-          >
-            {choice.text}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const DragDropQuestion = ({ question, onAnswer, currentAnswers = {} }) => {
-  const dragItems = question.dragItems || [];
-  const dropZones = question.dropZones || [];
-  
-  // Function to handle when an item is dropped in a zone
-  const handleDrop = (dragIndex, zoneIndex) => {
-    const newAnswers = {...currentAnswers};
-    newAnswers[zoneIndex] = dragIndex;
-    onAnswer(newAnswers);
-  };
-  
-  // Reset a specific mapping
-  const resetMapping = (zoneIndex) => {
-    const newAnswers = {...currentAnswers};
-    delete newAnswers[zoneIndex];
-    onAnswer(newAnswers);
-  };
-  
-  return (
-    <div className="animate-fadeIn">
-      <div className="flex flex-col md:flex-row gap-8 mt-6">
-        {/* Drag Items */}
-        <div className="md:w-1/2">
-          <h3 className="text-lg font-semibold mb-3 text-[#8e44ad]">Drag Items</h3>
-          <div className="space-y-2">
-            {dragItems.map((item, index) => {
-              // Check if this item is already used in an answer
-              const isUsed = Object.values(currentAnswers).includes(index);
-              
-              return (
-                <div
-                  key={index}
-                  className={`p-3 rounded-lg bg-white border-2 ${
-                    isUsed ? 'opacity-50 border-gray-200' : 'border-[#9b59b6] cursor-grab'
-                  }`}
-                  draggable={!isUsed}
-                  onDragStart={(e) => {
-                    if (!isUsed) {
-                      e.dataTransfer.setData('dragIndex', index);
-                    }
-                  }}
-                >
-                  {item.text}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        
-        {/* Drop Zones */}
-        <div className="md:w-1/2">
-          <h3 className="text-lg font-semibold mb-3 text-[#8e44ad]">Drop Zones</h3>
-          <div className="space-y-3">
-            {dropZones.map((zone, zoneIndex) => {
-              const mappedItemIndex = currentAnswers[zoneIndex];
-              const mappedItem = mappedItemIndex !== undefined ? dragItems[mappedItemIndex] : null;
-              
-              return (
-                <div
-                  key={zoneIndex}
-                  className="flex flex-col gap-2"
-                >
-                  <div className="p-3 rounded-lg bg-[#f1f2f6] border-2 border-gray-300">
-                    {zone.text}
-                  </div>
-                  
-                  <div
-                    className={`h-12 p-2 rounded-lg border-2 border-dashed ${
-                      mappedItem ? 'bg-white border-[#9b59b6]' : 'bg-gray-50 border-gray-300'
-                    } flex items-center justify-between`}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const dragIndex = parseInt(e.dataTransfer.getData('dragIndex'));
-                      handleDrop(dragIndex, zoneIndex);
-                    }}
-                  >
-                    {mappedItem ? (
-                      <>
-                        <span>{mappedItem.text}</span>
-                        <button 
-                          onClick={() => resetMapping(zoneIndex)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <i className="fa-solid fa-xmark"></i>
-                        </button>
-                      </>
-                    ) : (
-                      <span className="text-gray-400 text-sm">Drop item here...</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // Memory Game Question Component
 const MemoryGameQuestion = ({ question, onAnswer }) => {
   const [flipped, setFlipped] = useState([]); // array of card ids currently flipped
@@ -364,9 +228,8 @@ const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
     const userAnswer = answer.toLowerCase().trim();
     const isAnswerCorrect = userAnswer === correctAnswer;
     setIsCorrect(isAnswerCorrect);
-    if (isAnswerCorrect) {
-      onAnswer(answer, true); // Only call onAnswer with isCorrect=true if correct
-    }
+    // Always call onAnswer with the result, whether correct or incorrect
+    onAnswer(answer, isAnswerCorrect);
   };
 
   return (
@@ -591,16 +454,16 @@ const calculateCurrentStep = (introStep, currentWordIdx, currentQuestionIdx, wor
   return step;
 };
 
-// Points calculation helper
+// Points calculation helper - frontend is the single source of truth for scoring
 const calculatePoints = (attempts, timeSpent, isCorrect) => {
   if (!isCorrect) return 0;
   // Base points: 100
-  // -20 points per wrong attempt
-  // -1 point per 5 seconds spent
+  // -10 points per wrong attempt (matching backend formula exactly)
+  // -1 point per 5 seconds spent (frontend enhancement for better UX)
   // Maximum time penalty is 30 points
   const wrongAttempts = attempts || 0;
   const timePenalty = Math.min(30, Math.floor((timeSpent || 0) / 5));
-  const points = Math.max(0, 100 - (wrongAttempts * 20) - timePenalty);
+  const points = Math.max(0, 100 - (wrongAttempts * 10) - timePenalty);
   return points;
 };
 
@@ -700,7 +563,7 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
     const correct = userAnswer.toUpperCase() === (safeQuestion.answer || '').toUpperCase();
     setChecked(true);
     setIsCorrect(correct);
-    onAnswer(selectedIndexes, correct); // Pass correctness up
+    onAnswer(userAnswer, correct); // Pass the built string, not the array
     if (!correct) {
       setIsShaking(true);
       setTimeout(() => {
@@ -811,6 +674,7 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
   const [isCorrect, setIsCorrect] = useState(false);
   const [showTryAgain, setShowTryAgain] = useState(false);
   const [activeId, setActiveId] = useState(null);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   useEffect(() => {
     setBlankAnswers(
@@ -851,10 +715,10 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
               ref={setNodeRef}
               onClick={() => {
                 if (answerIdx !== null && !isCorrect) {
+                  setHasInteracted(true);
                   const newAnswers = [...blankAnswers];
                   newAnswers[currentBlankIdx] = null;
                   setBlankAnswers(newAnswers);
-                  onAnswer(newAnswers, false);
                   setShowTryAgain(false);
                   setIsIncorrect(false);
                 }
@@ -882,22 +746,24 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
 
   // Auto-check answer when all blanks are filled
   useEffect(() => {
-    if (isComplete && !isCorrect) {
+    if (isComplete && !isCorrect && hasInteracted) {
       // Get correct answers from dragItems array
-      const correctAnswers = question.dragItems.map(item => item.text.toLowerCase().trim());
-      const currentAnswers = blankAnswers.map(idx => choices[idx]?.text.toLowerCase().trim());
+      const correctAnswers = (question.dragItems || []).map(item => (item.text || '').toLowerCase().trim());
+      const currentAnswers = blankAnswers.map(idx => (choices[idx]?.text || '').toLowerCase().trim());
       
       const isAllCorrect = currentAnswers.every((answer, index) => answer === correctAnswers[index]);
+      const submittedTexts = blankAnswers.map(idx => choices[idx]?.text || '');
       
       if (isAllCorrect) {
         setIsCorrect(true);
         setIsIncorrect(false);
         setShowTryAgain(false);
-        onAnswer(blankAnswers, true);
+        // Send texts instead of indices so backend validation is order/text-based
+        onAnswer(submittedTexts, true);
       } else {
         setIsIncorrect(true);
         setShowTryAgain(true);
-        onAnswer(blankAnswers, false);
+        onAnswer(submittedTexts, false);
         // Clear answers 
         setTimeout(() => {
           setBlankAnswers(Array(blanksCount).fill(null));
@@ -905,11 +771,9 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
           setShowTryAgain(false);
         }, 2000); //2 seconds
       }
-    } else if (!isComplete) {
-      // If sentence is not complete, don't show any error state
-      onAnswer(blankAnswers, false);
     }
-  }, [isComplete, blankAnswers]);
+    // Remove the else clause that was calling onAnswer for incomplete sentences
+  }, [isComplete, blankAnswers, hasInteracted]);
 
   // Handle drag start
   const handleDragStart = (event) => {
@@ -929,11 +793,14 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
     const draggedItemIndex = parseInt(active.id.split('-')[1]);
     const targetBlankIndex = parseInt(over.id.split('-')[1]);
 
+    // Mark that user has interacted
+    setHasInteracted(true);
+
     // Update answers
     const newAnswers = [...blankAnswers];
     newAnswers[targetBlankIndex] = draggedItemIndex;
     setBlankAnswers(newAnswers);
-    onAnswer(newAnswers, false);
+    // Don't call onAnswer here - let the useEffect handle it when complete
   };
 
   // Choices not yet used
@@ -1274,67 +1141,39 @@ const TakeDrill = () => {
     setCurrentAnswer(answer);
     const key = `${currentWordIdx}_${currentQuestionIdx}`;
     
-    // For Sentence Builder (type D)
-    if (currentQuestion.type === 'D') {
-      if (isCorrect) {
-        setAnswerStatus('correct');
-        const points = calculatePoints(attempts[key], timeSpent[key], true);
-        setPoints(prev => ({ ...prev, [key]: points }));
-        
-        // Submit answer to backend
-        try {
-          await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
-            answer: answer,
-            time_taken: timeSpent[key],
-            wrong_attempts: attempts[key] || 0,
-            points: points
-          });
-        } catch (error) {
-          console.error('Failed to submit answer:', error);
-        }
-      } else if (answer.some(a => a !== null)) {
-        setAnswerStatus('wrong');
-        setAttempts(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-      } else {
-        setAnswerStatus(null);
-      }
-      return;
-    }
-    
-    // Handle other question types
+    // Determine correctness for all question types
     let correct = false;
     
     if (currentQuestion.type === 'M') {
       correct = parseInt(answer) === parseInt(currentQuestion.answer);
     } else if (currentQuestion.type === 'F') {
-      if (Array.isArray(answer)) {
-        const userAnswer = currentQuestion.pattern.split(' ').map((char, idx) => {
-          if (char === '_') {
-            const selectedIdx = answer[idx - currentQuestion.pattern.split(' ').slice(0, idx).filter(c => c === '_').length];
-            return selectedIdx !== undefined ? currentQuestion.letterChoices[selectedIdx] : '';
-          }
-          return char;
-        }).join('').replace(/ /g, '');
-        correct = userAnswer.toUpperCase() === (currentQuestion.answer || '').toUpperCase();
-      }
+      // For Blank Busters, use the isCorrect parameter passed from the component
+      correct = isCorrect;
+      console.log(`Blank Busters - Submitted answer: "${answer}", Correct answer: "${currentQuestion.answer}", Is correct: ${correct}`);
+    } else if (currentQuestion.type === 'D') {
+      // For Sentence Builder, use the isCorrect parameter passed from the component
+      correct = isCorrect;
     } else if (currentQuestion.type === 'P') {
       correct = (answer || '').toLowerCase().trim() === (currentQuestion.answer || '').toLowerCase().trim();
     } else if (currentQuestion.type === 'G') {
       correct = Array.isArray(answer) && answer.length === (currentQuestion.memoryCards?.length || 0);
     }
     
-    if (correct || isCorrect) {
+    // Always submit to backend for all question types
+    if (correct) {
       setAnswerStatus('correct');
       const earnedPoints = calculatePoints(attempts[key], timeSpent[key], true);
       setPoints(prev => ({ ...prev, [key]: earnedPoints }));
 
-      // Submit answer to backend
+      // Submit correct answer to backend
       try {
+        console.log(`Submitting correct answer for question ID ${currentQuestion.id}, type ${currentQuestion.type}, points ${earnedPoints}`);
         await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
           answer: answer,
           time_taken: timeSpent[key],
           wrong_attempts: attempts[key] || 0,
-          points: earnedPoints
+          points: earnedPoints,
+          question_type: currentQuestion.type
         });
       } catch (error) {
         console.error('Failed to submit answer:', error);
@@ -1345,6 +1184,20 @@ const TakeDrill = () => {
         setWrongAnswers(prev => prev.includes(answer) ? prev : [...prev, answer]);
       }
       setAttempts(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+      
+      // Submit incorrect answer to backend as well
+      try {
+        console.log(`Submitting incorrect answer for question ID ${currentQuestion.id}, type ${currentQuestion.type}, points 0`);
+        await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
+          answer: answer,
+          time_taken: timeSpent[key],
+          wrong_attempts: attempts[key] || 0,
+          points: 0,
+          question_type: currentQuestion.type
+        });
+      } catch (error) {
+        console.error('Failed to submit answer:', error);
+      }
     }
   };
 

@@ -73,7 +73,7 @@ function Form({ route, method, userType }) { /* route is for the route when subm
         return () => clearTimeout(timeoutId);               // Cleanup function to clear timeout if username changes again
     }, [formData.username, method]);
 
-    // Check username availability when username changes
+    // Check email availability when email changes
     useEffect(() => {
         const checkEmail = async () => {
 
