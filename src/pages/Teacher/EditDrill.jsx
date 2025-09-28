@@ -491,6 +491,7 @@ const EditDrill = () => {
           drillData.wordlistType = 'custom';
           drillData.wordlistName = wordlistRes.data.name;
           drillData.customWordList = (wordlistRes.data.words || []).map(w => ({
+            id: w.id,
             word: w.word,
             definition: w.definition,
             image: w.image_url ? { 
@@ -583,6 +584,31 @@ const EditDrill = () => {
     setSubmittingAction(status);
     try {
       const formData = new FormData();
+      // Upsert custom word list first if applicable so we can attach its id
+      if (drill.wordlistType === 'custom') {
+        const wordlistPayload = {
+          name: drill.wordlistName || '',
+          description: customListDesc || '',
+          words: (drill.customWordList || []).map((w) => ({
+            id: w.id,
+            word: w.word,
+            definition: w.definition,
+            image_url: w.image && w.image.url ? w.image.url : null,
+            video_url: w.signVideo && w.signVideo.url ? w.signVideo.url : null,
+          })),
+        };
+
+        if (drill.custom_wordlist) {
+          await api.put(`/api/wordlist/${drill.custom_wordlist}/`, wordlistPayload);
+          formData.append('custom_wordlist', drill.custom_wordlist);
+        } else {
+          const createRes = await api.post('/api/wordlist/', wordlistPayload);
+          const newListId = createRes?.data?.id;
+          if (newListId) {
+            formData.append('custom_wordlist', newListId);
+          }
+        }
+      }
       const questions = drill.questions.map((q, qIdx) => {
         const base = {
           id: q.id,

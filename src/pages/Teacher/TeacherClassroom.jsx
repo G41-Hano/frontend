@@ -112,6 +112,7 @@ const TeacherClassroom = () => {
     try {
       const response = await api.get(`/api/drills/?classroom=${id}`);
       setDrills(response.data);
+      //console.log('Drills:', response.data);
     } catch {
       setDrills([]);
     }
@@ -794,6 +795,7 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
       {open && (
         <div className="bg-[#F7F9FC] px-8 py-6 border-t border-[#F7D9A0] flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="flex-1 flex flex-col gap-2">
+            <div className="text-gray-500 text-sm">Description: <span className="font-medium text-gray-700">{drill.description}</span></div>
             <div className="text-gray-500 text-sm">Open: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
             <div className="text-gray-500 text-sm">Due: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
           </div>

@@ -228,9 +228,8 @@ const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
     const userAnswer = answer.toLowerCase().trim();
     const isAnswerCorrect = userAnswer === correctAnswer;
     setIsCorrect(isAnswerCorrect);
-    if (isAnswerCorrect) {
-      onAnswer(answer, true); // Only call onAnswer with isCorrect=true if correct
-    }
+    // Always call onAnswer with the result, whether correct or incorrect
+    onAnswer(answer, isAnswerCorrect);
   };
 
   return (
@@ -455,16 +454,16 @@ const calculateCurrentStep = (introStep, currentWordIdx, currentQuestionIdx, wor
   return step;
 };
 
-// Points calculation helper
+// Points calculation helper - frontend is the single source of truth for scoring
 const calculatePoints = (attempts, timeSpent, isCorrect) => {
   if (!isCorrect) return 0;
   // Base points: 100
-  // -20 points per wrong attempt
-  // -1 point per 5 seconds spent
+  // -10 points per wrong attempt (matching backend formula exactly)
+  // -1 point per 5 seconds spent (frontend enhancement for better UX)
   // Maximum time penalty is 30 points
   const wrongAttempts = attempts || 0;
   const timePenalty = Math.min(30, Math.floor((timeSpent || 0) / 5));
-  const points = Math.max(0, 100 - (wrongAttempts * 20) - timePenalty);
+  const points = Math.max(0, 100 - (wrongAttempts * 10) - timePenalty);
   return points;
 };
 
@@ -564,7 +563,7 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
     const correct = userAnswer.toUpperCase() === (safeQuestion.answer || '').toUpperCase();
     setChecked(true);
     setIsCorrect(correct);
-    onAnswer(selectedIndexes, correct); // Pass correctness up
+    onAnswer(userAnswer, correct); // Pass the built string, not the array
     if (!correct) {
       setIsShaking(true);
       setTimeout(() => {
@@ -675,6 +674,7 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
   const [isCorrect, setIsCorrect] = useState(false);
   const [showTryAgain, setShowTryAgain] = useState(false);
   const [activeId, setActiveId] = useState(null);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   useEffect(() => {
     setBlankAnswers(
@@ -715,10 +715,10 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
               ref={setNodeRef}
               onClick={() => {
                 if (answerIdx !== null && !isCorrect) {
+                  setHasInteracted(true);
                   const newAnswers = [...blankAnswers];
                   newAnswers[currentBlankIdx] = null;
                   setBlankAnswers(newAnswers);
-                  onAnswer(newAnswers, false);
                   setShowTryAgain(false);
                   setIsIncorrect(false);
                 }
@@ -746,22 +746,24 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
 
   // Auto-check answer when all blanks are filled
   useEffect(() => {
-    if (isComplete && !isCorrect) {
+    if (isComplete && !isCorrect && hasInteracted) {
       // Get correct answers from dragItems array
-      const correctAnswers = question.dragItems.map(item => item.text.toLowerCase().trim());
-      const currentAnswers = blankAnswers.map(idx => choices[idx]?.text.toLowerCase().trim());
+      const correctAnswers = (question.dragItems || []).map(item => (item.text || '').toLowerCase().trim());
+      const currentAnswers = blankAnswers.map(idx => (choices[idx]?.text || '').toLowerCase().trim());
       
       const isAllCorrect = currentAnswers.every((answer, index) => answer === correctAnswers[index]);
+      const submittedTexts = blankAnswers.map(idx => choices[idx]?.text || '');
       
       if (isAllCorrect) {
         setIsCorrect(true);
         setIsIncorrect(false);
         setShowTryAgain(false);
-        onAnswer(blankAnswers, true);
+        // Send texts instead of indices so backend validation is order/text-based
+        onAnswer(submittedTexts, true);
       } else {
         setIsIncorrect(true);
         setShowTryAgain(true);
-        onAnswer(blankAnswers, false);
+        onAnswer(submittedTexts, false);
         // Clear answers 
         setTimeout(() => {
           setBlankAnswers(Array(blanksCount).fill(null));
@@ -769,11 +771,9 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
           setShowTryAgain(false);
         }, 2000); //2 seconds
       }
-    } else if (!isComplete) {
-      // If sentence is not complete, don't show any error state
-      onAnswer(blankAnswers, false);
     }
-  }, [isComplete, blankAnswers]);
+    // Remove the else clause that was calling onAnswer for incomplete sentences
+  }, [isComplete, blankAnswers, hasInteracted]);
 
   // Handle drag start
   const handleDragStart = (event) => {
@@ -793,11 +793,14 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
     const draggedItemIndex = parseInt(active.id.split('-')[1]);
     const targetBlankIndex = parseInt(over.id.split('-')[1]);
 
+    // Mark that user has interacted
+    setHasInteracted(true);
+
     // Update answers
     const newAnswers = [...blankAnswers];
     newAnswers[targetBlankIndex] = draggedItemIndex;
     setBlankAnswers(newAnswers);
-    onAnswer(newAnswers, false);
+    // Don't call onAnswer here - let the useEffect handle it when complete
   };
 
   // Choices not yet used
@@ -1138,66 +1141,39 @@ const TakeDrill = () => {
     setCurrentAnswer(answer);
     const key = `${currentWordIdx}_${currentQuestionIdx}`;
     
-    // For Sentence Builder (type D)
-    if (currentQuestion.type === 'D') {
-      if (isCorrect) {
-        setAnswerStatus('correct');
-        const points = calculatePoints(attempts[key], timeSpent[key], true);
-        setPoints(prev => ({ ...prev, [key]: points }));
-        
-        // Submit answer to backend
-        try {
-          await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
-            answer: answer,
-            wrong_attempts: attempts[key] || 0,
-            points: points
-          });
-        } catch (error) {
-          console.error('Failed to submit answer:', error);
-        }
-      } else if (answer.some(a => a !== null)) {
-        setAnswerStatus('wrong');
-        setAttempts(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
-      } else {
-        setAnswerStatus(null);
-      }
-      return;
-    }
-    
-    // Handle other question types
+    // Determine correctness for all question types
     let correct = false;
     
     if (currentQuestion.type === 'M') {
       correct = parseInt(answer) === parseInt(currentQuestion.answer);
     } else if (currentQuestion.type === 'F') {
-      if (Array.isArray(answer)) {
-        const userAnswer = currentQuestion.pattern.split(' ').map((char, idx) => {
-          if (char === '_') {
-            const selectedIdx = answer[idx - currentQuestion.pattern.split(' ').slice(0, idx).filter(c => c === '_').length];
-            return selectedIdx !== undefined ? currentQuestion.letterChoices[selectedIdx] : '';
-          }
-          return char;
-        }).join('').replace(/ /g, '');
-        correct = userAnswer.toUpperCase() === (currentQuestion.answer || '').toUpperCase();
-      }
+      // For Blank Busters, use the isCorrect parameter passed from the component
+      correct = isCorrect;
+      console.log(`Blank Busters - Submitted answer: "${answer}", Correct answer: "${currentQuestion.answer}", Is correct: ${correct}`);
+    } else if (currentQuestion.type === 'D') {
+      // For Sentence Builder, use the isCorrect parameter passed from the component
+      correct = isCorrect;
     } else if (currentQuestion.type === 'P') {
       correct = (answer || '').toLowerCase().trim() === (currentQuestion.answer || '').toLowerCase().trim();
     } else if (currentQuestion.type === 'G') {
       correct = Array.isArray(answer) && answer.length === (currentQuestion.memoryCards?.length || 0);
     }
     
-    if (correct || isCorrect) {
+    // Always submit to backend for all question types
+    if (correct) {
       setAnswerStatus('correct');
       const earnedPoints = calculatePoints(attempts[key], timeSpent[key], true);
       setPoints(prev => ({ ...prev, [key]: earnedPoints }));
 
-      // Submit answer to backend
+      // Submit correct answer to backend
       try {
+        console.log(`Submitting correct answer for question ID ${currentQuestion.id}, type ${currentQuestion.type}, points ${earnedPoints}`);
         await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
           answer: answer,
           time_taken: timeSpent[key],
           wrong_attempts: attempts[key] || 0,
-          points: earnedPoints
+          points: earnedPoints,
+          question_type: currentQuestion.type
         });
       } catch (error) {
         console.error('Failed to submit answer:', error);
@@ -1208,6 +1184,20 @@ const TakeDrill = () => {
         setWrongAnswers(prev => prev.includes(answer) ? prev : [...prev, answer]);
       }
       setAttempts(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+      
+      // Submit incorrect answer to backend as well
+      try {
+        console.log(`Submitting incorrect answer for question ID ${currentQuestion.id}, type ${currentQuestion.type}, points 0`);
+        await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
+          answer: answer,
+          time_taken: timeSpent[key],
+          wrong_attempts: attempts[key] || 0,
+          points: 0,
+          question_type: currentQuestion.type
+        });
+      } catch (error) {
+        console.error('Failed to submit answer:', error);
+      }
     }
   };
 
