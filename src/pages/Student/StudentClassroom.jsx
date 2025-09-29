@@ -61,6 +61,7 @@ const StudentClassroom = () => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
   const [drillResults, setDrillResults] = useState({});
+  const [studentDrillResults, setStudentDrillResults] = useState({});
   const [openMenuDrillId, setOpenMenuDrillId] = useState(null);
   const menuRef = useRef();
 
@@ -106,6 +107,44 @@ const StudentClassroom = () => {
     }
   };
 
+  // Fetch current student's results for a specific drill (student-specific endpoint)
+  const fetchDrillResultsForStudent = async (drillId) => {
+    try {
+      const response = await api.get(`/api/drills/${drillId}/results/student/`);
+      console.log('Student Drill Results for Drill', drillId, ':', response.data);
+
+      // Normalize possible response shapes into an array of attempts
+      const raw = response.data;
+      const attempts = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.results)
+          ? raw.results
+          : raw
+            ? [raw]
+            : [];
+
+      if (attempts.length > 0) {
+        const getAttemptTotal = (attempt) => (attempt.question_results || [])
+          .reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
+
+        // Find the attempt with the highest total points (computed from question_results)
+        const bestAttempt = attempts.reduce((best, current) => {
+          return getAttemptTotal(best) >= getAttemptTotal(current) ? best : current;
+        }, attempts[0]);
+
+        const totalPointsForBestAttempt = getAttemptTotal(bestAttempt);
+        setStudentDrillResults(prev => ({ ...prev, [drillId]: totalPointsForBestAttempt }));
+      } else {
+        // No attempts for this drill for the current student
+        setStudentDrillResults(prev => ({ ...prev, [drillId]: 0 }));
+      }
+
+    } catch (error) {
+      console.error('Error fetching student drill results for drill', drillId, ':', error.response?.data || error.message);
+      setStudentDrillResults(prev => ({ ...prev, [drillId]: 0 }));
+    }
+  };
+
   // Fetch classroom and students data
   useEffect(() => {
     const fetchClassroomData = async () => {
@@ -132,6 +171,7 @@ const StudentClassroom = () => {
         // Fetch results for each drill
         for (const drill of publishedDrills) {
           await fetchDrillResults(drill.id);
+          await fetchDrillResultsForStudent(drill.id);
         }
         
         setError(null);
@@ -336,7 +376,7 @@ const StudentClassroom = () => {
                           <div className="flex items-center gap-4">
                             <div className="text-right">
                               <div className="text-sm text-gray-500">Total Points</div>
-                              <div className="text-lg font-bold text-[#4C53B4]">{drillResults[drill.id] || 0} pts</div>
+                              <div className="text-lg font-bold text-[#4C53B4]">{studentDrillResults[drill.id] || 0} pts</div>
                             </div>
                             {/* Kebab menu button */}
                             <div className="relative" ref={openMenuDrillId === drill.id ? menuRef : null} onClick={e => e.stopPropagation()}>
