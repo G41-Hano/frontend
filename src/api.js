@@ -7,9 +7,23 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem(ACCESS_TOKEN);
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Do NOT attach Authorization for endpoints that must be anonymous
+    const noAuthPaths = [
+      '/api/password-reset/',       // request reset email
+      '/api/reset-password/'        // submit new password with reset token
+    ];
+
+    const urlPath = config?.url || '';
+    const shouldSkipAuth = noAuthPaths.some((p) => urlPath.startsWith(p));
+
+    if (!shouldSkipAuth) {
+      const token = localStorage.getItem(ACCESS_TOKEN);
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } else if (config.headers && config.headers.Authorization) {
+      // Ensure no stale auth header leaks into anonymous endpoints
+      delete config.headers.Authorization;
     }
     return config
   },
