@@ -15,9 +15,7 @@ const StudentHome = () => {
   useEffect(() => {
     const fetchBadges = async () => {
       try {
-        console.log('Fetching badges for user:', user.id);
         const response = await api.get('/api/badges/');
-        console.log('Badges response:', response.data);
         setBadges(response.data);
       } catch (error) {
         console.error('Error fetching badges:', error);

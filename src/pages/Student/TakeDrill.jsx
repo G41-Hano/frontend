@@ -519,10 +519,25 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
     [selectedIndexes]
   );
 
-  const getMaxCount = useCallback((idx) =>
-    letterChoices.filter(l => l === letterChoices[idx]).length,
-    [letterChoices]
-  );
+  const getMaxCount = useCallback((idx) => {
+    // Count how many times this specific letter choice can be used
+    const letter = letterChoices[idx];
+    const correctAnswer = (safeQuestion.answer || '').toUpperCase();
+    
+    // Count how many times this letter appears in the correct answer
+    const letterCountInAnswer = correctAnswer.split('').filter(char => char === letter).length;
+    
+    // Count how many times this letter appears in the letterChoices array
+    const letterCountInChoices = letterChoices.filter(l => l === letter).length;
+    
+    // For letters in the answer: use the minimum of what's needed and what's available
+    // For letters not in the answer: allow 1 use (for wrong attempts)
+    if (letterCountInAnswer > 0) {
+      return Math.min(letterCountInAnswer, letterCountInChoices);
+    } else {
+      return 1; // Allow one wrong attempt
+    }
+  }, [letterChoices, safeQuestion.answer]);
 
   // Helper: Build user answer and check correctness
   const buildUserAnswer = () => {
@@ -540,9 +555,33 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
     return userAnswerArr.join('').replace(/ /g, '');
   };
 
-  // Choices: only fill first empty blank
+  // Choices: fill first empty blank, but allow selecting same letter multiple times
   const handleLetterChoiceClick = (choiceIdx) => {
     if (answerStatus === 'correct') return;
+    
+    const letter = letterChoices[choiceIdx];
+    const correctAnswer = (safeQuestion.answer || '').toUpperCase();
+    
+    // Count total usage of this letter across all instances
+    const totalUsageOfLetter = selectedIndexes
+      .filter(selIdx => selIdx !== undefined && letterChoices[selIdx] === letter)
+      .length;
+    
+    // Count how many times this letter appears in the correct answer
+    const letterCountInAnswer = correctAnswer.split('').filter(char => char === letter).length;
+    
+    // Check if this letter can still be used
+    let canUse;
+    if (letterCountInAnswer > 0) {
+      // For letters in the answer: can use if total usage < what's needed
+      canUse = totalUsageOfLetter < letterCountInAnswer;
+    } else {
+      // For letters not in the answer: can use if total usage < 1
+      canUse = totalUsageOfLetter < 1;
+    }
+    
+    if (!canUse) return; // Can't use this letter anymore
+    
     const firstEmpty = selectedIndexes.findIndex(idx => idx === undefined);
     if (firstEmpty === -1) return;
     dispatch({ type: 'SET_INDEX', blankIdx: firstEmpty, choiceIdx });
@@ -604,17 +643,35 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
     }
   });
 
-  // Only show unused choices
-  const availableChoices = [];
-  letterChoices.forEach((letter, idx) => {
-    const totalCount = letterChoices.filter(l => l === letter).length;
-    const usedCount = selectedIndexes
+  // Show all choices, but disable those that can't be used anymore
+  const availableChoices = letterChoices.map((letter, idx) => {
+    // Count total usage of this letter across all instances
+    const totalUsageOfLetter = selectedIndexes
       .filter(selIdx => selIdx !== undefined && letterChoices[selIdx] === letter)
       .length;
-    let alreadyPushed = availableChoices.filter(c => c.letter === letter).length;
-    if (usedCount + alreadyPushed < totalCount) {
-      availableChoices.push({ letter, idx });
+    
+    // Count how many times this letter appears in choices
+    const letterCountInChoices = letterChoices.filter(l => l === letter).length;
+    
+    // Count how many times this letter appears in the correct answer
+    const correctAnswer = (safeQuestion.answer || '').toUpperCase();
+    const letterCountInAnswer = correctAnswer.split('').filter(char => char === letter).length;
+    
+    // Determine if this specific choice can still be used
+    let canUse;
+    if (letterCountInAnswer > 0) {
+      // For letters in the answer: can use if total usage < what's needed
+      canUse = totalUsageOfLetter < letterCountInAnswer;
+    } else {
+      // For letters not in the answer: can use if total usage < 1
+      canUse = totalUsageOfLetter < 1;
     }
+    
+    return {
+      letter,
+      idx,
+      canUse
+    };
   });
 
   return (
@@ -631,12 +688,12 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
       )}
       <div className="flex justify-center gap-2 mb-8">{display}</div>
       <div className="flex flex-wrap justify-center gap-4 mb-6">
-        {availableChoices.map(({ letter, idx }) => (
+        {availableChoices.map(({ letter, idx, canUse }) => (
           <button
-            key={idx}
-            className={`w-14 h-14 px-6 py-4 flex items-center justify-center rounded bg-white border-2 border-[#4C53B4] text-[#4C53B4] font-bold text-2xl cursor-pointer hover:bg-[#EEF1F5] transition ${getLetterCount(idx) >= getMaxCount(idx) || answerStatus === 'correct' ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={() => getLetterCount(idx) < getMaxCount(idx) && answerStatus !== 'correct' && handleLetterChoiceClick(idx)}
-            disabled={getLetterCount(idx) >= getMaxCount(idx) || answerStatus === 'correct'}
+            key={`${letter}-${idx}`} // Use unique key for duplicate letters
+            className={`w-14 h-14 px-6 py-4 flex items-center justify-center rounded bg-white border-2 border-[#4C53B4] text-[#4C53B4] font-bold text-2xl cursor-pointer hover:bg-[#EEF1F5] transition ${!canUse || answerStatus === 'correct' ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => canUse && answerStatus !== 'correct' && handleLetterChoiceClick(idx)}
+            disabled={!canUse || answerStatus === 'correct'}
           >
             {letter}
           </button>

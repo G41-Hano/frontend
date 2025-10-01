@@ -82,7 +82,6 @@ const StudentClassroom = () => {
    const fetchDrillResults = async (drillId) => {
     try {
       const response = await api.get(`/api/drills/${drillId}/results/`);
-      console.log('Drill Results for Drill', drillId, ':', response.data);
       
       const drillResultsForStudent = response.data; // Should contain only the current student's results
 
@@ -111,7 +110,6 @@ const StudentClassroom = () => {
   const fetchDrillResultsForStudent = async (drillId) => {
     try {
       const response = await api.get(`/api/drills/${drillId}/results/student/`);
-      console.log('Student Drill Results for Drill', drillId, ':', response.data);
 
       // Normalize possible response shapes into an array of attempts
       const raw = response.data;

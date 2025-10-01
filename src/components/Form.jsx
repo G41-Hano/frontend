@@ -42,7 +42,6 @@ function Form({ route, method, userType }) { /* route is for the route when subm
 
             try {
                 const response = await api.post(`/api/user/check-username/`, { username: formData.username });
-                console.log('Username check response:', response); // Temporary debug log
                 
                 // If response indicates username exists
                 if (response.data.exists || response.data.message === "Username already exists") {
@@ -53,8 +52,6 @@ function Form({ route, method, userType }) { /* route is for the route when subm
                     setErrors(prev => ({ ...prev, username: "" }));
                 }
             } catch (error) {
-                console.log('Username check error:', error.response); // Temporary debug log
-                
                 // If error response indicates username exists
                 if (error.response?.data?.exists || 
                     error.response?.data?.message === "Username already exists" ||
@@ -87,7 +84,6 @@ function Form({ route, method, userType }) { /* route is for the route when subm
 
             try {
                 const response = await api.post(`/api/user/check-email/`, { email: formData.email });
-                console.log('Email check response:', response); 
                 
                 // If response indicates email exists
                 if (response.data.exists || response.data.message === "This email address is already taken") {
@@ -98,7 +94,6 @@ function Form({ route, method, userType }) { /* route is for the route when subm
                     setErrors(prev => ({ ...prev, email: "" }));
                 }
             } catch (error) {
-                console.log('Email check error:', error.response); // Temporary debug log
                 
                 // If error response indicates email exists
                 if (error.response?.data?.exists || 
@@ -128,12 +123,23 @@ function Form({ route, method, userType }) { /* route is for the route when subm
             newErrors.username = "Username must be at least 3 characters";
         }
 
-        // Password validation - min 8 chars
+        // Password validation - min 8 chars, at least one capital letter and symbol
         if (!formData.password) {
-            newErrors.password = "Password is required";
+            newErrors.password = 'Password is required';
         } else if (method !== "login" && formData.password.length < 8) {
-            newErrors.password = "Password must be at least 8 characters";
+            newErrors.password = 'Password must be at least 8 characters';
+        } else if (method !== "login" && !/(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_])[A-Za-z\d@$!%*?&_]{8,}$/.test(formData.password)) {
+            newErrors.password = 'Password must contain at least one capital letter, one number, and one special character';
         }
+  
+      // Confirm password validation - only for registration
+      if (method !== "login") {
+          if (!formData.confirmPassword) {
+              newErrors.confirmPassword = 'Please confirm your password';
+          } else if (formData.password !== formData.confirmPassword) {
+              newErrors.confirmPassword = 'Passwords do not match';
+          }
+      }
 
         // Additional validations for registration only
         if (method !== "login") {
@@ -458,6 +464,31 @@ function Form({ route, method, userType }) { /* route is for the route when subm
                     </button>
                 </div>
                 {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
+                
+                {/* Password Criteria - Only show for registration */}
+                {method !== "login" && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-[#4C53B4] rounded-lg">
+                        <p className="text-sm font-medium text-[#4C53B4] mb-2">Password must contain:</p>
+                        <ul className="text-xs text-[#4C53B4] space-y-1">
+                            <li className={`flex items-center ${formData.password.length >= 8 ? 'text-green-600' : ''}`}>
+                                <i className={`fa-solid ${formData.password.length >= 8 ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>
+                                At least 8 characters
+                            </li>
+                            <li className={`flex items-center ${/(?=.*[A-Z])/.test(formData.password) ? 'text-green-600' : ''}`}>
+                                <i className={`fa-solid ${/(?=.*[A-Z])/.test(formData.password) ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>
+                                At least one capital letter
+                            </li>
+                            <li className={`flex items-center ${/(?=.*\d)/.test(formData.password) ? 'text-green-600' : ''}`}>
+                                <i className={`fa-solid ${/(?=.*\d)/.test(formData.password) ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>
+                                At least one number
+                            </li>
+                            <li className={`flex items-center ${/(?=.*[@$!%*?&_])/.test(formData.password) ? 'text-green-600' : ''}`}>
+                                <i className={`fa-solid ${/(?=.*[@$!%*?&_])/.test(formData.password) ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>
+                                At least one special character
+                            </li>
+                        </ul>
+                    </div>
+                )}
             </div>
 
             {/* Forgot Password Link - Only shown for login */}

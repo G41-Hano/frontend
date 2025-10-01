@@ -193,7 +193,6 @@ const ViewDrillResults = () => {
         </div>
       </div>
       
-      {/* Stats Cards 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="bg-[#F7F9FC] p-4 rounded-xl border border-gray-100 shadow-sm">
           <div className="text-sm text-gray-500 mb-1">Total Students</div>
@@ -203,16 +202,11 @@ const ViewDrillResults = () => {
           <div className="text-sm text-gray-500 mb-1">Correct Answers</div>
           <div className="text-2xl font-bold text-green-600">{stats.correct}</div>
         </div>
-        <div className="bg-[#FFF5F5] p-4 rounded-xl border border-red-100 shadow-sm">
-          <div className="text-sm text-gray-500 mb-1">Incorrect Answers</div>
-          <div className="text-2xl font-bold text-red-500">{stats.incorrect}</div>
-        </div>
         <div className="bg-[#F0F4FF] p-4 rounded-xl border border-blue-100 shadow-sm">
           <div className="text-sm text-gray-500 mb-1">Avg. Time (min)</div>
           <div className="text-2xl font-bold text-blue-600">{stats.avgTime}</div>
         </div>
       </div>
-      */}
       
       {/* Question Navigation */}
       <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -375,23 +369,37 @@ const ViewDrillResults = () => {
           <div className="mb-4">
             <h4 className="font-semibold text-gray-700 mb-2">Memory Cards:</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {questions[questionIdx].memoryCards?.map((card, idx) => (
-                <div key={idx} className="aspect-square bg-gray-50 border border-gray-200 rounded-lg p-2 flex flex-col items-center justify-center">
-                  {card.media && (
-                    <ImageWithFallback 
-                      src={card.media.url} 
-                      alt={card.content || `Card ${idx + 1}`}
-                      className="max-h-32 max-w-full object-contain mb-2"
-                    />
-                  )}
-                  {card.content && (
-                    <span className="text-sm text-center">{card.content}</span>
-                  )}
-                  {!card.media && !card.content && (
-                    <span className="text-gray-400 text-sm">Empty Card</span>
-                  )}
-                </div>
-              ))}
+              {questions[questionIdx].memoryCards?.map((card, idx) => {
+                // Handle different media formats
+                let mediaUrl = null;
+                if (card.media) {
+                  if (typeof card.media === 'string') {
+                    // Media is stored as a string URL
+                    mediaUrl = card.media;
+                  } else if (typeof card.media === 'object' && card.media.url) {
+                    // Media is stored as an object with url property
+                    mediaUrl = card.media.url;
+                  }
+                }
+
+                return (
+                  <div key={idx} className="aspect-square bg-gray-50 border border-gray-200 rounded-lg p-2 flex flex-col items-center justify-center">
+                    {mediaUrl && (
+                      <ImageWithFallback 
+                        src={mediaUrl} 
+                        alt={card.content || `Card ${idx + 1}`}
+                        className="max-h-32 max-w-full object-contain mb-2"
+                      />
+                    )}
+                    {card.content && (
+                      <span className="text-sm text-center">{card.content}</span>
+                    )}
+                    {!mediaUrl && !card.content && (
+                      <span className="text-gray-400 text-sm">Empty Card</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -444,13 +452,13 @@ const ViewDrillResults = () => {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-              {questionIdx === questions.length - 1 && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Points</th>
-              )}
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Answer</th>
-              {/*<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time (min)</th>*/}
+             {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Answer</th>*/}
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time (min)</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+              {questionIdx === questions.length - 1 && (
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Total Points</th>
+              )}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -487,30 +495,20 @@ const ViewDrillResults = () => {
                         </div>
                       </div>
                     </td>
-                    {questionIdx === questions.length - 1 && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {totalPoints}
-                      </td>
-                    )}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {questionResult.points_awarded}                    
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        questionResult.is_correct 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {questionResult.is_correct ? 'Correct' : 'Incorrect'}
-                      </span>
-                    </td>
-                  {/*   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {questionResult.time_taken ? questionResult.time_taken.toFixed(1) : '-'}
                     </td> 
-                  */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(questionResult.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </td>
+                    {questionIdx === questions.length - 1 && (
+                      <td className="px-6 py-4 whitespace-nowrap font-bold text-sm text-green-500">
+                        {totalPoints}
+                      </td>
+                    )}
                   </tr>
                 );
               })
