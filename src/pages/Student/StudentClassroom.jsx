@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import BadgeEarnedModal from '../../components/BadgeEarnedModal';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api';
 import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
@@ -274,7 +275,10 @@ const StudentClassroom = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#EEF1F5]">
+    <>
+      {/* Badge Earned Modal always frontmost */}
+      <BadgeEarnedModal onViewBadges={() => navigate('/s/badges')} />
+      <div className="min-h-screen bg-[#EEF1F5]">
       {/* Header */}
       <div className="bg-white shadow-lg mt-6 rounded-2xl mx-10 pb-6" style={{ borderColor: classroomColor }}>
         <div className="max-w-[95%] mx-auto">
@@ -544,7 +548,8 @@ const StudentClassroom = () => {
         onClose={() => setIsStudentListOpen(false)}
         students={students}
       />
-    </div>
+      </div>
+    </>
   );
 };
 
