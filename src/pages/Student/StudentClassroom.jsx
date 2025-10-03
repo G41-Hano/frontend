@@ -4,6 +4,55 @@ import api from '../../api';
 import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
 import drillBg from '../../assets/drill_bg.png';
 
+// Helper function to format dates consistently
+const formatDateTime = (dateString) => {
+  if (!dateString) return 'N/A';
+  
+  // Parse the date string and format it consistently
+  const date = new Date(dateString);
+  
+  // Use a more consistent formatting approach
+  const options = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  };
+  
+  return date.toLocaleString('en-US', options);
+};
+
+// Helper functions for drill availability
+const getDrillAvailabilityStatus = (drill) => {
+  const now = new Date();
+  const openDate = drill.open_date ? new Date(drill.open_date) : null;
+  const deadline = drill.deadline ? new Date(drill.deadline) : null;
+  
+  if (openDate && now < openDate) {
+    return {
+      status: 'not_open',
+      message: `Opens at ${formatDateTime(drill.open_date)}`,
+      canAccess: false
+    };
+  }
+  
+  if (deadline && now > deadline) {
+    return {
+      status: 'expired',
+      message: `Expired on ${formatDateTime(drill.deadline)}`,
+      canAccess: false
+    };
+  }
+  
+  return {
+    status: 'available',
+    message: 'Available now',
+    canAccess: true
+  };
+};
+
 // Student List Modal Component
 const StudentListModal = ({ isOpen, onClose, students }) => {
   if (!isOpen) return null;
@@ -161,6 +210,8 @@ const StudentClassroom = () => {
         const drillsResponse = await api.get('/api/drills/', {
           params: { classroom: id }
         });
+
+        console.log('Drills:', drillsResponse.data);
         
         // Filter only published drills
         const publishedDrills = drillsResponse.data.filter(drill => drill.status === 'published');
@@ -399,32 +450,62 @@ const StudentClassroom = () => {
                           </div>
                         </div>
                         
-                        {openDrillId === drill.id && (
-                          <div className="bg-[#F7F9FC] px-8 py-6 border-t border-[#F7D9A0] flex flex-col md:flex-row md:items-center md:justify-between gap-6 animate-fadeIn">
-                            <div className="flex-1 flex flex-col gap-2">
-                              <div className="text-gray-500 text-sm">Open: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
-                              <div className="text-gray-500 text-sm">Due: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
-                            </div>
-                            {/*<div className="mt-2">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-xs text-gray-500 font-medium">Progress</span>
-                                  <span className="text-xs text-gray-600 font-bold">0%</span>
+                        {openDrillId === drill.id && (() => {
+                          const availability = getDrillAvailabilityStatus(drill);
+                          return (
+                            <div className="bg-[#F7F9FC] px-8 py-6 border-t border-[#F7D9A0] flex flex-col md:flex-row md:items-center md:justify-between gap-6 animate-fadeIn">
+                              <div className="flex-1 flex flex-col gap-2">
+                              <div className="text-gray-500 text-sm">
+                                  Description: <span className="font-medium text-gray-700">
+                                  {drill.description}
+                                  </span>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div className="bg-green-500 h-2 rounded-full" style={{ width: '0%' }}></div>
+                                <div className="text-gray-500 text-sm">
+                                  Open: <span className="font-medium text-gray-700">
+                                    {formatDateTime(drill.open_date)}
+                                  </span>
+                                </div>
+                                <div className="text-gray-500 text-sm">
+                                  Due: <span className="font-medium text-gray-700">
+                                    {formatDateTime(drill.deadline)}
+                                  </span>
+                                </div>
+                                <div className={`text-sm font-medium ${
+                                  availability.status === 'available' ? 'text-green-600' :
+                                  availability.status === 'not_open' ? 'text-blue-600' :
+                                  'text-red-600'
+                                }`}>
+                                  <i className={`fa-solid ${
+                                    availability.status === 'available' ? 'fa-check-circle' :
+                                    availability.status === 'not_open' ? 'fa-clock' :
+                                    'fa-times-circle'
+                                  } mr-1`}></i>
+                                  {availability.message}
                                 </div>
                               </div>
-                            */}
-                            <div className="flex flex-col items-end gap-2 md:items-center md:flex-row">
-                              <Link 
-                                to={`/s/take-drill/${drill.id}`}
-                                className="ml-2 px-6 py-2 rounded-xl bg-[#38CA77] text-white font-bold shadow hover:bg-[#2DA05F] transition-all duration-300 flex items-center gap-2 hover:scale-105"
-                              >
-                                <i className="fa-solid fa-play"></i> Start Drill
-                              </Link>
+                              <div className="flex flex-col items-end gap-2 md:items-center md:flex-row">
+                                {availability.canAccess ? (
+                                  <Link 
+                                    to={`/s/take-drill/${drill.id}`}
+                                    className="ml-2 px-6 py-2 rounded-xl bg-[#38CA77] text-white font-bold shadow hover:bg-[#2DA05F] transition-all duration-300 flex items-center gap-2 hover:scale-105"
+                                  >
+                                    <i className="fa-solid fa-play"></i> Start Drill
+                                  </Link>
+                                ) : (
+                                  <button 
+                                    disabled
+                                    className="ml-2 px-6 py-2 rounded-xl bg-gray-400 text-white font-bold shadow cursor-not-allowed flex items-center gap-2 opacity-60"
+                                  >
+                                    <i className={`fa-solid ${
+                                      availability.status === 'not_open' ? 'fa-clock' : 'fa-lock'
+                                    }`}></i>
+                                    {availability.status === 'not_open' ? 'Not Yet Available' : 'Closed'}
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>
