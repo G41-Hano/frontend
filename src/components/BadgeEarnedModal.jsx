@@ -11,7 +11,7 @@ const BadgeEarnedModal = ({ onViewBadges, onClose }) => {
     // Fetch unread earned badge
     const fetchUnreadBadge = async () => {
       try {
-        const res = await api.get('/api/badges/unread-earned/');
+        const res = await api.get('/api/badges/student-badges/');
         if (res.data && res.data.length > 0) {
           setBadge(res.data[0]);
           setOpen(true);
