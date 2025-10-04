@@ -7,14 +7,12 @@ const BadgeEarnedModal = ({ onViewBadges, onClose, badgeId }) => {
   const [badges, setBadges] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
 
-  // Fetch all unread badges on mount
   useEffect(() => {
     const fetchUnreadBadges = async () => {
       try {
         const res = await api.get('/api/badges/unread-earned/');
         if (res.data && res.data.length > 0) {
           setBadges(res.data);
-          // If badgeId is provided, find its index, else default to 0
           if (badgeId) {
             const idx = res.data.findIndex(b => String(b.id) === String(badgeId));
             setCurrentIdx(idx >= 0 ? idx : 0);
