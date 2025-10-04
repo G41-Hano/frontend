@@ -1,8 +1,31 @@
-import React from 'react';
-import sparkles from '../assets/sparkles.png';
 
-const BadgeEarnedModal = ({ open, badge, onViewBadges, onClose }) => {
-  if (!open) return null;
+import React, { useEffect, useState } from 'react';
+import sparkles from '../assets/sparkles.png';
+import api from '../api';
+
+const BadgeEarnedModal = ({ onViewBadges, onClose }) => {
+  const [open, setOpen] = useState(false);
+  const [badge, setBadge] = useState(null);
+
+  useEffect(() => {
+    // Fetch unread earned badge
+    const fetchUnreadBadge = async () => {
+      try {
+        const res = await api.get('/api/badges/student-badges/');
+        if (res.data && res.data.length > 0) {
+          setBadge(res.data[0]);
+          setOpen(true);
+        } else {
+          setOpen(false);
+        }
+      } catch (err) {
+        setOpen(false);
+      }
+    };
+    fetchUnreadBadge();
+  }, []);
+
+  if (!open || !badge) return null;
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -41,15 +64,13 @@ const BadgeEarnedModal = ({ open, badge, onViewBadges, onClose }) => {
             <button
               onClick={onViewBadges}
               className="bg-[#FBE18F] text-[#8A2799] font-bold px-8 py-2 rounded-full shadow hover:bg-yellow-300 transition text-lg w-44"
-              style={{fontFamily: 'Baloo, sans-serif'}}
-            >
+              style={{fontFamily: 'Baloo, sans-serif'}}>
               View Badges
             </button>
             <button
-              onClick={onClose}
+              onClick={() => { setOpen(false); if (onClose) onClose(); }}
               className="bg-[#FBE18F] text-[#8A2799] font-bold px-8 py-2 rounded-full shadow hover:bg-yellow-300 transition text-lg w-44"
-              style={{fontFamily: 'Baloo, sans-serif'}}
-            >
+              style={{fontFamily: 'Baloo, sans-serif'}}>
               Close
             </button>
           </div>
@@ -59,4 +80,4 @@ const BadgeEarnedModal = ({ open, badge, onViewBadges, onClose }) => {
   );
 };
 
-export default BadgeEarnedModal; 
+export default BadgeEarnedModal;

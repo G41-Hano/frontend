@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import BadgeEarnedModal from '../../components/BadgeEarnedModal';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api';
 import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
@@ -195,10 +196,17 @@ const StudentClassroom = () => {
   useEffect(() => {
     if (activeTab === 'leaderboard' && classroom?.id) {
       setLoadingLeaderboard(true);
-      api.get(`/api/classrooms/${classroom.id}/leaderboard/`)
+      api.get(`/api/classrooms/${classroom.id}/points/`)
         .then(res => {
           // Filter out students with 0 points (no participation)
-          const filteredLeaderboard = res.data.filter(student => student.points > 0);
+          const filteredLeaderboard = res.data.leaderboard
+            .filter(student => student.total_points > 0)
+            .map(student => ({
+              id: student.student_id,
+              first_name: student.student_name.split(' ')[0], // crude split, adjust if needed
+              avatar: student.avatar || null, // if available from backend
+              points: student.total_points
+            }));
           setLeaderboard(filteredLeaderboard);
         })
         .catch(() => setLeaderboard([]))
@@ -267,7 +275,10 @@ const StudentClassroom = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#EEF1F5]">
+    <>
+      {/* Badge Earned Modal always frontmost */}
+      <BadgeEarnedModal onViewBadges={() => navigate('/s/badges')} />
+      <div className="min-h-screen bg-[#EEF1F5]">
       {/* Header */}
       <div className="bg-white shadow-lg mt-6 rounded-2xl mx-10 pb-6" style={{ borderColor: classroomColor }}>
         <div className="max-w-[95%] mx-auto">
@@ -458,7 +469,16 @@ const StudentClassroom = () => {
                       <div className="flex justify-center items-end gap-8 mb-10">
                         {[1, 0, 2].map((idx, pos) => {
                           const student = leaderboard[idx];
-                          if (!student) return <div key={pos} className="w-32" />;
+                          // Use a unique key for each child, even for empty slots
+                          let key;
+                          if (student && student.id !== undefined && student.id !== null) {
+                            key = `podium-${student.id}`;
+                          } else if (student) {
+                            key = `podium-fallback-${pos}`;
+                          } else {
+                            key = `podium-empty-${pos}`;
+                          }
+                          if (!student) return <div key={key} className="w-32" />;
                           // Podium order: left=2nd, center=1st, right=3rd
                           const rank = pos === 0 ? 2 : pos === 1 ? 1 : 3;
                           const borderColors = [
@@ -469,7 +489,7 @@ const StudentClassroom = () => {
                           const size = pos === 1 ? 'w-32 h-32' : 'w-24 h-24';
                           const ring = pos === 1 ? 'ring-4 ring-yellow-300' : '';
                           return (
-                            <div key={student.id} className="flex flex-col items-center">
+                            <div key={key} className="flex flex-col items-center">
                               {/* Rank and Crown above image */}
                               <div className="flex flex-col items-center mb-2">
                                 <span className={`font-extrabold text-2xl ${rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-purple-400' : 'text-orange-400'}`}>{rank}</span>
@@ -498,12 +518,20 @@ const StudentClassroom = () => {
                           <div className="flex-1">NAME</div>
                           <div className="w-24 text-right">POINTS</div>
                         </div>
-                        {leaderboard.slice(3).map((student, idx) => (
-                          <div key={student.id} className="flex items-center border-t border-gray-200 py-2">
-                            <div className="flex-1 font-semibold text-gray-700">{student.first_name}</div>
-                            <div className="w-24 text-right font-bold text-gray-700">{student.points}</div>
-                          </div>
-                        ))}
+                        {leaderboard.slice(3).map((student, idx) => {
+                          let key;
+                          if (student && student.id !== undefined && student.id !== null) {
+                            key = `table-${student.id}`;
+                          } else {
+                            key = `table-fallback-${idx}`;
+                          }
+                          return (
+                            <div key={key} className="flex items-center border-t border-gray-200 py-2">
+                              <div className="flex-1 font-semibold text-gray-700">{student.first_name}</div>
+                              <div className="w-24 text-right font-bold text-gray-700">{student.points}</div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </>
                   )}
@@ -520,7 +548,8 @@ const StudentClassroom = () => {
         onClose={() => setIsStudentListOpen(false)}
         students={students}
       />
-    </div>
+      </div>
+    </>
   );
 };
 

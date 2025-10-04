@@ -116,7 +116,7 @@ const DrillLeaderboard = () => {
             ) : error ? (
               <div className="text-center text-red-500 py-12">{error}</div>
             ) : leaderboard.length === 0 ? (
-              <div className="text-center text-gray-400 py-12">No students in this classroom.</div>
+              <div className="text-center text-gray-400 py-12">No students attempted the Drill yet.</div>
             ) : (
               <>
                 {/* Top 3 Podium: 2nd (left), 1st (center), 3rd (right) */}
