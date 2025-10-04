@@ -39,21 +39,13 @@ const BadgeEarnedModal = ({ onViewBadges, onClose, badgeId }) => {
 
   const handleClose = async () => {
     const badge = badges[currentIdx];
-    if (badge && badge.id) {
-      try {
-        if (badge.notifications && Array.isArray(badge.notifications)) {
-          await Promise.all(
-            badge.notifications.map((notif) => {
-              if (!notif.is_read) {
-                return api.post(`/api/notifications/${notif.id}/mark-as-read/`);
-              }
-              return null;
-            })
-          );
-          // Optionally refresh notifications in context
-          if (refreshNotifications) refreshNotifications();
-        }
-      } catch (e) {}
+    if (badge && badge.badge && badge.badge.id) {
+      const badgeId = badge.badge.id;
+      // Find all notifications for this badge in the badges array
+      const notifsForBadge = badges.filter(b => b.badge && b.badge.id === badgeId);
+      for (const notif of notifsForBadge) {
+        await api.post(`/api/notifications/${notif.id}/mark-as-read/`);
+      }
     }
     if (currentIdx < badges.length - 1) {
       setCurrentIdx(currentIdx + 1);
