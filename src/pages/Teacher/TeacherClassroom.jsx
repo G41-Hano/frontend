@@ -58,6 +58,55 @@ const DashboardNavItem = ({ label, icon, isActive, onClick }) => (
   </button>
 );
 
+// Helper function to format dates consistently
+const formatDateTime = (dateString) => {
+  if (!dateString) return 'N/A';
+  
+  // Parse the date string and format it consistently
+  const date = new Date(dateString);
+  
+  // Use a more consistent formatting approach
+  const options = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  };
+  
+  return date.toLocaleString('en-US', options);
+};
+
+// Helper functions for drill availability
+const getDrillAvailabilityStatus = (drill) => {
+  const now = new Date();
+  const openDate = drill.open_date ? new Date(drill.open_date) : null;
+  const deadline = drill.deadline ? new Date(drill.deadline) : null;
+  
+  if (openDate && now < openDate) {
+    return {
+      status: 'not_open',
+      message: `Opens at ${formatDateTime(drill.open_date)}`,
+      canAccess: false
+    };
+  }
+  
+  if (deadline && now > deadline) {
+    return {
+      status: 'expired',
+      message: `Expired on ${formatDateTime(drill.deadline)}`,
+      canAccess: false
+    };
+  }
+  
+  return {
+    status: 'available',
+    message: 'Available now',
+    canAccess: true
+  };
+};
+
 const TeacherClassroom = () => {
   const { id } = useParams();
   const [classroom, setClassroom] = useState(null);
@@ -796,8 +845,8 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
         <div className="bg-[#F7F9FC] px-8 py-6 border-t border-[#F7D9A0] flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="flex-1 flex flex-col gap-2">
             <div className="text-gray-500 text-sm">Description: <span className="font-medium text-gray-700">{drill.description}</span></div>
-            <div className="text-gray-500 text-sm">Open: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
-            <div className="text-gray-500 text-sm">Due: <span className="font-medium text-gray-700">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
+            <div className="text-gray-500 text-sm">Open: <span className="font-medium text-gray-700">{formatDateTime(drill.open_date)}</span></div>
+            <div className="text-gray-500 text-sm">Due: <span className="font-medium text-gray-700">{formatDateTime(drill.deadline)}</span></div>
           </div>
           <div className="flex flex-col items-end gap-2 md:items-center md:flex-row">
             {drill.status === 'draft' && (

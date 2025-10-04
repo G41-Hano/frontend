@@ -956,6 +956,7 @@ const TakeDrill = () => {
   const [drill, setDrill] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [dateError, setDateError] = useState(null); 
   const [introStep, setIntroStep] = useState(0);
   const [currentWordIdx, setCurrentWordIdx] = useState(0);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
@@ -1050,6 +1051,47 @@ const TakeDrill = () => {
           });
         } else {
           mergedQuestions = drillData.questions || [];
+        }
+
+        // Check if drill is available based on dates (only for students, not teacher preview)
+        if (!isTeacherPreview) {
+          const now = new Date();
+          const openDate = drillData.open_date ? new Date(drillData.open_date) : null;
+          const deadline = drillData.deadline ? new Date(drillData.deadline) : null;
+          
+          if (openDate && now < openDate) {
+            const timeUntilOpen = Math.ceil((openDate - now) / (1000 * 60)); // minutes until open
+            const hoursUntilOpen = Math.floor(timeUntilOpen / 60);
+            const minutesUntilOpen = timeUntilOpen % 60;
+            
+            let timeMessage = '';
+            if (hoursUntilOpen > 0) {
+              timeMessage = `${hoursUntilOpen} hour${hoursUntilOpen !== 1 ? 's' : ''} and ${minutesUntilOpen} minute${minutesUntilOpen !== 1 ? 's' : ''}`;
+            } else {
+              timeMessage = `${minutesUntilOpen} minute${minutesUntilOpen !== 1 ? 's' : ''}`;
+            }
+            
+            setDateError(`This drill will be available in ${timeMessage}. Please check back later!`);
+            setLoading(false);
+            return;
+          }
+          
+          if (deadline && now > deadline) {
+            const timeSinceExpired = Math.ceil((now - deadline) / (1000 * 60)); // minutes since expired
+            const hoursSinceExpired = Math.floor(timeSinceExpired / 60);
+            const minutesSinceExpired = timeSinceExpired % 60;
+            
+            let timeMessage = '';
+            if (hoursSinceExpired > 0) {
+              timeMessage = `${hoursSinceExpired} hour${hoursSinceExpired !== 1 ? 's' : ''} and ${minutesSinceExpired} minute${minutesSinceExpired !== 1 ? 's' : ''}`;
+            } else {
+              timeMessage = `${minutesSinceExpired} minute${minutesSinceExpired !== 1 ? 's' : ''}`;
+            }
+            
+            setDateError(`This drill expired ${timeMessage} ago. Please contact your teacher if you believe this is an error.`);
+            setLoading(false);
+            return;
+          }
         }
 
         setDrill({ ...drillData, questions: mergedQuestions });
@@ -1166,6 +1208,54 @@ const TakeDrill = () => {
             <button
               className="px-6 py-2 bg-[#8e44ad] text-white rounded-lg hover:bg-[#6f3381]"
               onClick={() => navigate(-1)}
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (dateError) {
+    const isNotOpen = dateError.includes('will be available');
+    const isExpired = dateError.includes('expired');
+    
+    return (
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
+        <div className="w-full h-full flex flex-col items-center justify-center">
+          <div className="bg-white rounded-xl p-8 shadow-lg max-w-md text-center">
+            <img 
+              src={isNotOpen ? HippoWaiting : HippoSad} 
+              alt={isNotOpen ? "Waiting" : "Expired"} 
+              className="w-32 h-32 mx-auto mb-4" 
+            />
+            <h2 className="text-xl font-bold text-gray-800 mb-4">
+              {isNotOpen ? 'Drill Not Yet Available' : 'Drill Has Expired'}
+            </h2>
+            <p className="text-gray-600 mb-6">{dateError}</p>
+            
+            {isNotOpen && (
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-center gap-2 text-blue-700">
+                  <i className="fa-solid fa-info-circle"></i>
+                  <span className="text-sm font-medium">Tip: Check back later or contact your teacher</span>
+                </div>
+              </div>
+            )}
+            
+            {isExpired && (
+              <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
+                <div className="flex items-center justify-center gap-2 text-red-700">
+                  <i className="fa-solid fa-exclamation-triangle"></i>
+                  <span className="text-sm font-medium">Contact your teacher if you need access</span>
+                </div>
+              </div>
+            )}
+            
+            <button
+              onClick={() => navigate(-1)}
+              className="px-6 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition"
             >
               Go Back
             </button>

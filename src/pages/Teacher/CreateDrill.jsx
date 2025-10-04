@@ -730,7 +730,24 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
 
   // Step 1: Overview
   const handleOverviewChange = e => {
-    setDrill({ ...drill, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setDrill(prev => {
+      const newDrill = { ...prev, [name]: value };
+      
+      // If open date changes and due date is set, validate it
+      if (name === 'openDate' && prev.dueDate) {
+        const openDate = new Date(value);
+        const dueDate = new Date(prev.dueDate);
+        const minDueDate = new Date(openDate.getTime() + 10 * 60 * 1000); // 10 minutes later
+        
+        // If current due date is less than 10 minutes after new open date, clear it
+        if (dueDate < minDueDate) {
+          newDrill.dueDate = '';
+        }
+      }
+      
+      return newDrill;
+    });
   };
 
   // Step 2: Questions
@@ -930,12 +947,21 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       });
       formData.append('title', drill.title);
       formData.append('description', drill.description);
-      formData.append('deadline', drill.dueDate);
+      // Convert local datetime to proper ISO string for backend
+      formData.append('open_date', drill.openDate ? new Date(drill.openDate).toISOString() : '');
+      formData.append('deadline', drill.dueDate ? new Date(drill.dueDate).toISOString() : '');
       formData.append('classroom', classroom.id);
       formData.append('questions_input', JSON.stringify(questions));
       formData.append('status', status);
-      if (customWordlistId) {
+      
+      // Handle wordlist information
+      if (drill.wordlistType === 'custom' && customWordlistId) {
         formData.append('custom_wordlist', customWordlistId);
+        formData.append('wordlist_name', '');
+      } else if (drill.wordlistType === 'builtin') {
+        formData.append('custom_wordlist', '');
+        formData.append('wordlist_name', drill.wordlistName || '');
+        console.log('Sending wordlist_name:', drill.wordlistName);
       }
       await api.post('/api/drills/', formData);
       setDrill(prev => ({ ...prev, status }));
@@ -968,15 +994,26 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   // Add this function after validateOverviewFields
   const getMinOpenDate = () => {
     const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
+    // Convert to local timezone for datetime-local input
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   const getMinDueDate = () => {
     if (!drill.openDate) return getMinOpenDate();
     const open = new Date(drill.openDate);
+    // Add 10 minutes to the open date
     open.setMinutes(open.getMinutes() + 10);
-    return open.toISOString().slice(0, 16);
+    const year = open.getFullYear();
+    const month = String(open.getMonth() + 1).padStart(2, '0');
+    const day = String(open.getDate()).padStart(2, '0');
+    const hours = String(open.getHours()).padStart(2, '0');
+    const minutes = String(open.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   const validateCustomWordList = () => {
@@ -1116,8 +1153,23 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                 />
                 {drill.openDate && (
                   <div className="text-xs mt-1 text-gray-500">
-                    {drill.dueDate && new Date(drill.dueDate) - new Date(drill.openDate) < 10 * 60 * 1000 && (
-                      <span className="text-red-500 ml-2">Due date must be at least 10 minutes after open date.</span>
+                    {drill.dueDate ? (
+                      (() => {
+                        const openDate = new Date(drill.openDate);
+                        const dueDate = new Date(drill.dueDate);
+                        const diffMinutes = Math.round((dueDate - openDate) / (1000 * 60));
+                        
+                        if (diffMinutes < 10) {
+                          return <span className="text-red-500">⚠️ Due date must be at least 10 minutes after open date.</span>;
+                        } else if (diffMinutes < 60) {
+                          return <span className="text-green-600">✓ Due date is {diffMinutes} minutes after open date.</span>;
+                        } else {
+                          const diffHours = Math.round(diffMinutes / 60);
+                          return <span className="text-green-600">✓ Due date is {diffHours} hour{diffHours !== 1 ? 's' : ''} after open date.</span>;
+                        }
+                      })()
+                    ) : (
+                      <span className="text-gray-500">Please select a due date at least 10 minutes after the open date.</span>
                     )}
                   </div>
                 )}
@@ -2421,8 +2473,8 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
             <div className="mb-6">
               <div className="mb-2 font-medium">Title: <span className="font-normal">{drill.title}</span></div>
               <div className="mb-2 font-medium">Description: <span className="font-normal">{drill.description}</span></div>
-              <div className="mb-2 font-medium">Open: <span className="font-normal">{drill.openDate}</span></div>
-              <div className="mb-2 font-medium">Due: <span className="font-normal">{drill.dueDate}</span></div>
+              <div className="mb-2 font-medium">Open: <span className="font-normal">{drill.openDate ? new Date(drill.openDate).toLocaleString() : 'N/A'}</span></div>
+              <div className="mb-2 font-medium">Due: <span className="font-normal">{drill.dueDate ? new Date(drill.dueDate).toLocaleString() : 'N/A'}</span></div>
               <div className="mb-2 font-medium">Questions: <span className="font-normal">{drill.questions.length}</span></div>
             </div>
             <div className="mb-6">

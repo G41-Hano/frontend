@@ -388,7 +388,24 @@ const EditDrill = () => {
         const response = await api.get(`/api/drills/${drillId}/`);
         const drillData = {
           ...response.data,
-          dueDate: response.data.deadline,
+          openDate: response.data.open_date ? (() => {
+            const date = new Date(response.data.open_date);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+          })() : '',
+          dueDate: response.data.deadline ? (() => {
+            const date = new Date(response.data.deadline);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+          })() : '',
           questions: (response.data.questions || []).map(q => {
             let answerIdx = 0;
             if (q.type === 'M' || q.type === 'F') {
@@ -484,9 +501,15 @@ const EditDrill = () => {
             };
           }),
         };
+        console.log('drillData', drillData);
+        console.log('drillData.wordlist_name:', drillData.wordlist_name);
+        console.log('drillData.custom_wordlist:', drillData.custom_wordlist);
+        console.log('drillData.questions:', drillData.questions);
 
-        // 2. If custom wordlist, fetch the wordlist and vocabulary
+        // Custom wordlistz
+        // 2. Determine wordlist type and fetch data
         if (drillData.custom_wordlist) {
+          // Custom wordlist
           const wordlistRes = await api.get(`/api/wordlist/${drillData.custom_wordlist}/`);
           drillData.wordlistType = 'custom';
           drillData.wordlistName = wordlistRes.data.name;
@@ -504,16 +527,37 @@ const EditDrill = () => {
             } : null
           }));
           setCustomListDesc(wordlistRes.data.description || '');
-        } else if (drillData.wordlistType === 'builtin' && drillData.wordlistName) {
-          // 3. If built-in, fetch the built-in words
-          const builtinRes = await api.get(`/api/builtin-wordlist/${drillData.wordlistName}/`);
-          setDrill(prev => ({
-            ...prev,
-            builtinWordlist: {
-              ...prev.builtinWordlist,
-              words: builtinRes.data.words || []
-            }
-          }));
+        } else if (drillData.wordlist_name) {
+          // Built-in wordlist - use the stored wordlist_name
+          drillData.wordlistType = 'builtin';
+          drillData.wordlistName = drillData.wordlist_name;
+          
+          // Fetch the built-in word list data
+          try {
+            const builtinRes = await api.get(`/api/builtin-wordlist/${drillData.wordlist_name}/`);
+            drillData.builtinWordlist = {
+              words: (builtinRes.data.words || []).map(w => ({
+                word: w.word,
+                definition: w.definition,
+                image: w.image_url ? { 
+                  url: getAbsoluteUrl(w.image_url), 
+                  type: 'image/*' 
+                } : null,
+                signVideo: w.video_url ? { 
+                  url: getAbsoluteUrl(w.video_url), 
+                  type: 'video/*' 
+                } : null
+              }))
+            };
+          } catch (error) {
+            console.error('Error fetching built-in wordlist:', error);
+            drillData.builtinWordlist = { words: [] };
+          }
+        } else {
+          // No wordlist information - set defaults
+          drillData.wordlistType = 'builtin';
+          drillData.wordlistName = '';
+          drillData.builtinWordlist = { words: [] };
         }
 
         // 4. Set the drill state (only once, after all merging)
@@ -548,7 +592,24 @@ const EditDrill = () => {
 
   // Step 1: Overview
   const handleOverviewChange = e => {
-    setDrill({ ...drill, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setDrill(prev => {
+      const newDrill = { ...prev, [name]: value };
+      
+      // If open date changes and due date is set, validate it
+      if (name === 'openDate' && prev.dueDate) {
+        const openDate = new Date(value);
+        const dueDate = new Date(prev.dueDate);
+        const minDueDate = new Date(openDate.getTime() + 10 * 60 * 1000); // 10 minutes later
+        
+        // If current due date is less than 10 minutes after new open date, clear it
+        if (dueDate < minDueDate) {
+          newDrill.dueDate = '';
+        }
+      }
+      
+      return newDrill;
+    });
   };
 
   // Step 2: Questions
@@ -614,6 +675,8 @@ const EditDrill = () => {
           id: q.id,
           text: q.text,
           type: q.type,
+          word: q.word,
+          definition: q.definition,
         };
 
         if (q.type === 'M' || q.type === 'F') {
@@ -676,10 +739,21 @@ const EditDrill = () => {
 
       formData.append('title', drill.title);
       formData.append('description', drill.description);
-      formData.append('deadline', drill.dueDate || drill.deadline);
+      // Convert local datetime to proper ISO string for backend
+      formData.append('open_date', drill.openDate ? new Date(drill.openDate).toISOString() : '');
+      formData.append('deadline', drill.dueDate ? new Date(drill.dueDate).toISOString() : '');
       formData.append('classroom', drill.classroom);
       formData.append('questions_input', JSON.stringify(questions));
       formData.append('status', status);
+      
+      // Handle wordlist information
+      if (drill.wordlistType === 'custom') {
+        formData.append('custom_wordlist', drill.custom_wordlist || '');
+        formData.append('wordlist_name', '');
+      } else if (drill.wordlistType === 'builtin') {
+        formData.append('custom_wordlist', '');
+        formData.append('wordlist_name', drill.wordlistName || '');
+      }
 
       await api.patch(`/api/drills/${drillId}/`, formData);
       setDrill(prev => ({ ...prev, status }));
@@ -701,8 +775,11 @@ const EditDrill = () => {
   };
 
   const validateOverviewFields = () => {
-    if (!drill?.title || !drill?.deadline) return false;
-    return true;
+    if (!drill?.title || !drill?.openDate || !drill?.dueDate) return false;
+    const open = new Date(drill.openDate);
+    const due = new Date(drill.dueDate);
+    // At least 10 minutes difference
+    return due.getTime() - open.getTime() >= 10 * 60 * 1000;
   };
 
   // Add wordlist handlers
@@ -979,7 +1056,7 @@ const EditDrill = () => {
     const fetchWordLists = async () => {
       setLoadingWordLists(true);
       try {
-        const response = await api.get('/api/wordlist/');
+        const response = await api.get('/api/builtin-wordlist/');
         setBuiltinWordLists(response.data);
       } catch (error) {
         console.error('Failed to fetch word lists:', error);
@@ -1042,6 +1119,11 @@ const EditDrill = () => {
                 <option key={list.id} value={list.id}>{list.name}</option>
               ))}
             </select>
+            {console.log('Dropdown debug:', {
+              wordlistName: drill.wordlistName,
+              builtinWordLists: builtinWordLists,
+              selectedValue: drill.wordlistName
+            })}
             {loadingWordLists && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                 <i className="fa-solid fa-spinner fa-spin text-[#4C53B4]"></i>
@@ -1211,15 +1293,49 @@ const EditDrill = () => {
             <div className="flex gap-4 mb-4">
               <div className="flex-1">
                 <label className="block mb-1 font-medium">
+                  Open Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  name="openDate"
+                  value={drill.openDate || ''}
+                  onChange={handleOverviewChange}
+                  className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block mb-1 font-medium">
                   Due Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
-                  name="deadline"
-                  value={drill.deadline ? new Date(drill.deadline).toISOString().slice(0, 16) : ''}
+                  name="dueDate"
+                  value={drill.dueDate || ''}
                   onChange={handleOverviewChange}
                   className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
                 />
+                {drill.openDate && (
+                  <div className="text-xs mt-1 text-gray-500">
+                    {drill.dueDate ? (
+                      (() => {
+                        const openDate = new Date(drill.openDate);
+                        const dueDate = new Date(drill.dueDate);
+                        const diffMinutes = Math.round((dueDate - openDate) / (1000 * 60));
+                        
+                        if (diffMinutes < 10) {
+                          return <span className="text-red-500">⚠️ Due date must be at least 10 minutes after open date.</span>;
+                        } else if (diffMinutes < 60) {
+                          return <span className="text-green-600">✓ Due date is {diffMinutes} minutes after open date.</span>;
+                        } else {
+                          const diffHours = Math.round(diffMinutes / 60);
+                          return <span className="text-green-600">✓ Due date is {diffHours} hour{diffHours !== 1 ? 's' : ''} after open date.</span>;
+                        }
+                      })()
+                    ) : (
+                      <span className="text-gray-500">Please select a due date at least 10 minutes after the open date.</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -1271,7 +1387,12 @@ const EditDrill = () => {
                         });
                         setQuestionEditIdx(idx);
                         setSelectedQuestionWord(q.word || '');
-                        const wordData = getAvailableWords().find(w => w.word === q.word);
+                        const wordData = q.word ? {
+                          word: q.word,
+                          definition: q.definition,
+                          image: q.image,
+                          signVideo: q.signVideo
+                        } : getAvailableWords().find(w => w.word === q.word);
                         setSelectedQuestionWordData(wordData || null);
                         setNotification({
                           show: true,
@@ -2169,7 +2290,8 @@ const EditDrill = () => {
             <div className="mb-6">
               <div className="mb-2 font-medium">Title: <span className="font-normal">{drill.title}</span></div>
               <div className="mb-2 font-medium">Description: <span className="font-normal">{drill.description}</span></div>
-              <div className="mb-2 font-medium">Due: <span className="font-normal">{drill.deadline ? new Date(drill.deadline).toLocaleString() : 'N/A'}</span></div>
+              <div className="mb-2 font-medium">Open: <span className="font-normal">{drill.openDate ? new Date(drill.openDate).toLocaleString() : 'N/A'}</span></div>
+              <div className="mb-2 font-medium">Due: <span className="font-normal">{drill.dueDate ? new Date(drill.dueDate).toLocaleString() : 'N/A'}</span></div>
               <div className="mb-2 font-medium">Questions: <span className="font-normal">{drill.questions.length}</span></div>
             </div>
             <div className="mb-6">
