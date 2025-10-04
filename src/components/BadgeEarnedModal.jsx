@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import sparkles from '../assets/sparkles.png';
 import api from '../api';
-import { useNotifications } from '../contexts/NotificationContext';
 
-// Accept badgeId prop to display a specific badge first
 const BadgeEarnedModal = ({ onViewBadges, onClose, badgeId }) => {
   const [open, setOpen] = useState(false);
   const [badges, setBadges] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
-  const { refreshNotifications } = useNotifications();
 
   // Fetch all unread badges on mount
   useEffect(() => {
@@ -41,7 +38,6 @@ const BadgeEarnedModal = ({ onViewBadges, onClose, badgeId }) => {
     const badge = badges[currentIdx];
     if (badge && badge.badge && badge.badge.id) {
       const badgeId = badge.badge.id;
-      // Find all notifications for this badge in the badges array
       const notifsForBadge = badges.filter(b => b.badge && b.badge.id === badgeId);
       for (const notif of notifsForBadge) {
         await api.post(`/api/notifications/${notif.id}/mark-as-read/`);
