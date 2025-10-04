@@ -865,17 +865,15 @@ const EditDrill = () => {
           // Get missing letters
           missingLetters = missingIndices.map(idx => word[idx]);
           
-          // Create letter choices: include missing letters and some random letters
+          // Create letter choices: include missing letters (with duplicates) and some random letters
           letterChoices = [
-            ...missingLetters,
+            ...missingLetters, 
             ...allPossibleLetters
               .filter(l => !missingLetters.includes(l))
               .sort(() => Math.random() - 0.5)
               .slice(0, Math.max(0, 6 - missingLetters.length))
           ].sort(() => Math.random() - 0.5);
           
-          // Ensure unique letter choices
-          letterChoices = [...new Set(letterChoices)];
           
           defaultQuestion = `Complete the word by filling in the missing letters`;
           defaultPattern = pattern;

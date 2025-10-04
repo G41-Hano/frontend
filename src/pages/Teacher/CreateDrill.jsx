@@ -443,6 +443,16 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   const [customListDesc, setCustomListDesc] = useState('');
   const [loadingWordLists, setLoadingWordLists] = useState(false);
 
+  // Utility function to get the correct media URL
+  const getMediaUrl = (url) => {
+    if (!url) return null;
+    // If it's already a full URL, return as is
+    if (url.startsWith('http')) return url;
+    // If it's a relative path, construct the full URL
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+    return `${baseUrl}${url.startsWith('/') ? url : '/' + url}`;
+  };
+
   // Fetch built-in word lists when needed
   useEffect(() => {
     if (step === 1 && drill.wordlistType === 'builtin') {
@@ -564,17 +574,15 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           // Get missing letters
           missingLetters = missingIndices.map(idx => word[idx]);
           
-          // Create letter choices: include missing letters and some random letters
+          // Create letter choices: include missing letters (with duplicates) and some random letters
           letterChoices = [
-            ...missingLetters,
+            ...missingLetters, 
             ...allPossibleLetters
               .filter(l => !missingLetters.includes(l))
               .sort(() => Math.random() - 0.5)
               .slice(0, Math.max(0, 6 - missingLetters.length))
           ].sort(() => Math.random() - 0.5);
           
-          // Ensure unique letter choices
-          letterChoices = [...new Set(letterChoices)];
           
           defaultQuestion = `Complete the word by filling in the missing letters`;
           defaultPattern = pattern;
@@ -973,7 +981,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
 
   const validateCustomWordList = () => {
     if (!drill.wordlistName || !customListDesc) return false;
-    if (drill.customWordList.length < 3) return false;
+    if (drill.customWordList.length < 4) return false;
     for (const w of drill.customWordList) {
       if (!w.word || !w.definition || !w.image || !w.signVideo) return false;
     }
@@ -1180,6 +1188,72 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                     </div>
                   )}
                 </div>
+                
+                {/* Word List Preview */}
+                {drill.wordlistName && builtinWords.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="text-lg font-semibold text-[#4C53B4] mb-3">Word List Preview</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+                      {builtinWords.map((word, index) => (
+                        <div key={index} className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow">
+                          <div className="flex items-start gap-3">
+                            {/* Media Preview */}
+                            <div className="flex-shrink-0">
+                              {word.image_url ? (
+                                <div className="w-16 h-16 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                                <img
+                                  src={getMediaUrl(word.image_url)}
+                                  alt={word.word}
+                                  className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => setMediaModal({ 
+                                    open: true, 
+                                    src: getMediaUrl(word.image_url), 
+                                    type: 'image' 
+                                  })}
+                                  onError={(e) => {
+                                    console.error('Failed to load image:', getMediaUrl(word.image_url));
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                                </div>
+                              ) : (
+                                <div className="w-16 h-16 border border-gray-200 rounded-lg bg-gray-50 flex items-center justify-center">
+                                  <i className="fa-solid fa-image text-gray-300"></i>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Word Info */}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-[#4C53B4] text-sm mb-1 truncate">
+                                {word.word}
+                              </h4>
+                              <p className="text-xs text-gray-600 line-clamp-2">
+                                {word.definition}
+                              </p>
+                              {word.video_url && (
+                                <button
+                                  className="mt-1 text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                  onClick={() => setMediaModal({ 
+                                    open: true, 
+                                    src: getMediaUrl(word.video_url), 
+                                    type: 'video/mp4' 
+                                  })}
+                                >
+                                  <i className="fa-solid fa-play"></i>
+                                  Watch Video
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 text-sm text-gray-500 text-center">
+                      {builtinWords.length} word{builtinWords.length !== 1 ? 's' : ''} available
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {drill.wordlistType === 'custom' && (
@@ -1242,7 +1316,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                 <div className="text-sm" style={{ color: validateCustomWordList() ? '#22c55e' : '#ef4444', minWidth: 260 }}>
                   {validateCustomWordList()
                     ? 'Ready!'
-                    : 'Add at least 3 words and fill all required fields to proceed.'}
+                    : 'Add at least 4 words and fill all required fields to proceed.'}
                 </div>
               )}
               <div className="flex gap-2 ml-auto">
@@ -1594,8 +1668,10 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                 {/* Select Word */}
                 <div className="mb-4">
                   <label className="block mb-1 font-medium">Select Word <span className="text-red-500">*</span></label>
+                  
+                  {/* Word Selection Dropdown */}
                   <select
-                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4] mb-4"
                     value={selectedQuestionWord}
                     onChange={e => setSelectedQuestionWord(e.target.value)}
                   >
@@ -1604,8 +1680,72 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                       <option key={i} value={w.word}>{w.word}</option>
                     ))}
                   </select>
-                  {selectedQuestionWordData && selectedQuestionWordData.definition && (
-                    <div className="mt-2 text-gray-600">Definition: {selectedQuestionWordData.definition}</div>
+                  
+                  {/* Word Preview with Media */}
+                  {selectedQuestionWord && selectedQuestionWordData && (
+                    <div className="mt-4 p-4 bg-[#F7F9FC] rounded-xl border border-[#4C53B4]/20">
+                      <div className="flex items-start gap-4">
+                        {/* Word Info */}
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-[#4C53B4] mb-2">
+                            {selectedQuestionWordData.word}
+                          </h3>
+                          <p className="text-gray-700 mb-3">
+                            <span className="font-medium">Definition:</span> {selectedQuestionWordData.definition}
+                          </p>
+                        </div>
+                        
+                        {/* Media Preview */}
+                        <div className="flex gap-3">
+                          {/* Image Preview */}
+                          {selectedQuestionWordData.image_url && (
+                            <div className="flex flex-col items-center">
+                              <div className="w-24 h-24 border-2 border-gray-200 rounded-lg overflow-hidden bg-white">
+                                <img
+                                  src={getMediaUrl(selectedQuestionWordData.image_url)}
+                                  alt={selectedQuestionWordData.word}
+                                  className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => setMediaModal({ 
+                                    open: true, 
+                                    src: getMediaUrl(selectedQuestionWordData.image_url), 
+                                    type: 'image' 
+                                  })}
+                                  onError={(e) => {
+                                    console.error('Failed to load image:', getMediaUrl(selectedQuestionWordData.image_url));
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              </div>
+                              <span className="text-xs text-gray-500 mt-1">Image</span>
+                            </div>
+                          )}
+                          
+                          {/* Video Preview */}
+                          {selectedQuestionWordData.video_url && (
+                            <div className="flex flex-col items-center">
+                              <div className="w-24 h-24 border-2 border-gray-200 rounded-lg overflow-hidden bg-white relative">
+                                <video
+                                  src={getMediaUrl(selectedQuestionWordData.video_url)}
+                                  className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => setMediaModal({ 
+                                    open: true, 
+                                    src: getMediaUrl(selectedQuestionWordData.video_url), 
+                                    type: 'video/mp4' 
+                                  })}
+                                  onMouseEnter={(e) => e.target.play()}
+                                  onMouseLeave={(e) => e.target.pause()}
+                                  muted
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20">
+                                  <i className="fa-solid fa-play text-white text-xl"></i>
+                                </div>
+                              </div>
+                              <span className="text-xs text-gray-500 mt-1">Video</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
                 {/* Disable rest of form if no word selected */}
@@ -1861,7 +2001,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
                                 const missingLetters = word.split('').filter((char, idx) => pattern.split(' ')[idx] === '_');
                                 const allPossibleLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
                                 let letterChoices = [
-                                  ...missingLetters,
+                                  ...missingLetters, 
                                   ...allPossibleLetters.filter(l => !missingLetters.includes(l)).sort(() => Math.random() - 0.5).slice(0, Math.max(0, 5 - missingLetters.length))
                                 ];
                                 letterChoices = letterChoices.sort(() => Math.random() - 0.5);
