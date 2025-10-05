@@ -93,7 +93,7 @@ const MemoryGameQuestionForm = ({ question, onChange, setNotification, setMediaM
           Add Card
         </button>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {(question.memoryCards || []).map((card) => (
           <MemoryGameCard
             key={card.id}

@@ -120,7 +120,7 @@ const Topbar = ({ onMenuClick }) => {
       <div className="flex-1"></div>
 
       {/* Right side - Stats and Profile */}
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 mr-2 sm:mr-4">
         {/* Only show badges and points for students */}
         {!isTeacher && (
           <>

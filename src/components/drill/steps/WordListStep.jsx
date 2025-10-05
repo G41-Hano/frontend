@@ -167,12 +167,12 @@ const WordListStep = ({
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6">Select Word List</h2>
+      <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Select Word List</h2>
       <div className="mb-6">
         <label className="block mb-2 font-medium">Word List Type</label>
-        <div className="flex gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
           <button
-            className={`flex-1 py-3 px-4 rounded-xl border-2 ${
+            className={`py-3 px-4 rounded-xl border-2 text-sm md:text-base transition-all ${
               drill.wordlistType === 'builtin'
                 ? 'border-[#4C53B4] bg-[#EEF1F5] text-[#4C53B4]'
                 : 'border-gray-200 hover:border-[#4C53B4] hover:bg-[#EEF1F5]'
@@ -180,10 +180,11 @@ const WordListStep = ({
             onClick={() => handleWordListChange('builtin')}
           >
             <i className="fa-solid fa-book mr-2"></i>
-            Built-in Word List
+            <span className="hidden sm:inline">Built-in Word List</span>
+            <span className="sm:hidden">Built-in</span>
           </button>
           <button
-            className={`flex-1 py-3 px-4 rounded-xl border-2 ${
+            className={`py-3 px-4 rounded-xl border-2 text-sm md:text-base transition-all ${
               drill.wordlistType === 'custom'
                 ? 'border-[#4C53B4] bg-[#EEF1F5] text-[#4C53B4]'
                 : 'border-gray-200 hover:border-[#4C53B4] hover:bg-[#EEF1F5]'
@@ -191,7 +192,8 @@ const WordListStep = ({
             onClick={() => handleWordListChange('custom')}
           >
             <i className="fa-solid fa-pencil mr-2"></i>
-            Custom Word List
+            <span className="hidden sm:inline">Custom Word List</span>
+            <span className="sm:hidden">Custom</span>
           </button>
         </div>
       </div>
@@ -221,7 +223,7 @@ const WordListStep = ({
           {drill.wordlistName && builtinWords && builtinWords.length > 0 && (
             <div className="mt-4">
               <h3 className="text-lg font-semibold text-[#4C53B4] mb-3">Word List Preview</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 max-h-80 md:max-h-96 overflow-y-auto">
                 {builtinWords.map((word, index) => (
                   <div key={index} className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow">
                     <div className="flex items-start gap-3">
@@ -304,17 +306,20 @@ const WordListStep = ({
           </div>
           <div className="mb-6">
             <label className="block mb-2 font-medium">Description <span className="text-red-500">*</span></label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <textarea
-                className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                className="flex-1 border-2 border-gray-100 rounded-xl px-3 md:px-4 py-2 focus:border-[#4C53B4] text-sm md:text-base"
                 value={customListDesc}
                 onChange={e => setCustomListDesc(e.target.value)}
                 placeholder="Describe this word list"
+                rows={3}
               />
-              <AiGenerateButton
-                onClick={generateListDescription}
-                loading={aiLoading.listDesc}
-              />
+              <div className="flex-shrink-0">
+                <AiGenerateButton
+                  onClick={generateListDescription}
+                  loading={aiLoading.listDesc}
+                />
+              </div>
             </div>
           </div>
           <div className="mb-6">
@@ -344,23 +349,29 @@ const WordListStep = ({
       )}
 
       {/* Navigation */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="space-y-4">
         {drill.wordlistType === 'custom' && (
-          <div className="text-sm" style={{ color: validateWordList() ? '#22c55e' : '#ef4444', minWidth: 260 }}>
-            {validateWordList()
-              ? 'Ready!'
-              : 'Add at least 4 words and fill all required fields to proceed.'}
+          <div className="text-center md:text-left">
+            <div className={`text-sm md:text-base font-medium px-4 py-2 rounded-lg ${
+              validateWordList() 
+                ? 'bg-green-50 text-green-700 border border-green-200' 
+                : 'bg-red-50 text-red-700 border border-red-200'
+            }`}>
+              {validateWordList()
+                ? '✓ Ready to continue!'
+                : 'Add at least 4 words and fill all required fields to proceed.'}
+            </div>
           </div>
         )}
-        <div className="flex gap-2 ml-auto">
+        <div className="flex flex-col sm:flex-row gap-3 sm:justify-between">
           <button
-            className="px-6 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105 transition"
+            className="px-4 md:px-6 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105 transition text-sm md:text-base"
             onClick={onBack}
           >
             Back
           </button>
           <button
-            className="px-6 py-2 rounded-xl bg-[#4C53B4] text-white hover:bg-[#3a4095] hover:scale-105 transition"
+            className="px-4 md:px-6 py-2 rounded-xl bg-[#4C53B4] text-white hover:bg-[#3a4095] hover:scale-105 transition text-sm md:text-base font-medium"
             onClick={async () => {
               if (drill.wordlistType === 'custom' && !validateWordList()) {
                 setNotification({

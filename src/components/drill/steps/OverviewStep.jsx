@@ -34,8 +34,8 @@ const OverviewStep = ({
           rows="3"
         />
       </div>
-      <div className="flex gap-4 mb-4">
-        <div className="flex-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
           <label className="block mb-1 font-medium">
             Open Date <span className="text-red-500">*</span>
           </label>
@@ -45,10 +45,10 @@ const OverviewStep = ({
             value={drill.openDate}
             onChange={handleOverviewChange}
             min={getMinOpenDate()}
-            className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+            className="w-full border-2 border-gray-100 rounded-xl px-3 py-2 text-sm md:px-4 md:text-base focus:border-[#4C53B4]"
           />
         </div>
-        <div className="flex-1">
+        <div>
           <label className="block mb-1 font-medium">
             Due Date <span className="text-red-500">*</span>
           </label>
@@ -58,10 +58,12 @@ const OverviewStep = ({
             value={drill.dueDate}
             onChange={handleOverviewChange}
             min={getMinDueDate(drill.openDate)}
-            className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+            className="w-full border-2 border-gray-100 rounded-xl px-3 py-2 text-sm md:px-4 md:text-base focus:border-[#4C53B4]"
           />
-          {drill.openDate && (
-            <div className="text-xs mt-1 text-gray-500">
+        </div>
+        {drill.openDate && (
+          <div className="md:col-span-2">
+            <div className="text-xs mt-1 text-gray-500 bg-gray-50 p-3 rounded-lg">
               {drill.dueDate ? (
                 (() => {
                   const openDate = new Date(drill.openDate);
@@ -69,20 +71,20 @@ const OverviewStep = ({
                   const diffMinutes = Math.round((dueDate - openDate) / (1000 * 60));
                   
                   if (diffMinutes < 10) {
-                    return <span className="text-red-500">⚠️ Due date must be at least 10 minutes after open date.</span>;
+                    return <span className="text-red-500 font-medium">⚠️ Due date must be at least 10 minutes after open date.</span>;
                   } else if (diffMinutes < 60) {
-                    return <span className="text-green-600">✓ Due date is {diffMinutes} minutes after open date.</span>;
+                    return <span className="text-green-600 font-medium">✓ Due date is {diffMinutes} minutes after open date.</span>;
                   } else {
                     const diffHours = Math.round(diffMinutes / 60);
-                    return <span className="text-green-600">✓ Due date is {diffHours} hour{diffHours !== 1 ? 's' : ''} after open date.</span>;
+                    return <span className="text-green-600 font-medium">✓ Due date is {diffHours} hour{diffHours !== 1 ? 's' : ''} after open date.</span>;
                   }
                 })()
               ) : (
                 <span className="text-gray-500">Please select a due date at least 10 minutes after the open date.</span>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       <div className="flex justify-end">
         <button

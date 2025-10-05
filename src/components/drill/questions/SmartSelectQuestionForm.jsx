@@ -9,12 +9,12 @@ const SmartSelectQuestionForm = ({
 }) => {
   return (
     <div className="mb-4">
-      <label className="block mb-1 font-medium">Choices</label>
-      <div className="flex gap-2 mb-2">
+      <label className="block mb-1 font-medium text-sm md:text-base">Choices</label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
         {questionDraft.choices.map((c, i) => (
-          <div key={i} className="flex-1 flex flex-col gap-1">
+          <div key={i} className="flex flex-col gap-2">
             <input
-              className="w-full border-2 border-gray-100 rounded-xl px-2 py-1 focus:border-[#4C53B4]"
+              className="w-full border-2 border-gray-100 rounded-xl px-3 py-2 focus:border-[#4C53B4] text-sm md:text-base min-w-0"
               placeholder={`Choice ${i+1}`}
               value={c.text}
               onChange={e => handleChoiceChange(i, 'text', e.target.value)}
@@ -29,9 +29,9 @@ const SmartSelectQuestionForm = ({
       </div>
       {/* Correct Answer Dropdown */}
       <div className="mt-4">
-        <label className="block mb-1 font-medium">Correct Answer</label>
+        <label className="block mb-1 font-medium text-sm md:text-base">Correct Answer</label>
         <select
-          className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+          className="w-full border-2 border-gray-100 rounded-xl px-3 md:px-4 py-2 focus:border-[#4C53B4] text-sm md:text-base"
           value={questionDraft.answer}
           onChange={e => setQuestionDraft(prev => ({ ...prev, answer: parseInt(e.target.value) }))}
         >

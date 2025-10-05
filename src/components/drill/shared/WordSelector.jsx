@@ -26,7 +26,7 @@ const WordSelector = ({
       {/* Word Preview with Media */}
       {selectedWord && selectedWordData && (
         <div className="mt-4 p-4 bg-[#F7F9FC] rounded-xl border border-[#4C53B4]/20">
-          <div className="flex items-start gap-4">
+          <div className="flex flex-col md:flex-row items-start gap-4">
             {/* Word Info */}
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-[#4C53B4] mb-2">

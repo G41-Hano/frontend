@@ -118,8 +118,8 @@ const QuestionsStep = ({
   };
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-6">Add Questions</h2>
+    <div className="min-w-0 overflow-x-auto">
+      <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Add Questions</h2>
       
       {notification.show && (
         <div className={`mb-4 p-3 rounded-xl text-center font-semibold animate-fadeIn ${
@@ -169,15 +169,15 @@ const QuestionsStep = ({
       </div>
       
       {/* Navigation buttons */}
-      <div className="flex justify-between">
+      <div className="flex flex-col sm:flex-row gap-3 sm:justify-between">
         <button
-          className="px-6 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105 transition"
+          className="px-4 md:px-6 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105 transition text-sm md:text-base"
           onClick={onBack}
         >
           Back
         </button>
         <button
-          className="px-6 py-2 rounded-xl bg-[#4C53B4] text-white hover:bg-[#3a4095] hover:scale-105 transition font-bold"
+          className="px-4 md:px-6 py-2 rounded-xl bg-[#4C53B4] text-white hover:bg-[#3a4095] hover:scale-105 transition font-bold text-sm md:text-base"
           onClick={onContinue}
           disabled={drill.questions.length < 1}
         >

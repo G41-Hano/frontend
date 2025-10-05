@@ -30,9 +30,9 @@ const QuestionFormContainer = ({
   questionEditIdx
 }) => {
   return (
-    <div className="mb-6 p-6 rounded-xl border-2 border-gray-100 bg-[#F7F9FC]">
-      <div className="mb-4">
-        <div className="font-bold text-lg mb-2">
+    <div className="mb-6 p-3 md:p-6 rounded-xl border-2 border-gray-100 bg-[#F7F9FC] overflow-x-auto">
+      <div className="mb-4 min-w-0">
+        <div className="font-bold text-base md:text-lg mb-2">
           {questionEditIdx !== null ? 'Edit' : 'Add'} Question
         </div>
         
@@ -73,18 +73,20 @@ const QuestionFormContainer = ({
                 {questionDraft.type === 'M' ? 'Question Text' : 'Drill Instruction'} <span className="text-red-500">*</span>
               </label>
               {questionDraft.type !== 'F' && (
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
-                    className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+                    className="flex-1 border-2 border-gray-100 rounded-xl px-3 md:px-4 py-2 focus:border-[#4C53B4] text-sm md:text-base min-w-0"
                     placeholder={questionDraft.type === 'M' ? "Enter question text" : "Enter drill instruction"}
                     value={questionDraft.text}
                     onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
                     id="question-text-input"
                   />
-                  <AiGenerateButton
-                    onClick={generateQuestion}
-                    loading={aiLoading.question}
-                  />
+                  <div className="flex-shrink-0">
+                    <AiGenerateButton
+                      onClick={generateQuestion}
+                      loading={aiLoading.question}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -142,17 +144,17 @@ const QuestionFormContainer = ({
             )}
 
             {/* Add/Edit Question Buttons */}
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-4">
               {questionEditIdx !== null && (
                 <button 
-                  className="px-4 py-1 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105 transition" 
+                  className="px-3 md:px-4 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:scale-105 transition text-sm md:text-base" 
                   onClick={onCancel}
                 >
                   Cancel
                 </button>
               )}
               <button
-                className="px-4 py-1 rounded-xl bg-[#4C53B4] text-white hover:bg-[#3a4095] hover:scale-105 transition"
+                className="px-3 md:px-4 py-2 rounded-xl bg-[#4C53B4] text-white hover:bg-[#3a4095] hover:scale-105 transition text-sm md:text-base font-medium"
                 onClick={onSave}
                 disabled={
                   !selectedQuestionWord ||

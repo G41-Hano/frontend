@@ -18,8 +18,11 @@ import {
   validateCustomWordList,
   validateWordList
 } from '../../utils/drill';
+import DrillSkeleton from '../../components/drill/DrillSkeleton';
+import ProfileSkeleton from '../../components/profile/ProfileSkeleton';
+import Skeleton from '../../components/common/Skeleton';
 
-const EditDrill = () => {
+const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => {
   const [step, setStep] = useState(0);
   const [drill, setDrill] = useState(null);
   const [originalDrill, setOriginalDrill] = useState(null);
@@ -31,8 +34,8 @@ const EditDrill = () => {
   const [searchParams] = useSearchParams();
   const drillId = searchParams.get('drillId');
   const [successMsg, setSuccessMsg] = useState('');
-  const [classroom, setClassroom] = useState(null);
-  const [students, setStudents] = useState([]);
+  const [classroom, setClassroom] = useState(passedClassroom || null);
+  const [students, setStudents] = useState(passedStudents || []);
   const [mediaModal, setMediaModal] = useState({ open: false, src: '', type: '' });
   const [submittingAction, setSubmittingAction] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
@@ -307,12 +310,17 @@ const EditDrill = () => {
         setDrill(drillData);
         setOriginalDrill(drillData);
 
-        // 4. Fetch classroom and students
-        const classroomResponse = await api.get(`/api/classrooms/${response.data.classroom}/`);
-        setClassroom(classroomResponse.data);
-        const studentsResponse = await api.get(`/api/classrooms/${response.data.classroom}/students/`);
-        setStudents(Array.isArray(studentsResponse.data) ? studentsResponse.data : 
-                   Array.isArray(studentsResponse.data?.students) ? studentsResponse.data.students : []);
+        // 4. Fetch classroom and students only if not passed as props
+        if (!passedClassroom || !passedStudents) {
+          const classroomResponse = await api.get(`/api/classrooms/${response.data.classroom}/`);
+          if (!passedClassroom) setClassroom(classroomResponse.data);
+          
+          const studentsResponse = await api.get(`/api/classrooms/${response.data.classroom}/students/`);
+          if (!passedStudents) {
+            setStudents(Array.isArray(studentsResponse.data) ? studentsResponse.data : 
+                       Array.isArray(studentsResponse.data?.students) ? studentsResponse.data.students : []);
+          }
+        }
       } catch (error) {
         console.error('Error fetching drill:', error);
         setNotification({
@@ -325,7 +333,7 @@ const EditDrill = () => {
     };
 
     fetchDrill();
-  }, [drillId, navigate]);
+  }, [drillId, navigate, passedClassroom, passedStudents]);
 
   // Sync selectedQuestionWordData when selectedQuestionWord changes (from original)
   useEffect(() => {
@@ -808,16 +816,6 @@ const EditDrill = () => {
     }
   };
 
-  if (!drill || !classroom) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 flex items-center justify-center">
-        <div className="text-center">
-          <i className="fa-solid fa-spinner fa-spin text-4xl text-[#4C53B4] mb-4"></i>
-          <div className="text-xl text-gray-600">Loading drill...</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#EEF1F5]">
@@ -831,7 +829,17 @@ const EditDrill = () => {
         />
           
         <div className="bg-white rounded-3xl shadow-lg p-8 w-full max-w-[95%] mx-auto">
-          <h1 className="text-3xl font-bold text-gray-800 mb-8">Edit Drill: {drill.title}</h1>
+          {!drill ? (
+            <div className="animate-pulse">
+              <Skeleton className="h-8 w-1/3 mb-8" />
+              <div className="space-y-6">
+                <DrillSkeleton />
+                <DrillSkeleton />
+              </div>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold text-gray-800 mb-8">Edit Drill: {drill.title}</h1>
           
           <Stepper 
             step={step}
@@ -911,14 +919,16 @@ const EditDrill = () => {
           {/* Step 3: Review */}
           {step === 3 && (
             <ReviewStep
+              onBack={() => setStep(2)}
               drill={drill}
               successMsg={successMsg}
               handleSubmit={handleSubmit}
               submittingAction={submittingAction}
               setMediaModal={setMediaModal}
-              onBack={() => setStep(2)}
               isEditing={true}
             />
+          )}
+            </>
           )}
         </div>
 

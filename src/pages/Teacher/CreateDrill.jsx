@@ -479,17 +479,20 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
             setAiLoading={setAiLoading}
             notification={notification}
             setNotification={setNotification}
-            setMediaModal={setMediaModal}
             handleChoiceChange={handleChoiceChange}
             handleChoiceMedia={handleChoiceMedia}
             emptyQuestion={emptyQuestion}
+            onBack={() => setStep(1)}
             onContinue={() => setStep(3)}
+            submittingAction={submittingAction}
+            setMediaModal={setMediaModal}
           />
         )}
 
         {/* Review Step */}
         {step === 3 && (
           <ReviewStep
+            onBack={() => setStep(2)}
             drill={drill}
             successMsg={successMsg}
             handleSubmit={handleSubmit}
@@ -497,9 +500,9 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
             setMediaModal={setMediaModal}
           />
         )}
+
       </div>
     </div>
   );
 };
-
 export default CreateDrill;
