@@ -1,9 +1,13 @@
-import { AiGenerateButton, FileInput } from "../pages/Teacher/CreateDrill";
+import AiGenerateButton from './drill/shared/AiGenerateButton';
+import FileInput from './drill/shared/FileInput';
 import Definitions, { useDefinitionFetcher } from "./gen-ai/GenerateDefinition";
 
 
 export default function CreateCustomWordList({index,word,handleUpdateCustomWord,handleRemoveCustomWord,setMediaModal}) {
   const {isLoading, error, definitions, getDefinition} = useDefinitionFetcher()
+  
+  // Debug logging
+  console.log(`Word ${index}:`, word);
 
   return (<div className="mb-4 p-4 rounded-xl border-2 border-gray-100 flex flex-col gap-2">
       <div className="flex gap-4">
