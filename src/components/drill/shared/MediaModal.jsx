@@ -18,7 +18,7 @@ const MediaModal = ({ mediaModal, setMediaModal }) => {
       >
         &times;
       </button>
-      {mediaModal.type.startsWith('image/') ? (
+      {mediaModal.type.startsWith('image') ? (
         <img
           src={mediaModal.src}
           alt="media"
