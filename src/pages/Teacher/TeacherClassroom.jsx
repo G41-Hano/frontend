@@ -14,6 +14,8 @@ import ClassroomHeader from './ClassroomHeader';
 import ReactDOM from 'react-dom';
 import { useSuccessModal } from '../../contexts/SuccessModalContext';
 import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
+import { ClassroomSkeleton, DrillSkeleton } from '../../components/loading';
+import Skeleton from '../../components/Skeleton';
 
 const DrillCard = ({ title, icon, color, hoverColor }) => (
   <div 
@@ -125,6 +127,7 @@ const TeacherClassroom = () => {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [studentToTransfer, setStudentToTransfer] = useState(null);
   const [drills, setDrills] = useState([]);
+  const [isDrillsLoading, setIsDrillsLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
   const [openMenuDrillId, setOpenMenuDrillId] = useState(null);
   const { showSuccessModal } = useSuccessModal();
@@ -158,12 +161,14 @@ const TeacherClassroom = () => {
 
   // Fetch drills for this classroom
   const fetchDrills = useCallback(async () => {
+    setIsDrillsLoading(true);
     try {
       const response = await api.get(`/api/drills/?classroom=${id}`);
       setDrills(response.data);
-      //console.log('Drills:', response.data);
     } catch {
       setDrills([]);
+    } finally {
+      setIsDrillsLoading(false);
     }
   }, [id]);
 
@@ -275,7 +280,7 @@ const TeacherClassroom = () => {
     fetchDrills();
     setSearchParams({});
   }} classroom={classroom} students={students} />;
-  if (drillMode === 'edit' && drillId) return <EditDrill />;
+  if (drillMode === 'edit' && drillId) return <EditDrill classroom={classroom} students={students} />;
   if (drillMode === 'results' && drillId) return <ViewDrillResults />;
 
   if (error) {
@@ -299,8 +304,18 @@ const TeacherClassroom = () => {
   }
 
   if (!classroom) return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
+    <div className="min-h-screen bg-[#EEF1F5] p-4">
+      <div className="max-w-[95%] mx-auto">
+        <ClassroomSkeleton />
+        <div className="mt-6 bg-white rounded-3xl shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6"><Skeleton className="h-8 w-1/4" /></h2>
+          <div className="space-y-4">
+            <DrillSkeleton />
+            <DrillSkeleton />
+            <DrillSkeleton />
+          </div>
+        </div>
+      </div>
     </div>
   );
 
@@ -364,13 +379,13 @@ const TeacherClassroom = () => {
       <div className="max-w-[95%] mx-auto mt-6">
         {/* Tabs */}
         <div className="bg-[#EEF1F5] rounded-3xl border-2 border-gray-100">
-          <nav className="flex justify-center space-x-8 p-2">
+          <nav className="flex flex-wrap justify-center gap-2 sm:gap-4 p-2">
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  py-4 px-8 rounded-xl inline-flex items-center gap-2 font-medium text-sm 
+                  py-3 px-4 sm:py-4 sm:px-6 rounded-xl inline-flex items-center gap-2 font-medium text-sm 
                   transition-all duration-300 transform hover:scale-105
                   ${activeTab === tab.id 
                     ? 'bg-[#4C53B4] text-white shadow-lg' 
@@ -398,7 +413,13 @@ const TeacherClassroom = () => {
                   </button>
                 </div>
                 <div className="flex flex-col gap-4">
-                  {drills.length === 0 ? (
+                  {isDrillsLoading ? (
+                    <>
+                      <DrillSkeleton />
+                      <DrillSkeleton />
+                      <DrillSkeleton />
+                    </>
+                  ) : drills.length === 0 ? (
                     <div className="text-center text-gray-400 py-12">No drills yet.</div>
                   ) : (
                     getSortedDrills(drills).map((drill, idx) => (

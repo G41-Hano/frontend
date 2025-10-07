@@ -3,6 +3,7 @@ import api from '../../api';
 import { ACCESS_TOKEN } from '../../constants';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
+import { ProfileSkeleton } from '../../components/loading';
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
@@ -157,21 +158,11 @@ const Profile = () => {
   };
 
   if (isLoading && !profile) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-[#EEF1F5] to-[#E6E9FF]">
-        <div className="relative">
-          <div className="w-16 h-16 border-4 border-[#4C53B4] border-t-transparent rounded-full animate-spin"></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <i className="fa-solid fa-user text-[#4C53B4] text-2xl animate-pulse"></i>
-          </div>
-        </div>
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   return (
     <div className="min-h-screen p-6">
-      {/* Success Message */}
       {showSuccess && (
         <div className="fixed top-4 right-4 bg-green-400 text-white px-6 py-3 rounded-xl shadow-lg animate-bounce">
           <div className="flex items-center gap-2">

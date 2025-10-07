@@ -19,6 +19,8 @@ import pencilBook from '../../assets/pencil_book.png';
 import JoinClassroomModal from './JoinClassroomModal';
 import { useNavigate } from 'react-router-dom';
 import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
+import { ClassroomSkeleton, ClassroomHeaderSkeleton } from '../../components/loading';
+
 
 const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']; //Classroom Colors
 
@@ -408,8 +410,11 @@ const MyClasses = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
+      <div className="space-y-6 px-4 sm:px-6 max-w-full md:max-w-[95%] mx-auto">
+        <ClassroomHeaderSkeleton />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
+          {[...Array(6)].map((_, i) => <ClassroomSkeleton key={i} />)}
+        </div>
       </div>
     );
   }
