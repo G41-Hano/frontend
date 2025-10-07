@@ -18,6 +18,10 @@ const QuestionRenderer = ({
   currentAnswer,
   wrongAnswers,
   isTeacherPreview,
+  showTimer,
+  timeSpent,
+  currentWordIdx,
+  currentQuestionIdx,
   onBack,
   onAnswer,
   onNext
@@ -87,7 +91,7 @@ const QuestionRenderer = ({
         return (
           <MemoryGameQuestion
             question={currentQuestion}
-            onAnswer={answer => answerStatus !== 'correct' && onAnswer(answer, false)}
+            onAnswer={(answer, attempts) => answerStatus !== 'correct' && onAnswer(answer, attempts)}
             currentAnswer={currentAnswer}
           />
         );
@@ -141,6 +145,46 @@ const QuestionRenderer = ({
               />
             </div>
           </div>
+          
+          {/* Timer Display */}
+          {showTimer && currentQuestion && (
+            <div className="flex justify-center mt-4">
+              {(() => {
+                const key = `${currentWordIdx}_${currentQuestionIdx}`;
+                const timeUsed = timeSpent[key] || 0;
+                const minutes = Math.floor(timeUsed / 60);
+                const seconds = timeUsed % 60;
+                const timeString = minutes > 0 ? `${minutes}:${seconds.toString().padStart(2, '0')}` : `${seconds}s`;
+                
+                // Determine timer color based on time and question type
+                const isMemoryGame = currentQuestion.type === 'G';
+                const penaltyThreshold = isMemoryGame ? 10 : 5; // Memory games have 10s threshold, others 5s
+                
+                let timerColor = 'from-blue-500 to-purple-600'; // Default blue
+                let timerText = isMemoryGame ? 'Memory Game' : 'Question';
+                
+                if (timeUsed >= penaltyThreshold) {
+                  timerColor = 'from-yellow-500 to-orange-500'; // Warning yellow
+                  timerText = isMemoryGame ? 'Memory Game (Time Penalty)' : 'Question (Time Penalty)';
+                }
+                
+                if (timeUsed >= penaltyThreshold * 2) {
+                  timerColor = 'from-red-500 to-pink-500'; // Danger red
+                  timerText = isMemoryGame ? 'Memory Game (High Penalty)' : 'Question (High Penalty)';
+                }
+                
+                return (
+                  <div className={`bg-gradient-to-r ${timerColor} text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-3 transition-all duration-300`}>
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                    <span className="font-semibold text-lg">{timeString}</span>
+                    <div className="text-sm opacity-90">{timerText}</div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
 
         {/* Question Choices */}

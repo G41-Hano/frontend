@@ -2,6 +2,7 @@ import React from 'react';
 import Skeleton from '../../Skeleton';
 
 const DrillSkeleton = ({ drillBg, onBack }) => {
+  
   return (
     <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
       {/* Header Skeleton */}

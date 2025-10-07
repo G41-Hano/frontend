@@ -19,12 +19,42 @@ const ViewDrillResults = () => {
     totalStudents: 0,
     studentsAnsweredCurrentQuestion: 0 
   });
+  const [refreshing, setRefreshing] = useState(false);
 
   // Helper function to get absolute URL for media
   const getMediaUrl = (url) => {
     if (!url) return '';
     if (url.startsWith('http')) return url;
     return `http://127.0.0.1:8000${url}`;
+  };
+
+  // Function to refresh drill results
+  const refreshResults = async () => {
+    try {
+      setRefreshing(true);
+      const resultsResponse = await api.get(`/api/drills/${drillId}/results/`);
+      setAllDrillResults(resultsResponse.data);
+      console.log("🔄 Refreshed Results Response: ", resultsResponse.data);
+      
+      // Debug: Check memory game question results after refresh
+      const memoryGameQuestion = drill?.questions?.find(q => q.type === 'G');
+      if (memoryGameQuestion) {
+        console.log(`🔍 Memory Game Question ID: ${memoryGameQuestion.id}`);
+        resultsResponse.data.forEach((drillResult, index) => {
+          const questionResult = drillResult.question_results.find(qr => qr.question_id === memoryGameQuestion.id && qr.question_type === 'G');
+          if (questionResult) {
+            console.log(`📊 Student ${drillResult.student.name} - Memory Game Points: ${questionResult.points_awarded}, Correct: ${questionResult.is_correct}, Submitted: ${questionResult.submitted_at}`);
+            console.log(`🔍 Full questionResult object:`, questionResult);
+            console.log(`🔍 questionResult.points_awarded type:`, typeof questionResult.points_awarded);
+            console.log(`🔍 questionResult.points_awarded value:`, questionResult.points_awarded);
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Error refreshing drill results:', err.response?.data || err.message);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -46,6 +76,21 @@ const ViewDrillResults = () => {
         console.log("Results Response: ", resultsResponse.data);
         console.log("Picture Word: ", drillResponse.data.questions?.find(q => q.type === 'P')?.pictureWord);
         console.log("Memory Game Cards: ", drillResponse.data.questions?.find(q => q.type === 'G')?.memoryCards);
+        
+        // Debug: Check memory game question results
+        const memoryGameQuestion = drillResponse.data.questions?.find(q => q.type === 'G');
+        if (memoryGameQuestion) {
+          console.log(`🔍 Memory Game Question ID: ${memoryGameQuestion.id}`);
+          resultsResponse.data.forEach((drillResult, index) => {
+            const questionResult = drillResult.question_results.find(qr => qr.question_id === memoryGameQuestion.id && qr.question_type === 'G');
+            if (questionResult) {
+              console.log(`📊 Student ${drillResult.student.name} - Memory Game Points: ${questionResult.points_awarded}, Correct: ${questionResult.is_correct}, Submitted: ${questionResult.submitted_at}`);
+              console.log(`🔍 Full questionResult object:`, questionResult);
+              console.log(`🔍 questionResult.points_awarded type:`, typeof questionResult.points_awarded);
+              console.log(`🔍 questionResult.points_awarded value:`, questionResult.points_awarded);
+            }
+          });
+        }
 
         setLoading(false);
       } catch (err) {
@@ -82,7 +127,7 @@ const ViewDrillResults = () => {
 
     // Process each student's drill result
     allDrillResults.forEach(drillResult => {
-      const questionResult = drillResult.question_results.find(qr => qr.question_id === currentQuestion.id);
+      const questionResult = drillResult.question_results.find(qr => qr.question_id === currentQuestion.id && qr.question_type === currentQuestion.type);
       if (questionResult) {
         studentsAnswered++;
         if (questionResult.is_correct) {
@@ -183,13 +228,23 @@ const ViewDrillResults = () => {
               <span><i className="fa-solid fa-list-check mr-1"></i> {questions.length} Questions</span>
             </div>
           </div>
-          <button 
-            className="px-4 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-all flex items-center gap-2"
-            onClick={() => navigate(-1)}
-          >
-            <i className="fa-solid fa-arrow-left"></i>
-            Back
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              className="px-4 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-all flex items-center gap-2"
+              onClick={refreshResults}
+              disabled={refreshing}
+            >
+              <i className={`fa-solid fa-refresh ${refreshing ? 'animate-spin' : ''}`}></i>
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+            <button 
+              className="px-4 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-all flex items-center gap-2"
+              onClick={() => navigate(-1)}
+            >
+              <i className="fa-solid fa-arrow-left"></i>
+              Back
+            </button>
+          </div>
         </div>
       </div>
       
@@ -474,7 +529,7 @@ const ViewDrillResults = () => {
             ) : (
               allDrillResults.map((drillResult) => {
                 const questionResult = drillResult.question_results.find(
-                  qr => qr.question_id === questions[questionIdx]?.id
+                  qr => qr.question_id === questions[questionIdx]?.id && qr.question_type === questions[questionIdx]?.type
                 );
                 
                 if (!questionResult) return null;

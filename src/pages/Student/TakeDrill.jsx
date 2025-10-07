@@ -39,6 +39,8 @@ const TakeDrill = () => {
     const path = window.location.pathname;
     return path.startsWith('/t/');
   });
+  const [showTimer, setShowTimer] = useState(false);
+  
 
   // Fetch drill and wordlist
   useEffect(() => {
@@ -167,10 +169,15 @@ const TakeDrill = () => {
   useEffect(() => {
     let intervalId;
     if (introStep === 5) {
+      // Show timer when question starts
+      setShowTimer(true);
       intervalId = setInterval(() => {
         const key = `${currentWordIdx}_${currentQuestionIdx}`;
         setTimeSpent(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
       }, 1000);
+    } else {
+      // Hide timer when not on question
+      setShowTimer(false);
     }
 
     return () => {
@@ -222,7 +229,7 @@ const TakeDrill = () => {
   const currentQuestion = currentQuestions?.[currentQuestionIdx];
 
   // Update handleAnswer to save points to backend
-  const handleAnswer = async (answer, isCorrect) => {
+  const handleAnswer = async (answer, isCorrectOrAttempts) => {
     if (isTeacherPreview) {
       // For teacher preview, just set the answer without validation
       setCurrentAnswer(answer);
@@ -234,40 +241,59 @@ const TakeDrill = () => {
     
     // Determine correctness for all question types
     let correct = false;
+    let memoryGameAttempts = 0;
     
     if (currentQuestion.type === 'M') {
       correct = parseInt(answer) === parseInt(currentQuestion.answer);
     } else if (currentQuestion.type === 'F') {
       // For Blank Busters, use the isCorrect parameter passed from the component
-      correct = isCorrect;
+      correct = isCorrectOrAttempts;
       console.log(`Blank Busters - Submitted answer: "${answer}", Correct answer: "${currentQuestion.answer}", Is correct: ${correct}`);
     } else if (currentQuestion.type === 'D') {
       // For Sentence Builder, use the isCorrect parameter passed from the component
-      correct = isCorrect;
+      correct = isCorrectOrAttempts;
     } else if (currentQuestion.type === 'P') {
       correct = (answer || '').toLowerCase().trim() === (currentQuestion.answer || '').toLowerCase().trim();
     } else if (currentQuestion.type === 'G') {
+      // For Memory Game, answer is always correct (all cards matched), 
+      // and isCorrectOrAttempts contains the number of incorrect attempts
       correct = Array.isArray(answer) && answer.length === (currentQuestion.memoryCards?.length || 0);
+      memoryGameAttempts = isCorrectOrAttempts || 0;
+      console.log(`Memory Game - Answer: ${JSON.stringify(answer)}, MemoryCards length: ${currentQuestion.memoryCards?.length}, Correct: ${correct}, Attempts: ${memoryGameAttempts}`);
     }
     
     // Always submit to backend for all question types
     if (correct) {
       setAnswerStatus('correct');
-      const earnedPoints = calculatePoints(attempts[key], timeSpent[key], true);
+
+      // Use memory game attempts if it's a memory game, otherwise use general attempts
+      const attemptsToUse = currentQuestion.type === 'G' ? memoryGameAttempts : (attempts[key] || 0);
+      const timeUsed = timeSpent[key] || 0;
+      const earnedPoints = calculatePoints(attemptsToUse, timeUsed, true, currentQuestion.type);
       setPoints(prev => ({ ...prev, [key]: earnedPoints }));
+
+      // Debug logging for memory games
+      if (currentQuestion.type === 'G') {
+        const timePenaltyThreshold = 10; // Memory games use 10-second threshold
+        const timePenalty = Math.min(30, Math.floor(timeUsed / timePenaltyThreshold) * 0.5);
+        console.log(`Memory Game Debug - Time used: ${timeUsed}s, Time penalty: ${timePenalty}, Attempts: ${attemptsToUse}, Final points: ${earnedPoints}`);
+      }
 
       // Submit correct answer to backend
       try {
-        console.log(`Submitting correct answer for question ID ${currentQuestion.id}, type ${currentQuestion.type}, points ${earnedPoints}`);
-        await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
+        console.log(`Submitting correct answer for question ID ${currentQuestion.id}, type ${currentQuestion.type}, points ${earnedPoints}, attempts ${attemptsToUse}`);
+        const response = await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
           answer: answer,
           time_taken: timeSpent[key],
-          wrong_attempts: attempts[key] || 0,
+          wrong_attempts: attemptsToUse,
           points: earnedPoints,
           question_type: currentQuestion.type
         });
+        console.log(`✅ Successfully submitted answer for question ID ${currentQuestion.id}, response:`, response.data);
       } catch (error) {
-        console.error('Failed to submit answer:', error);
+        console.error(`❌ Failed to submit answer for question ID ${currentQuestion.id}:`, error);
+        console.error('Error details:', error.response?.data);
+        console.error('Error status:', error.response?.status);
       }
     } else {
       setAnswerStatus('wrong');
@@ -279,15 +305,18 @@ const TakeDrill = () => {
       // Submit incorrect answer to backend as well
       try {
         console.log(`Submitting incorrect answer for question ID ${currentQuestion.id}, type ${currentQuestion.type}, points 0`);
-        await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
+        const response = await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
           answer: answer,
           time_taken: timeSpent[key],
           wrong_attempts: attempts[key] || 0,
           points: 0,
           question_type: currentQuestion.type
         });
+        console.log(`✅ Successfully submitted incorrect answer for question ID ${currentQuestion.id}, response:`, response.data);
       } catch (error) {
-        console.error('Failed to submit answer:', error);
+        console.error(`❌ Failed to submit incorrect answer for question ID ${currentQuestion.id}:`, error);
+        console.error('Error details:', error.response?.data);
+        console.error('Error status:', error.response?.status);
       }
     }
   };
@@ -456,6 +485,10 @@ const TakeDrill = () => {
         currentAnswer={currentAnswer}
         wrongAnswers={wrongAnswers}
         isTeacherPreview={isTeacherPreview}
+        showTimer={showTimer}
+        timeSpent={timeSpent}
+        currentWordIdx={currentWordIdx}
+        currentQuestionIdx={currentQuestionIdx}
         onBack={handleBack}
         onAnswer={handleAnswer}
         onNext={handleNext}

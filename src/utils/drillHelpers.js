@@ -75,14 +75,29 @@ export const calculateCurrentStep = (introStep, currentWordIdx, currentQuestionI
 };
 
 // Points calculation helper - frontend is the single source of truth for scoring
-export const calculatePoints = (attempts, timeSpent, isCorrect) => {
+export const calculatePoints = (attempts, timeSpent, isCorrect, questionType = null) => {
   if (!isCorrect) return 0;
+
   // Base points: 100
   // -10 points per wrong attempt (matching backend formula exactly)
   // -1 point per 5 seconds spent (frontend enhancement for better UX)
   // Maximum time penalty is 30 points
+
   const wrongAttempts = attempts || 0;
-  const timePenalty = Math.min(30, Math.floor((timeSpent || 0) / 5));
+
+  // Adjust time penalty based on question type
+  let timePenaltyMultiplier = 1;
+  let timePenaltyThreshold = 5;
+  
+  if (questionType === 'G') {
+    // Memory games need more time due to animations and multiple interactions
+    // -1 point per 10 seconds instead of 5 seconds
+    timePenaltyMultiplier = 0.5;
+    timePenaltyThreshold = 10;
+  }
+  
+  const timePenalty = Math.min(30, Math.floor((timeSpent || 0) / timePenaltyThreshold) * timePenaltyMultiplier);
+
   const points = Math.max(0, 100 - (wrongAttempts * 10) - timePenalty);
   return points;
 };

@@ -4,6 +4,7 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
   const [flipped, setFlipped] = useState([]); // array of card ids currently flipped
   const [matched, setMatched] = useState([]); // array of card ids that are matched
   const [lock, setLock] = useState(false); // prevent flipping more than 2 at a time
+  const [incorrectAttempts, setIncorrectAttempts] = useState(0); // track incorrect pair attempts
 
   // Shuffle cards on first render
   const [shuffledCards] = useState(() => {
@@ -17,8 +18,9 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
 
   useEffect(() => {
     if (matched.length === shuffledCards.length && shuffledCards.length > 0) {
-      // All pairs matched, call onAnswer with the matched pairs
-      onAnswer(matched);
+      // All pairs matched, call onAnswer with the matched pairs and incorrect attempts
+      console.log(`MemoryGameQuestion - All matched! Matched: ${matched.length}, Incorrect attempts: ${incorrectAttempts}`);
+      onAnswer(matched, incorrectAttempts);
     }
     // eslint-disable-next-line
   }, [matched]);
@@ -40,7 +42,12 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
           setLock(false);
         }, 700);
       } else {
-        // Not a match
+        // Not a match - increment incorrect attempts
+        setIncorrectAttempts(prev => {
+          const newAttempts = prev + 1;
+          console.log(`MemoryGameQuestion - Wrong pair! Attempts: ${prev} -> ${newAttempts}`);
+          return newAttempts;
+        });
         setTimeout(() => {
           setFlipped([]);
           setLock(false);
