@@ -19,8 +19,8 @@ import pencilBook from '../../assets/pencil_book.png';
 import JoinClassroomModal from './JoinClassroomModal';
 import { useNavigate } from 'react-router-dom';
 import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
-import ClassroomSkeleton from '../../components/classroom/ClassroomSkeleton';
-import ClassroomHeaderSkeleton from '../../components/classroom/ClassroomHeaderSkeleton';
+import { ClassroomSkeleton, ClassroomHeaderSkeleton } from '../../components/loading';
+
 
 const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']; //Classroom Colors
 

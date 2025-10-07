@@ -18,9 +18,8 @@ import {
   validateCustomWordList,
   validateWordList
 } from '../../utils/drill';
-import DrillSkeleton from '../../components/drill/DrillSkeleton';
-import ProfileSkeleton from '../../components/profile/ProfileSkeleton';
-import Skeleton from '../../components/common/Skeleton';
+import { DrillSkeleton } from '../../components/loading';
+import Skeleton from '../../components/Skeleton';
 
 const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => {
   const [step, setStep] = useState(0);

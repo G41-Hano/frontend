@@ -1,954 +1,18 @@
-import { useState, useEffect, useCallback, useReducer } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import drillBg from '../../assets/drill_bg.png';
 import '../../styles/animations.css';
-import HippoIdle from '../../assets/HippoIdle.gif';
-import HippoCurious from '../../assets/MascotHippoCurious.gif';
-import HippoHappy from '../../assets/MascotHippoHappy.gif';
-import HippoSad from '../../assets/MascotHippoSad.gif';
 import HippoWaiting from '../../assets/MascotHippoWaiting.gif';
-import { DndContext, useSensors, useSensor, useDroppable, useDraggable, DragOverlay } from '@dnd-kit/core';
-import { PointerSensor } from '@dnd-kit/core';  
-import { Tooltip } from "react-tooltip";
-
-// Custom Draggable component
-const Draggable = ({ id, disabled, children }) => {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id,
-    disabled
-  });
-  
-  return children({ attributes, listeners, setNodeRef, isDragging });
-};
-
-// Custom Droppable component
-const Droppable = ({ id, children }) => {
-  const { isOver, setNodeRef } = useDroppable({
-    id
-  });
-  
-  return children({ isOver, setNodeRef });
-};
-
-const MultipleChoiceQuestion = ({ question, onAnswer, currentAnswer, answerStatus, wrongAnswers = [] }) => {
-  return (
-    <div className="animate-fadeIn">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mx-auto">
-        {question.choices.map((choice, index) => {
-          const isSelected = currentAnswer === index;
-          const isWrong = wrongAnswers?.includes(index);
-          const isCorrect = answerStatus === 'correct' && isSelected;
-          
-          let buttonClass = 'p-6 rounded-2xl text-center transition-all transform hover:scale-105 ';
-          if (isCorrect) {
-            buttonClass += 'bg-green-500 text-white shadow-lg scale-105';
-          } else if (isWrong) {
-            buttonClass += 'bg-red-500 text-white shadow-lg scale-105';
-          } else {
-            buttonClass += 'bg-white text-gray-800 shadow-md hover:shadow-lg';
-          }
-
-          let mediaElement = null;
-          if (choice.image) {
-            mediaElement = (
-              <img 
-                src={choice.image.startsWith('http') ? choice.image : `http://127.0.0.1:8000${choice.image}`} 
-                alt={choice.text || `Option ${index + 1}`}
-                className="w-full h-32 object-contain mb-2 rounded-lg"
-              />
-            );
-          } else if (choice.video) {
-            mediaElement = (
-              <video 
-                src={choice.video.startsWith('http') ? choice.video : `http://127.0.0.1:8000${choice.video}`}
-                className="w-full h-32 object-contain mb-2 rounded-lg"
-                controls
-              />
-            );
-          }
-
-          return (
-            <button
-              key={index}
-              className={buttonClass}
-              onClick={() => !isCorrect && onAnswer(index)}
-              disabled={isCorrect}
-            >
-              <div className="flex items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl mr-4 ${
-                  isSelected ? 'bg-white text-[#8e44ad]' : 'bg-[#f1f2f6] text-[#8e44ad]'
-                }`}>
-                  {String.fromCharCode(65 + index)}
-                </div>
-                <div className="flex-1">
-                  {mediaElement}
-                  {choice.text && <div className="text-lg font-medium">{choice.text}</div>}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-// Memory Game Question Component
-const MemoryGameQuestion = ({ question, onAnswer }) => {
-  const [flipped, setFlipped] = useState([]); // array of card ids currently flipped
-  const [matched, setMatched] = useState([]); // array of card ids that are matched
-  const [lock, setLock] = useState(false); // prevent flipping more than 2 at a time
-
-  // Shuffle cards on first render
-  const [shuffledCards] = useState(() => {
-    const cards = [...(question.memoryCards || [])];
-    for (let i = cards.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [cards[i], cards[j]] = [cards[j], cards[i]];
-    }
-    return cards;
-  });
-
-  useEffect(() => {
-    if (matched.length === shuffledCards.length && shuffledCards.length > 0) {
-      // All pairs matched, call onAnswer with the matched pairs
-      onAnswer(matched);
-    }
-    // eslint-disable-next-line
-  }, [matched]);
-
-  const handleFlip = (cardId) => {
-    if (lock || flipped.includes(cardId) || matched.includes(cardId)) return;
-    const newFlipped = [...flipped, cardId];
-    setFlipped(newFlipped);
-    if (newFlipped.length === 2) {
-      setLock(true);
-      const [firstId, secondId] = newFlipped;
-      const firstCard = shuffledCards.find(c => c.id === firstId);
-      const secondCard = shuffledCards.find(c => c.id === secondId);
-      if (firstCard && secondCard && firstCard.pairId === secondCard.id) {
-        // It's a match!
-        setTimeout(() => {
-          setMatched(prev => [...prev, firstId, secondId]);
-          setFlipped([]);
-          setLock(false);
-        }, 700);
-      } else {
-        // Not a match
-        setTimeout(() => {
-          setFlipped([]);
-          setLock(false);
-        }, 1000);
-      }
-    }
-  };
-
-  const renderCardContent = (card) => {
-    if (card.media) {
-      let src = null;
-      let type = '';
-      
-      // Handle different media formats
-      if (card.media instanceof File) {
-        src = URL.createObjectURL(card.media);
-        type = card.media.type;
-      } else if (typeof card.media === 'string') {
-        src = card.media.startsWith('http') ? card.media : `http://127.0.0.1:8000${card.media}`;
-        // Try to determine type from file extension
-        const ext = card.media.split('.').pop().toLowerCase();
-        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
-          type = 'image/*';
-        } 
-      } else if (card.media.url) {
-        src = card.media.url.startsWith('http') ? card.media.url : `http://127.0.0.1:8000${card.media.url}`;
-        type = card.media.type || '';
-      }
-
-      if (type.startsWith('image/')) {
-        return <img src={src} alt="card" className="w-full h-24 object-contain rounded" />;
-      } 
-    }
-    if (card.content) {
-      return <span className="text-lg font-semibold">{card.content}</span>;
-    }
-    return <span className="text-gray-400">No content</span>;
-  };
-
-  return (
-    <div className="flex flex-col items-center">
-      <div className="text-center text-2xl font-bold mb-4 text-[#8e44ad]">
-        {matched.length === shuffledCards.length && shuffledCards.length > 0
-          ? 'All pairs matched!'
-          : flipped.length === 2
-            ? 'Checking...'
-            : 'Flip two cards to find a match.'}
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 max-w-3xl mx-auto">
-        {shuffledCards.map((card) => {
-          const isFlipped = flipped.includes(card.id) || matched.includes(card.id);
-          return (
-            <button
-              key={card.id}
-              className={`relative w-40 h-40 sm:w-44 sm:h-44 rounded-xl shadow-lg border-2 transition-all duration-300 flex items-center justify-center bg-white ${isFlipped ? 'ring-4 ring-[#8e44ad] scale-105' : 'hover:scale-105'}`}
-              onClick={() => handleFlip(card.id)}
-              disabled={isFlipped || lock}
-              style={{ perspective: 1000 }}
-            >
-              <div className={`absolute inset-0 flex items-center justify-center transition-transform duration-500 ${isFlipped ? '' : 'rotate-y-180'}`}
-                style={{ backfaceVisibility: 'hidden' }}
-              >
-                {isFlipped ? (
-                  renderCardContent(card)
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl text-[#8e44ad] bg-[#f1f2f6] rounded-xl">
-                    <i className="fa-regular fa-circle-question"></i>
-                  </div>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-const PictureWordQuestion = ({ question, onAnswer, currentAnswer }) => {
-  const [answer, setAnswer] = useState(currentAnswer || '');
-  const [isCorrect, setIsCorrect] = useState(null);
-  const [showHint, setShowHint] = useState(false);
-
-  useEffect(() => {
-    setAnswer(currentAnswer || '');
-  }, [currentAnswer]);
-
-  const handleSubmit = () => {
-    const correctAnswer = question.answer?.toLowerCase().trim() || '';
-    const userAnswer = answer.toLowerCase().trim();
-    const isAnswerCorrect = userAnswer === correctAnswer;
-    setIsCorrect(isAnswerCorrect);
-    // Always call onAnswer with the result, whether correct or incorrect
-    onAnswer(answer, isAnswerCorrect);
-  };
-
-  return (
-    <div className="space-y-6">
-      {isCorrect !== null && (
-        <div className={`text-center text-2xl font-bold mb-4 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-          {isCorrect ? 'Correct!' : 'Try again!'}
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-4">
-        {(question.pictureWord || []).map((pic, index) => (
-          <div key={pic.id} className="border rounded-lg p-4 bg-white">
-            {pic.media && pic.media.url && (
-              <img
-                src={pic.media.url.startsWith('http') ? pic.media.url : `http://127.0.0.1:8000${pic.media.url}`}
-                alt={`Picture ${index + 1}`}
-                className="w-full h-48 object-cover rounded border"
-              />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="flex flex-col items-center gap-4">
-        <input
-          type="text"
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          placeholder="Enter your answer"
-          className="w-full max-w-md border-2 border-gray-200 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-        />
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowHint(!showHint)}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800"
-          >
-            <i className="fa-solid fa-lightbulb"></i> Hint
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="px-6 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095]"
-          >
-            Submit
-          </button>
-        </div>
-        {showHint && (
-          <div className="text-sm text-gray-600">
-            <i className="fa-solid fa-lightbulb mr-2"></i>
-            Look at the pictures carefully and try to find a common word that connects them all.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Helper: Group questions by word
-const groupQuestionsByWord = (questions) => {
-  const map = {};
-  questions.forEach(q => {
-    const wordKey = q.word_id || q.word; // Use word_id if available, otherwise use word as key
-    if (!map[wordKey]) {
-      map[wordKey] = {
-        word: q.word,
-        definition: q.definition,
-        image: q.image,
-        signVideo: q.signVideo,
-        questions: []
-      };
-    }
-    map[wordKey].questions.push(q);
-  });
-  
-  // Convert map to array and maintain word order
-  const sortedGroups = Object.entries(map)
-    .sort(([keyA], [keyB]) => {
-      // Get first question from each group to determine order
-      const firstQuestionA = map[keyA].questions[0];
-      const firstQuestionB = map[keyB].questions[0];
-      return questions.indexOf(firstQuestionA) - questions.indexOf(firstQuestionB);
-    })
-    .map(([, group]) => {
-      // Shuffle questions within each word group
-      const shuffledQuestions = [...group.questions];
-      for (let i = shuffledQuestions.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
-      }
-      return { ...group, questions: shuffledQuestions };
-    });
-  
-  return sortedGroups;
-};
-
-// Helper: Progress bar
-const ProgressBar = ({ progress }) => (
-  <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden mb-6">
-    <div className="bg-[#f39c12] h-4 rounded-full transition-all" style={{ width: `${progress}%` }}></div>
-  </div>
-);
-
-// Helper: Intro bubble
-const IntroBubble = ({ mascot, text, image, video }) => (
-  <div className="w-full max-w-5xl mx-auto flex items-center justify-center animate-fadeIn" style={{ minHeight: 500, position: 'relative' }}>
-    <div className="flex flex-col items-center justify-center mr-5">
-      <img src={mascot} alt="Hippo Mascot" className="w-[34rem] h-[32rem] mb-5 mt-10" />
-    </div>
-    <div className="flex-1 flex flex-col items-start justify-center relative">
-      <div
-        style={{
-          position: 'relative',
-          background: '#fff',
-          borderRadius: '2rem',
-          padding: '2rem 2.5rem',
-          boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10)',
-          fontSize: '1.5rem',
-          fontWeight: 600,
-          color: '#222',
-          marginBottom: '2rem',
-          maxWidth: '700px',
-          minWidth: '320px',
-          minHeight: '120px',
-          display: 'flex',
-          alignItems: 'center',
-          zIndex: 2,
-          marginTop: !(image || video) ? '-20rem' : undefined,
-          transition: 'margin-top 0.3s'
-        }}
-      >
-        <span>{text}</span>
-        {/* Arrow points left */}
-        <div style={{
-          position: 'absolute',
-          left: '-16px',
-          top: '70%',
-          transform: 'translateY(-50%)',
-          width: 0,
-          height: 0,
-          borderTop: '18px solid transparent',
-          borderBottom: '18px solid transparent',
-          borderRight: '18px solid #fff',
-          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.10))',
-          zIndex: 1
-        }}></div>
-      </div>
-      {(image || video) && (
-        <div
-          className="flex items-center justify-center bg-white rounded-2xl shadow-lg mt-2 mb-2"
-          style={{
-            minHeight: '18rem',
-            minWidth: '18rem',
-            maxWidth: '28rem',
-            maxHeight: '22rem',
-            width: '100%',
-            alignSelf: 'center',
-            padding: image && video ? '1rem 1rem 0.25rem 1rem' : '1rem'
-          }}
-        >
-          {image && (
-            <img
-              src={image.startsWith('http') ? image : `http://127.0.0.1:8000${image}`}
-              alt="Word"
-              className="object-contain rounded-xl max-h-72 max-w-full mx-auto"
-              style={{ width: '100%', height: 'auto' }}
-            />
-          )}
-          {video && (
-            <video
-              src={video.startsWith('http') ? video : `http://127.0.0.1:8000${video}`}
-              controls
-              className="rounded-xl max-h-72 max-w-full mx-auto"
-              style={{ width: '100%', height: 'auto' }}
-            />
-          )}
-        </div>
-      )}
-    </div>
-  </div>
-);
-
-const transitions = [
-  "Now let's test your knowledge!",
-  "Ready for a challenge?",
-  "Let's see what you remember!",
-  "Time to play a game!",
-];
-
-// Calculate total steps for the entire drill
-const calculateTotalSteps = (wordGroups) => {
-  let total = 1; // Global intro
-  for (let i = 0; i < wordGroups.length; i++) {
-    total += 4; // 4 steps per word (intro, definition, sign, transition)
-    total += wordGroups[i].questions.length; // Add questions for this word
-  }
-  return total;
-};
-
-// Calculate current step number
-const calculateCurrentStep = (introStep, currentWordIdx, currentQuestionIdx, wordGroups) => {
-  // If we're on the congratulations page, return total steps
-  if (introStep === 6) {
-    return calculateTotalSteps(wordGroups);
-  }
-  
-  if (introStep === 0) return 1; // Global intro
-  
-  let step = 1; // Start after global intro
-  
-  // Add completed words
-  for (let i = 0; i < currentWordIdx; i++) {
-    step += 4; // 4 intro steps per completed word
-    step += wordGroups[i].questions.length; // Questions in completed words
-  }
-  
-  // Add current word progress
-  if (introStep < 5) {
-    step += introStep - 1; // Subtract 1 because we want progress to show before the step is complete
-  } else {
-    step += 4; // All intro steps for current word are done
-    step += currentQuestionIdx; // Only count completed questions
-  }
-  
-  return step;
-};
-
-// Points calculation helper - frontend is the single source of truth for scoring
-const calculatePoints = (attempts, timeSpent, isCorrect) => {
-  if (!isCorrect) return 0;
-  // Base points: 100
-  // -10 points per wrong attempt (matching backend formula exactly)
-  // -1 point per 5 seconds spent (frontend enhancement for better UX)
-  // Maximum time penalty is 30 points
-  const wrongAttempts = attempts || 0;
-  const timePenalty = Math.min(30, Math.floor((timeSpent || 0) / 5));
-  const points = Math.max(0, 100 - (wrongAttempts * 10) - timePenalty);
-  return points;
-};
-
-// --- Blank Buster (FillInBlankQuestion) ---
-const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }) => {
-  const safeQuestion = question || {};
-  const letterChoices = Array.isArray(safeQuestion.letterChoices) && safeQuestion.letterChoices.length > 0
-    ? safeQuestion.letterChoices
-    : (Array.isArray(safeQuestion.choices) ? safeQuestion.choices.map(c => c.text) : []);
-  const pattern = (safeQuestion.pattern || '').toString().split(' ');
-  const blanksCount = pattern.filter(p => p === '_').length;
-
-  const getInitialSelectedIndexes = useCallback(() =>
-    Array.isArray(currentAnswer) && currentAnswer.length === blanksCount
-      ? currentAnswer
-      : Array(blanksCount).fill(undefined)
-  , [currentAnswer, blanksCount]);
-
-  const reducer = useCallback((state, action) => {
-    switch (action.type) {
-      case 'RESET':
-        return action.payload;
-      case 'SET_INDEX': {
-        const newState = [...state];
-        newState[action.blankIdx] = action.choiceIdx;
-        return newState;
-      }
-      case 'REMOVE_INDEX': {
-        const newState = [...state];
-        newState[action.blankIdx] = undefined;
-        return newState;
-      }
-      case 'CLEAR_ALL':
-        return Array(blanksCount).fill(undefined);
-      default:
-        return state;
-    }
-  }, [blanksCount]);
-
-  const [selectedIndexes, dispatch] = useReducer(reducer, getInitialSelectedIndexes());
-  const [checked, setChecked] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(null);
-  const [isShaking, setIsShaking] = useState(false);
-
-  // Reset check state if user changes answer
-  useEffect(() => {
-    setChecked(false);
-    setIsCorrect(null);
-  }, [selectedIndexes]);
-
-  const getLetterCount = useCallback((idx) =>
-    selectedIndexes.filter(i => i === idx).length,
-    [selectedIndexes]
-  );
-
-  const getMaxCount = useCallback((idx) => {
-    // Count how many times this specific letter choice can be used
-    const letter = letterChoices[idx];
-    const correctAnswer = (safeQuestion.answer || '').toUpperCase();
-    
-    // Count how many times this letter appears in the correct answer
-    const letterCountInAnswer = correctAnswer.split('').filter(char => char === letter).length;
-    
-    // Count how many times this letter appears in the letterChoices array
-    const letterCountInChoices = letterChoices.filter(l => l === letter).length;
-    
-    // For letters in the answer: use the minimum of what's needed and what's available
-    // For letters not in the answer: allow 1 use (for wrong attempts)
-    if (letterCountInAnswer > 0) {
-      return Math.min(letterCountInAnswer, letterCountInChoices);
-    } else {
-      return 1; // Allow one wrong attempt
-    }
-  }, [letterChoices, safeQuestion.answer]);
-
-  // Helper: Build user answer and check correctness
-  const buildUserAnswer = () => {
-    let userAnswerArr = [];
-    let blankIdx = 0;
-    for (let i = 0; i < pattern.length; i++) {
-      if (pattern[i] === '_') {
-        const selectedIdx = selectedIndexes[blankIdx];
-        userAnswerArr.push(selectedIdx !== undefined ? letterChoices[selectedIdx] : '');
-        blankIdx++;
-      } else {
-        userAnswerArr.push(pattern[i]);
-      }
-    }
-    return userAnswerArr.join('').replace(/ /g, '');
-  };
-
-  // Choices: fill first empty blank, but allow selecting same letter multiple times
-  const handleLetterChoiceClick = (choiceIdx) => {
-    if (answerStatus === 'correct') return;
-    
-    const letter = letterChoices[choiceIdx];
-    const correctAnswer = (safeQuestion.answer || '').toUpperCase();
-    
-    // Count total usage of this letter across all instances
-    const totalUsageOfLetter = selectedIndexes
-      .filter(selIdx => selIdx !== undefined && letterChoices[selIdx] === letter)
-      .length;
-    
-    // Count how many times this letter appears in the correct answer
-    const letterCountInAnswer = correctAnswer.split('').filter(char => char === letter).length;
-    
-    // Check if this letter can still be used
-    let canUse;
-    if (letterCountInAnswer > 0) {
-      // For letters in the answer: can use if total usage < what's needed
-      canUse = totalUsageOfLetter < letterCountInAnswer;
-    } else {
-      // For letters not in the answer: can use if total usage < 1
-      canUse = totalUsageOfLetter < 1;
-    }
-    
-    if (!canUse) return; // Can't use this letter anymore
-    
-    const firstEmpty = selectedIndexes.findIndex(idx => idx === undefined);
-    if (firstEmpty === -1) return;
-    dispatch({ type: 'SET_INDEX', blankIdx: firstEmpty, choiceIdx });
-  };
-
-  // Remove letter from blank by clicking the blank
-  const handleBlankClick = (blankIdx) => {
-    if (answerStatus === 'correct') return;
-    if (selectedIndexes[blankIdx] !== undefined) {
-      dispatch({ type: 'REMOVE_INDEX', blankIdx });
-    }
-  };
-
-  // Check answer logic
-  const checkAnswer = () => {
-    if (!selectedIndexes.every(idx => idx !== undefined)) return;
-    const userAnswer = buildUserAnswer();
-    const correct = userAnswer.toUpperCase() === (safeQuestion.answer || '').toUpperCase();
-    setChecked(true);
-    setIsCorrect(correct);
-    onAnswer(userAnswer, correct); // Pass the built string, not the array
-    if (!correct) {
-      setIsShaking(true);
-      setTimeout(() => {
-        dispatch({ type: 'CLEAR_ALL' });
-        setIsShaking(false);
-        setChecked(false);
-      }, 1000);
-    }
-  };
-
-  let blankCounter = 0;
-  const display = pattern.map((char, idx) => {
-    if (char !== '_') {
-      return (
-        <div key={idx} className="w-14 h-14 flex items-center justify-center rounded bg-[#4C53B4] text-white font-bold text-2xl mx-2">{char}</div>
-      );
-    } else {
-      const thisBlankIdx = blankCounter;
-      const selectedIdx = selectedIndexes[thisBlankIdx];
-      const box = (
-        <div
-          key={idx}
-          className={`w-14 h-14 flex items-center justify-center rounded bg-[#EEF1F5] text-[#4C53B4] font-bold text-2xl mx-2 border-2 relative cursor-pointer 
-            ${isShaking ? 'animate-shake' : ''}
-            ${checked 
-              ? isCorrect 
-                ? 'border-green-500' 
-                : 'border-red-500' 
-              : 'border-[#4C53B4]/30'
-            }`}
-          onClick={() => handleBlankClick(thisBlankIdx)}
-        >
-          {selectedIdx !== undefined ? letterChoices[selectedIdx] : ''}
-        </div>
-      );
-      blankCounter++;
-      return box;
-    }
-  });
-
-  // Show all choices, but disable those that can't be used anymore
-  const availableChoices = letterChoices.map((letter, idx) => {
-    // Count total usage of this letter across all instances
-    const totalUsageOfLetter = selectedIndexes
-      .filter(selIdx => selIdx !== undefined && letterChoices[selIdx] === letter)
-      .length;
-    
-    // Count how many times this letter appears in choices
-    const letterCountInChoices = letterChoices.filter(l => l === letter).length;
-    
-    // Count how many times this letter appears in the correct answer
-    const correctAnswer = (safeQuestion.answer || '').toUpperCase();
-    const letterCountInAnswer = correctAnswer.split('').filter(char => char === letter).length;
-    
-    // Determine if this specific choice can still be used
-    let canUse;
-    if (letterCountInAnswer > 0) {
-      // For letters in the answer: can use if total usage < what's needed
-      canUse = totalUsageOfLetter < letterCountInAnswer;
-    } else {
-      // For letters not in the answer: can use if total usage < 1
-      canUse = totalUsageOfLetter < 1;
-    }
-    
-    return {
-      letter,
-      idx,
-      canUse
-    };
-  });
-
-  return (
-    <div className="animate-fadeIn">
-      {checked && isCorrect === false && (
-        <div className="text-center text-2xl font-bold mb-4 text-red-600">
-          Try again!
-        </div>
-      )}
-      {checked && isCorrect === true && (
-        <div className="text-center text-2xl font-bold mb-4 text-green-600">
-          Correct!
-        </div>
-      )}
-      <div className="flex justify-center gap-2 mb-8">{display}</div>
-      <div className="flex flex-wrap justify-center gap-4 mb-6">
-        {availableChoices.map(({ letter, idx, canUse }) => (
-          <button
-            key={`${letter}-${idx}`} // Use unique key for duplicate letters
-            className={`w-14 h-14 px-6 py-4 flex items-center justify-center rounded bg-white border-2 border-[#4C53B4] text-[#4C53B4] font-bold text-2xl cursor-pointer hover:bg-[#EEF1F5] transition ${!canUse || answerStatus === 'correct' ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={() => canUse && answerStatus !== 'correct' && handleLetterChoiceClick(idx)}
-            disabled={!canUse || answerStatus === 'correct'}
-          >
-            {letter}
-          </button>
-        ))}
-      </div>
-      <div className="flex justify-center mb-4">
-        <button
-          className={`px-8 py-3 rounded-xl text-xl font-bold text-white ${selectedIndexes.every(idx => idx !== undefined) ? 'bg-[#4C53B4] hover:bg-[#3a4095]' : 'bg-gray-300 cursor-not-allowed'}`}
-          onClick={checkAnswer}
-          disabled={!selectedIndexes.every(idx => idx !== undefined) || answerStatus === 'correct'}
-        >
-          Check
-        </button>
-      </div>
-      {safeQuestion.hint && (
-        <div className="text-lg text-gray-700 text-center mb-2">
-          <i className="fa-solid fa-lightbulb text-yellow-500 mr-2"></i>
-          {safeQuestion.hint.replace(/^Hint: /i, '')}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// --- Sentence Builder (DragDropQuestion) ---
-const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
-  const sentence = question.sentence || '';
-  const blanksCount = (sentence.match(/_/g) || []).length;
-  const [blankAnswers, setBlankAnswers] = useState(() =>
-    Array.isArray(currentAnswer) && currentAnswer.length === blanksCount
-      ? currentAnswer
-      : Array(blanksCount).fill(null)
-  );
-  const [isIncorrect, setIsIncorrect] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
-  const [showTryAgain, setShowTryAgain] = useState(false);
-  const [activeId, setActiveId] = useState(null);
-  const [hasInteracted, setHasInteracted] = useState(false);
-
-  useEffect(() => {
-    setBlankAnswers(
-      Array.isArray(currentAnswer) && currentAnswer.length === blanksCount
-        ? currentAnswer
-        : Array(blanksCount).fill(null)
-    );
-  }, [question]);
-
-  // Combine correct and incorrect choices, shuffle on mount
-  const [choices] = useState(() => {
-    const all = [...(question.dragItems || []), ...(question.incorrectChoices || [])];
-    return all.sort(() => Math.random() - 0.5);
-  });
-
-  // DnD sensors setup
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    })
-  );
-
-  // Build the sentence display
-  let blankIdx = 0;
-  const parts = sentence.split('_');
-  const display = [];
-  for (let i = 0; i < parts.length; i++) {
-    display.push(<span key={`part-${i}`} className="text-2xl">{parts[i]}</span>);
-    if (i < parts.length - 1) {
-      const answerIdx = blankAnswers[blankIdx];
-      const currentBlankIdx = blankIdx;
-      display.push(
-        <Droppable key={`blank-${blankIdx}`} id={`blank-${blankIdx}`}>
-          {({ isOver, setNodeRef }) => (
-            <div
-              ref={setNodeRef}
-              onClick={() => {
-                if (answerIdx !== null && !isCorrect) {
-                  setHasInteracted(true);
-                  const newAnswers = [...blankAnswers];
-                  newAnswers[currentBlankIdx] = null;
-                  setBlankAnswers(newAnswers);
-                  setShowTryAgain(false);
-                  setIsIncorrect(false);
-                }
-              }}
-              className={`inline-flex items-center justify-center min-w-[150px] h-12 mx-2 align-middle cursor-pointer relative text-xl
-                ${answerIdx !== null 
-                  ? 'bg-white border-2' 
-                  : 'bg-[#EEF1F5] border-2 border-dashed border-[#4C53B4]/30'} 
-                ${isIncorrect && answerIdx !== null ? 'border-red-500 animate-shake' : ''}
-                ${isCorrect && answerIdx !== null ? 'border-green-500' : ''}
-                ${isOver ? 'border-[#4C53B4] bg-[#EEF1F5] scale-105' : ''}
-                rounded-lg transition-all duration-200`}
-            >
-              {answerIdx !== null ? choices[answerIdx]?.text : ''}
-            </div>
-          )}
-        </Droppable>
-      );
-      blankIdx++;
-    }
-  }
-
-  // Check if all blanks are filled
-  const isComplete = blankAnswers.every(idx => idx !== null);
-
-  // Auto-check answer when all blanks are filled
-  useEffect(() => {
-    if (isComplete && !isCorrect && hasInteracted) {
-      // Get correct answers from dragItems array
-      const correctAnswers = (question.dragItems || []).map(item => (item.text || '').toLowerCase().trim());
-      const currentAnswers = blankAnswers.map(idx => (choices[idx]?.text || '').toLowerCase().trim());
-      
-      const isAllCorrect = currentAnswers.every((answer, index) => answer === correctAnswers[index]);
-      const submittedTexts = blankAnswers.map(idx => choices[idx]?.text || '');
-      
-      if (isAllCorrect) {
-        setIsCorrect(true);
-        setIsIncorrect(false);
-        setShowTryAgain(false);
-        // Send texts instead of indices so backend validation is order/text-based
-        onAnswer(submittedTexts, true);
-      } else {
-        setIsIncorrect(true);
-        setShowTryAgain(true);
-        onAnswer(submittedTexts, false);
-        // Clear answers 
-        setTimeout(() => {
-          setBlankAnswers(Array(blanksCount).fill(null));
-          setIsIncorrect(false);
-          setShowTryAgain(false);
-        }, 2000); //2 seconds
-      }
-    }
-    // Remove the else clause that was calling onAnswer for incomplete sentences
-  }, [isComplete, blankAnswers, hasInteracted]);
-
-  // Handle drag start
-  const handleDragStart = (event) => {
-    setActiveId(event.active.id);
-    // Reset error states when starting a new drag
-    setIsIncorrect(false);
-    setShowTryAgain(false);
-  };
-
-  // Handle drag end
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-    setActiveId(null);
-    
-    if (!over || isCorrect) return;
-
-    const draggedItemIndex = parseInt(active.id.split('-')[1]);
-    const targetBlankIndex = parseInt(over.id.split('-')[1]);
-
-    // Mark that user has interacted
-    setHasInteracted(true);
-
-    // Update answers
-    const newAnswers = [...blankAnswers];
-    newAnswers[targetBlankIndex] = draggedItemIndex;
-    setBlankAnswers(newAnswers);
-    // Don't call onAnswer here - let the useEffect handle it when complete
-  };
-
-  // Choices not yet used
-  const used = new Set(blankAnswers.filter(idx => idx !== null));
-
-  // Render draggable item
-  const renderDraggableItem = (choice, idx, isDragging = false) => (
-    <div
-      className={`px-6 py-3 rounded-lg text-lg font-medium bg-white border-2 border-[#4C53B4] text-[#4C53B4] 
-        ${used.has(idx) ? 'opacity-50' : 'cursor-grab hover:bg-[#EEF1F5] transition'}
-        ${isDragging ? 'opacity-90 scale-110 shadow-2xl' : ''}
-        transition-all duration-200`}
-    >
-      {choice.text}
-    </div>
-  );
-
-  return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="animate-fadeIn">
-        {showTryAgain && (
-          <div className="text-2xl font-bold text-red-500 animate-fadeIn mb-4">
-            Try again!
-          </div>
-        )}
-        {isCorrect && (
-          <div className="text-center text-2xl font-bold mb-4 text-green-600">
-            Correct!
-          </div>
-        )}
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-12 text-2xl">
-          {display}
-        </div>
-        <div className="flex flex-wrap justify-center gap-3 mb-6">
-          {choices.map((choice, idx) => (
-            <Draggable key={`choice-${idx}`} id={`choice-${idx}`} disabled={used.has(idx)}>
-              {({ attributes, listeners, setNodeRef, isDragging }) => (
-                <div
-                  ref={setNodeRef}
-                  {...attributes}
-                  {...listeners}
-                  className={`${isDragging ? 'opacity-30' : ''}`}
-                >
-                  {renderDraggableItem(choice, idx)}
-                </div>
-              )}
-            </Draggable>
-          ))}
-        </div>
-        <DragOverlay>
-          {activeId !== null && renderDraggableItem(choices[parseInt(activeId.split('-')[1])], parseInt(activeId.split('-')[1]), true)}
-        </DragOverlay>
-        <div className="flex flex-col items-center gap-4">
-          <div className="text-sm text-gray-500 text-center">
-            <i className="fa-solid fa-info-circle mr-1"></i>
-            Drag words to fill blanks. Click a filled blank to remove its answer.
-          </div>
-        </div>
-      </div>
-    </DndContext>
-  );
-};
-
-// Simple modal for user details
-const UserModal = ({ user, onClose }) => {
-  if (!user) return null;
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl p-8 shadow-xl min-w-[320px] relative animate-scaleIn">
-        <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-gray-700">
-          <i className="fa-solid fa-xmark text-xl"></i>
-        </button>
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-[#e09b1a]">
-            {user.avatar ? (
-              <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-[#4C53B4] font-bold text-3xl flex items-center justify-center h-full">{user.name?.[0]?.toUpperCase() || '?'}</span>
-            )}
-          </div>
-          <div className="text-2xl font-bold text-[#4C53B4]">{user.name}</div>
-          <div className="text-lg text-gray-700">Points: <span className="font-bold text-[#e09b1a]">{user.points}</span></div>
-        </div>
-      </div>
-    </div>
-  );
-};
+import HippoSad from '../../assets/MascotHippoSad.gif';
+import { DrillIntroSteps, QuestionRenderer, DrillSummary } from '../../components/drill/student';
+import { 
+  groupQuestionsByWord, 
+  calculateTotalSteps, 
+  calculateCurrentStep, 
+  calculatePoints, 
+  initializeAnswer 
+} from '../../utils/drillHelpers';
 
 const TakeDrill = () => {
   const { id } = useParams();
@@ -975,25 +39,6 @@ const TakeDrill = () => {
     const path = window.location.pathname;
     return path.startsWith('/t/');
   });
-
-  // Initialize or reset currentAnswer based on question type
-  const initializeAnswer = (question) => {
-    if (!question) return '';
-    
-    switch (question.type) {
-      case 'M':
-        return -1;
-      case 'F':
-        return Array(question.pattern.split('_').length - 1).fill(undefined);
-      case 'D':
-        return Array(question.dragItems?.length || 0).fill(null);
-      case 'G':
-        return [];
-      case 'P':
-      default:
-        return '';
-    }
-  };
 
   // Fetch drill and wordlist
   useEffect(() => {
@@ -1106,7 +151,7 @@ const TakeDrill = () => {
     };
     
     fetchDrillAndWordlist();
-  }, [id]);
+  }, [id, isTeacherPreview]);
 
   // Reset answer when question changes
   useEffect(() => {
@@ -1164,107 +209,6 @@ const TakeDrill = () => {
     }
   }, [introStep, id]);
 
-  // Show full screen layout immediately with loading state
-  if (loading || !drill || wordGroups.length === 0) {
-    return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
-        <div className="w-full flex items-center px-8 pt-6 mb-2 gap-6">
-          <button
-            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-            onClick={() => navigate(-1)}
-            style={{ minWidth: 48, minHeight: 48 }}
-          >
-            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
-          </button>
-          
-          <div className="flex-1 flex justify-center">
-            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div className="bg-[#f39c12] h-full rounded-full animate-pulse" style={{ width: '5%' }} />
-            </div>
-          </div>
-          
-          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
-            Points: 0
-          </div>
-        </div>
-
-        <div className="w-full flex flex-col items-center justify-center h-[calc(100vh-180px)]">
-          <div className="flex items-center gap-4">
-            <img src={HippoWaiting} alt="Loading..." className="w-32 h-32" />
-            <div className="text-xl font-semibold text-[#8e44ad]">Loading your drill...</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (error) {
-    return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
-        <div className="w-full h-full flex flex-col items-center justify-center">
-          <div className="bg-white rounded-xl p-8 shadow-lg max-w-md text-center">
-            <img src={HippoSad} alt="Error" className="w-32 h-32 mx-auto mb-4" />
-            <div className="text-xl font-semibold text-red-500 mb-4">{error}</div>
-            <button
-              className="px-6 py-2 bg-[#8e44ad] text-white rounded-lg hover:bg-[#6f3381]"
-              onClick={() => navigate(-1)}
-            >
-              Go Back
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (dateError) {
-    const isNotOpen = dateError.includes('will be available');
-    const isExpired = dateError.includes('expired');
-    
-    return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
-        <div className="w-full h-full flex flex-col items-center justify-center">
-          <div className="bg-white rounded-xl p-8 shadow-lg max-w-md text-center">
-            <img 
-              src={isNotOpen ? HippoWaiting : HippoSad} 
-              alt={isNotOpen ? "Waiting" : "Expired"} 
-              className="w-32 h-32 mx-auto mb-4" 
-            />
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
-              {isNotOpen ? 'Drill Not Yet Available' : 'Drill Has Expired'}
-            </h2>
-            <p className="text-gray-600 mb-6">{dateError}</p>
-            
-            {isNotOpen && (
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-center gap-2 text-blue-700">
-                  <i className="fa-solid fa-info-circle"></i>
-                  <span className="text-sm font-medium">Tip: Check back later or contact your teacher</span>
-                </div>
-              </div>
-            )}
-            
-            {isExpired && (
-              <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
-                <div className="flex items-center justify-center gap-2 text-red-700">
-                  <i className="fa-solid fa-exclamation-triangle"></i>
-                  <span className="text-sm font-medium">Contact your teacher if you need access</span>
-                </div>
-              </div>
-            )}
-            
-            <button
-              onClick={() => navigate(-1)}
-              className="px-6 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition"
-            >
-              Go Back
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
   // Calculate progress once
   const totalSteps = wordGroups.length > 0 ? calculateTotalSteps(wordGroups) : 1;
   const currentStep = wordGroups.length > 0 
@@ -1274,8 +218,8 @@ const TakeDrill = () => {
 
   // Current word/question
   const currentWord = wordGroups[currentWordIdx];
-  const currentQuestions = currentWord.questions;
-  const currentQuestion = currentQuestions[currentQuestionIdx];
+  const currentQuestions = currentWord?.questions;
+  const currentQuestion = currentQuestions?.[currentQuestionIdx];
 
   // Update handleAnswer to save points to backend
   const handleAnswer = async (answer, isCorrect) => {
@@ -1349,8 +293,8 @@ const TakeDrill = () => {
   };
 
   const handleNext = () => {
-    // Allow proceeding if it's teacher preview OR if student has answered
-    if (isTeacherPreview || (!isTeacherPreview && currentAnswer !== null)) {
+    // Allow proceeding if it's teacher preview OR intro steps (0-4) OR if student has answered (introStep 5)
+    if (isTeacherPreview || (introStep < 5) || (introStep === 5 && currentAnswer !== null)) {
       setCurrentAnswer(null);
       setAnswerStatus(null);
       setWrongAnswers([]);
@@ -1369,491 +313,174 @@ const TakeDrill = () => {
     }
   };
 
-  // --- FLOW ---
-  if (introStep === 0) {
-    // Global intro
-    return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
-        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
-          {/* Back button */}
-          <button
-            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-            onClick={() => navigate(-1)}
-            aria-label="Exit drill"
-            style={{ minWidth: 48, minHeight: 48 }}
-          >
-            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
-          </button>
-          {/* Progress bar */}
-          <div className="flex-1 flex justify-center">
-            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div 
-                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-          {/* Points */}
-          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
-            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
-          </div>
-        </div>
-        <IntroBubble
-          mascot={HippoIdle}
-          text={`Hi I'm Hano, and today we'll learn about ${drill.wordlist_name || drill.title}. Are you ready to learn? Click Next to start!`}
-        />
-            <button
-          className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
-          onClick={() => setIntroStep(1)}
-        >
-          Next
-        </button>
-      </div>
-    );
-  }
-  if (introStep === 1) {
-    // Word intro
-    return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
-        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
-          {/* Back button */}
-          <button
-            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-              onClick={() => navigate(-1)}
-            aria-label="Exit drill"
-            style={{ minWidth: 48, minHeight: 48 }}
-            >
-            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
-            </button>
-          {/* Progress bar */}
-          <div className="flex-1 flex justify-center">
-            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div 
-                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
-                style={{ width: `${progress}%` }}
-              />
-          </div>
-        </div>
-          {/* Points */}
-          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
-            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
-          </div>
-        </div>
-        <IntroBubble
-          mascot={HippoIdle}
-          text={`This is a ${currentWord.word}`}
-          image={currentWord.image}
-        />
-            <button
-          className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
-          onClick={() => setIntroStep(2)}
-        >
-          Next
-        </button>
-      </div>
-    );
-  }
-  if (introStep === 2) {
-    // Definition
-    return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
-        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
-          {/* Back button */}
-          <button
-            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-              onClick={() => navigate(-1)}
-            aria-label="Exit drill"
-            style={{ minWidth: 48, minHeight: 48 }}
-            >
-            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
-            </button>
-          {/* Progress bar */}
-          <div className="flex-1 flex justify-center">
-            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div 
-                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-          {/* Points */}
-          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
-            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
-          </div>
-        </div>
-        <IntroBubble
-          mascot={HippoIdle}
-          text={currentWord.definition}
-          image={currentWord.image}
-        />
-        <button
-          className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
-          onClick={() => setIntroStep(3)}
-        >
-          Next
-        </button>
-      </div>
-    );
-  }
-  if (introStep === 3) {
-    // Sign language
-    return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
-        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
-          {/* Back button */}
-          <button
-            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-            onClick={() => navigate(-1)}
-            aria-label="Exit drill"
-            style={{ minWidth: 48, minHeight: 48 }}
-          >
-            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
-          </button>
-          {/* Progress bar */}
-          <div className="flex-1 flex justify-center">
-            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div 
-                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-          {/* Points */}
-          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
-            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
-          </div>
-        </div>
-        <IntroBubble
-          mascot={HippoIdle}
-          text={`This is the sign language for ${currentWord.word}. Can you sign it with me? Play the video to see how!`}
-          video={currentWord.signVideo}
-        />
-            <button
-          className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
-          onClick={() => setIntroStep(4)}
-        >
-          Next
-        </button>
-      </div>
-    );
-  }
-  if (introStep === 4) {
-    // Transition
-    return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
-        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6">
-          {/* Back button */}
-          <button
-            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-              onClick={() => navigate(-1)}
-            aria-label="Exit drill"
-            style={{ minWidth: 48, minHeight: 48 }}
-            >
-            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
-            </button>
-          {/* Progress bar */}
-          <div className="flex-1 flex justify-center">
-            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div 
-                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-          {/* Points */}
-          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
-            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
-          </div>
-        </div>
-        <IntroBubble
-          mascot={HippoIdle}
-          text={transitions[Math.floor(Math.random() * transitions.length)]}
-        />
-        <button
-          className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
-          onClick={() => setIntroStep(5)}
-        >
-          Next
-        </button>
-      </div>
-    );
-  }
-  if (introStep === 5) {
-    let mascot = HippoCurious;
-    if (answerStatus === 'correct') mascot = HippoHappy;
-    // Only show sad mascot if answer is wrong AND it's a complete answer
-    if (answerStatus === 'wrong' && 
-        ((currentQuestion.type === 'D' && currentAnswer?.every(a => a !== null)) ||
-         currentQuestion.type !== 'D')) mascot = HippoSad;
-  
+  const handleBack = () => navigate(-1);
+
+  const handleRetake = () => {
+    setIntroStep(0);
+    setCurrentWordIdx(0);
+    setCurrentQuestionIdx(0);
+    setAttempts({});
+    setTimeSpent({});
+    setPoints({});
+    setAnswerStatus(null);
+  };
+
+  const handleUserSelect = (user) => setSelectedUser(user);
+  const handleCloseUserModal = () => setSelectedUser(null);
+
+  // Show full screen layout immediately with loading state
+  if (loading || !drill || wordGroups.length === 0) {
     return (
       <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
-        {/* Header - Reduced bottom margin */}
         <div className="w-full flex items-center px-8 pt-6 mb-2 gap-6">
-          {/* Back button */}
           <button
             className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-            onClick={() => navigate(-1)}
-            aria-label="Exit drill"
+            onClick={handleBack}
             style={{ minWidth: 48, minHeight: 48 }}
           >
             <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
           </button>
           
-          {/* Progress bar */}
           <div className="flex-1 flex justify-center">
             <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div 
-                className="bg-[#f39c12] h-full rounded-full transition-all duration-500" 
-                style={{ width: `${progress}%` }}
-              />
+              <div className="bg-[#f39c12] h-full rounded-full animate-pulse" style={{ width: '5%' }} />
             </div>
           </div>
           
-          {/* Points */}
           <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
-            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
+            Points: 0
           </div>
         </div>
 
-        {/* Main content - Reduced top margin */}
-        <div className="w-full flex flex-col items-center justify-start mt-2">
-          {/* Mascot and Speech Bubble Container */}
-          <div className="w-full max-w-6xl px-10">
-            <div className="flex items-center gap-8">
-              {/* Mascot */}
-              <div className="w-64 flex-shrink-0 ml-10">
-                <img 
-                  src={mascot} 
-                  alt="Hippo" 
-                  className="w-full h-auto object-contain"
-                />
-              </div>
-
-              {/* Speech Bubble */}
-              <div className="relative bg-white rounded-3xl p-6 shadow-lg" style={{ width: '600px' }}>
-                <div className="text-xl font-semibold">{currentQuestion.text}</div>
-                {/* Arrow */}
-                <div 
-                  className="absolute left-[-16px] top-1/2 -translate-y-1/2 w-0 h-0"
-                  style={{
-                    borderTop: '16px solid transparent',
-                    borderBottom: '16px solid transparent',
-                    borderRight: '16px solid white'
-                  }}
-                />
-              </div>
-            </div>
+        <div className="w-full flex flex-col items-center justify-center h-[calc(100vh-180px)]">
+          <div className="flex items-center gap-4">
+            <img src={HippoWaiting} alt="Loading..." className="w-32 h-32" />
+            <div className="text-xl font-semibold text-[#8e44ad]">Loading your drill...</div>
           </div>
-
-          {/* Question Choices */}
-          <div className="w-full px-8 mt-8">
-            <div className="max-w-4xl mx-auto">
-          {(() => {
-            switch (currentQuestion.type) {
-              case 'M':
-                return (
-                  <MultipleChoiceQuestion 
-                    question={currentQuestion} 
-                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer, false)}
-                    currentAnswer={currentAnswer}
-                        answerStatus={answerStatus}
-                        wrongAnswers={wrongAnswers}
-                  />
-                );
-              case 'F':
-                return (
-                  <BlankBusterQuestion 
-                    question={currentQuestion} 
-                        onAnswer={(answer, correct) => {
-                          handleAnswer(answer, correct);
-                        }}
-                    currentAnswer={currentAnswer}
-                    answerStatus={answerStatus}
-                  />
-                );
-              case 'D':
-                return (
-                  <SentenceBuilderQuestion 
-                    question={currentQuestion} 
-                    onAnswer={(answer, isCorrect) => answerStatus !== 'correct' && handleAnswer(answer, isCorrect)}
-                    currentAnswer={currentAnswer}
-                  />
-                );
-              case 'G':
-                return (
-                  <MemoryGameQuestion
-                    question={currentQuestion}
-                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer, false)}
-                    currentAnswer={currentAnswer}
-                  />
-                );
-              case 'P':
-                return (
-                  <PictureWordQuestion
-                    question={currentQuestion}
-                        onAnswer={answer => answerStatus !== 'correct' && handleAnswer(answer, false)}
-                    currentAnswer={currentAnswer}
-                  />
-                );
-              default:
-                    return <div>Unsupported question type</div>;
-            }
-          })()}
         </div>
-      </div>
-        </div>
-        
-        {/* Next button - Show for teacher preview or when student has correct answer */}
-        {(isTeacherPreview || answerStatus === 'correct') && (
-          <button
-            className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg transition-all hover:scale-105"
-            onClick={handleNext}
-          >
-            Next
-          </button>
-        )}
       </div>
     );
   }
-  if (introStep === 6) {
-    // Summary
+  
+  if (error) {
     return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
-        {/* Header always on top */}
-        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6 z-30 relative">
-          {/* Back button */}
-          <button
-            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-            onClick={() => navigate(-1)}
-            aria-label="Exit drill"
-            style={{ minWidth: 48, minHeight: 48 }}
-          >
-            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
-          </button>
-          {/* Progress bar */}
-          <div className="flex-1 flex justify-center">
-            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div className="bg-[#f39c12] h-4 rounded-full transition-all" style={{ width: `100%` }}></div>
-            </div>
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
+        <div className="w-full h-full flex flex-col items-center justify-center">
+          <div className="bg-white rounded-xl p-8 shadow-lg max-w-md text-center">
+            <img src={HippoSad} alt="Error" className="w-32 h-32 mx-auto mb-4" />
+            <div className="text-xl font-semibold text-red-500 mb-4">{error}</div>
+            <button
+              className="px-6 py-2 bg-[#8e44ad] text-white rounded-lg hover:bg-[#6f3381]"
+              onClick={handleBack}
+            >
+              Go Back
+            </button>
           </div>
-          {/* Points */}
-          <div className="text-lg font-bold text-[#4C53B4] min-w-[90px] text-right">
-            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
-          </div>
-        </div>
-        {/* Congratulations section centered, but with lower z-index so header is clickable */}
-        <div className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none">
-          <div className="flex flex-col items-center justify-center w-full max-w-xl bg-transparent rounded-2xl p-10 animate-fadeIn pointer-events-auto">
-            <img src={HippoHappy} alt="Hippo" className="w-48 h-48 mb-4 mx-auto" />
-            <h2 className="text-4xl font-bold text-[#8e44ad] mb-4 text-center">Congratulations!</h2>
-            <div className="text-2xl mb-2 text-center">You've completed the drill!</div>
-            <div className="text-xl mb-6 text-center">Total Points: <span className="font-bold text-[#f39c12]">{Object.values(points).reduce((a, b) => a + (b || 0), 0)}</span></div>
-            <div className="flex gap-6 mt-8 justify-center">
-              <button
-                className="px-12 py-5 bg-[#4C53B4] text-white rounded-2xl text-2xl font-bold hover:bg-[#3a4095] shadow-lg"
-                onClick={() => {
-                  setIntroStep(0);
-                  setCurrentWordIdx(0);
-                  setCurrentQuestionIdx(0);
-                  setAttempts({});
-                  setTimeSpent({});
-                  setPoints({});
-                  setAnswerStatus(null);
-                }}
-              >
-                Retake Drill
-              </button>
-            </div>
-          </div>
-        </div>
-        {/* Leaderboard panel with interactive features, fixed to bottom-right */}
-        <div className="fixed bottom-8 right-8 w-[370px] min-h-[400px] bg-white/90 rounded-2xl shadow-2xl border-2 border-gray-100 p-6 flex flex-col items-center animate-fadeIn z-20">
-          <h3 className="text-2xl font-extrabold text-[#e09b1a] text-center mb-4 tracking-wide flex items-center justify-center gap-2">
-            <span>Leaderboard</span>
-          </h3>
-          {loadingLeaderboard ? (
-            <div className="text-center text-gray-500 py-12">Loading...</div>
-          ) : leaderboardError ? (
-            <div className="text-center text-red-500 py-12">{leaderboardError}</div>
-          ) : drillLeaderboard.length === 0 ? (
-            <div className="text-center text-gray-400 py-12">No students have attempted this drill yet.</div>
-          ) : (
-            <div className="w-full">
-              {/* Top 3 Podium */}
-              <div className="flex justify-center items-end gap-4 mb-6">
-                {[1, 0, 2].map((idx, pos) => {
-                  const student = drillLeaderboard[idx];
-                  if (!student) return <div key={pos} className="w-20" />;
-                  const rank = pos === 0 ? 2 : pos === 1 ? 1 : 3;
-                  const borderColors = [
-                    'border-purple-400',
-                    'border-yellow-400',
-                    'border-orange-400'
-                  ];
-                  const size = pos === 1 ? 'w-20 h-20' : 'w-14 h-14';
-                  const ring = pos === 1 ? 'ring-4 ring-yellow-300' : '';
-                  return (
-                    <div
-                      key={student.id}
-                      className={`flex flex-col items-center cursor-pointer transition-all duration-200 hover:scale-105 group`}
-                      onClick={() => setSelectedUser(student)}
-                      data-tip data-for={`podium-tip-${student.id}`}
-                    >
-                      <div className="flex flex-col items-center mb-1">
-                        <span className={`font-extrabold text-lg ${rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-purple-400' : 'text-orange-400'}`}>{rank}</span>
-                        {rank === 1 && (
-                          <span className="-mt-1 text-yellow-400 text-2xl drop-shadow-lg">👑</span>
-                        )}
-                      </div>
-                      <div className={`relative ${size} rounded-full overflow-hidden border-4 ${borderColors[pos]} bg-white flex items-center justify-center ${ring} group-hover:ring-4 group-hover:ring-[#e09b1a]`}>
-                        {student.avatar ? (
-                          <img src={student.avatar} alt={student.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-[#4C53B4] font-bold text-lg">{student.name?.[0]?.toUpperCase() || '?'}</span>
-                        )}
-                      </div>
-                      <div className={`mt-2 text-center ${pos === 1 ? 'font-extrabold text-base' : 'font-bold text-sm'} text-gray-800 group-hover:text-[#e09b1a]`}>
-                        {student.name}
-                      </div>
-                      <div className="text-center text-gray-600 font-bold text-sm">{student.points}</div>
-                      <Tooltip id={`podium-tip-${student.id}`} effect="solid" place="top">
-                        <span>{student.name}<br/>Points: {student.points}</span>
-                      </Tooltip>
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Table for the rest */}
-              <div className="w-full bg-white/80 rounded-xl shadow p-2">
-                <div className="flex font-bold text-[#e09b1a] text-base mb-1">
-                  <div className="flex-1">NAME</div>
-                  <div className="w-16 text-right">PTS</div>
-                </div>
-                {drillLeaderboard.slice(3).map((student) => (
-                  <div
-                    key={student.id}
-                    className="flex items-center border-t border-gray-200 py-1 cursor-pointer transition-all duration-150 hover:bg-[#fffbe6] hover:scale-[1.01]"
-                    onClick={() => setSelectedUser(student)}
-                    data-tip data-for={`row-tip-${student.id}`}
-                  >
-                    <div className="flex-1 font-semibold text-gray-700 text-sm hover:text-[#e09b1a]">{student.name}</div>
-                    <div className="w-16 text-right font-bold text-gray-700 text-sm">{student.points}</div>
-                    <Tooltip id={`row-tip-${student.id}`} effect="solid" place="top">
-                      <span>{student.name}<br/>Points: {student.points}</span>
-                    </Tooltip>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* User details modal */}
-          <UserModal user={selectedUser} onClose={() => setSelectedUser(null)} />
         </div>
       </div>
     );
   }
+
+  if (dateError) {
+    const isNotOpen = dateError.includes('will be available');
+    const isExpired = dateError.includes('expired');
+    
+    return (
+      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
+        <div className="w-full h-full flex flex-col items-center justify-center">
+          <div className="bg-white rounded-xl p-8 shadow-lg max-w-md text-center">
+            <img 
+              src={isNotOpen ? HippoWaiting : HippoSad} 
+              alt={isNotOpen ? "Waiting" : "Expired"} 
+              className="w-32 h-32 mx-auto mb-4" 
+            />
+            <h2 className="text-xl font-bold text-gray-800 mb-4">
+              {isNotOpen ? 'Drill Not Yet Available' : 'Drill Has Expired'}
+            </h2>
+            <p className="text-gray-600 mb-6">{dateError}</p>
+            
+            {isNotOpen && (
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-center gap-2 text-blue-700">
+                  <i className="fa-solid fa-info-circle"></i>
+                  <span className="text-sm font-medium">Tip: Check back later or contact your teacher</span>
+                </div>
+              </div>
+            )}
+            
+            {isExpired && (
+              <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
+                <div className="flex items-center justify-center gap-2 text-red-700">
+                  <i className="fa-solid fa-exclamation-triangle"></i>
+                  <span className="text-sm font-medium">Contact your teacher if you need access</span>
+                </div>
+              </div>
+            )}
+            
+            <button
+              onClick={handleBack}
+              className="px-6 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render different steps based on introStep
+  if (introStep >= 0 && introStep <= 4) {
+    return (
+      <DrillIntroSteps
+        drillBg={drillBg}
+        introStep={introStep}
+        drill={drill}
+        currentWord={currentWord}
+        progress={progress}
+        points={points}
+        onBack={handleBack}
+        onNext={handleNext}
+      />
+    );
+  }
+
+  if (introStep === 5) {
+    return (
+      <QuestionRenderer
+        drillBg={drillBg}
+        currentQuestion={currentQuestion}
+        progress={progress}
+        points={points}
+        answerStatus={answerStatus}
+        currentAnswer={currentAnswer}
+        wrongAnswers={wrongAnswers}
+        isTeacherPreview={isTeacherPreview}
+        onBack={handleBack}
+        onAnswer={handleAnswer}
+        onNext={handleNext}
+      />
+    );
+  }
+
+  if (introStep === 6) {
+    return (
+      <DrillSummary
+        drillBg={drillBg}
+        points={points}
+        onBack={handleBack}
+        onRetake={handleRetake}
+        drillLeaderboard={drillLeaderboard}
+        loadingLeaderboard={loadingLeaderboard}
+        leaderboardError={leaderboardError}
+        selectedUser={selectedUser}
+        onUserSelect={handleUserSelect}
+        onCloseUserModal={handleCloseUserModal}
+      />
+    );
+  }
+
   return null;
 };
 
-export default TakeDrill; 
+export default TakeDrill;

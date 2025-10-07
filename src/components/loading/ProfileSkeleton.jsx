@@ -1,4 +1,4 @@
-import Skeleton from '../common/Skeleton';
+import Skeleton from '../Skeleton';
 
 const ProfileSkeleton = () => (
   <div className="max-w-4xl mx-auto p-4 sm:p-6 animate-pulse">

@@ -235,7 +235,7 @@ const Topbar = ({ onMenuClick }) => {
 
           {/* Dropdown Menu */}
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-gray-100 shadow-lg py-2 z-50 animate-fadeIn">
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-gray-100 shadow-lg py-2 z-50 animate-fadeIn md:right-0">
               <button 
                 onClick={handleProfileClick}
                 className="w-full px-4 py-2.5 text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors text-gray-600 hover:text-[#4C53B4]"

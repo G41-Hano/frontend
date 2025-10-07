@@ -1,4 +1,4 @@
-import Skeleton from '../common/Skeleton';
+import Skeleton from '../Skeleton';
 
 const ClassroomSkeleton = () => (
   <div className="bg-gray-200 rounded-3xl p-4 animate-pulse min-h-[200px] flex flex-col justify-between">

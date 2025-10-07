@@ -4,6 +4,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api';
 import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
 import drillBg from '../../assets/drill_bg.png';
+import { DrillSkeleton, ClassroomSkeleton } from '../../components/loading';
+import Skeleton from '../../components/Skeleton';
 
 // Helper function to format dates consistently
 const formatDateTime = (dateString) => {
@@ -313,11 +315,20 @@ const StudentClassroom = () => {
   }
 
   if (!classroom) return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
+    <div className="min-h-screen bg-[#EEF1F5] p-4">
+      <div className="max-w-[95%] mx-auto">
+        <ClassroomSkeleton />
+        <div className="mt-6 bg-white rounded-3xl shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6"><Skeleton className="h-8 w-1/4" /></h2>
+          <div className="space-y-4">
+            <DrillSkeleton />
+            <DrillSkeleton />
+            <DrillSkeleton />
+          </div>
+        </div>
+      </div>
     </div>
   );
-
   const tabs = [
     { id: 'drills', label: 'Drills', icon: 'fa-dumbbell' },
     { id: 'leaderboard', label: 'Leaderboard', icon: 'fa-trophy' }
@@ -407,8 +418,10 @@ const StudentClassroom = () => {
             {activeTab === 'drills' && (
               <>
                 {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
+                  <div className="flex flex-col gap-4">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <DrillSkeleton key={index} />
+                    ))}
                   </div>
                 ) : drills.length === 0 ? (
                   <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-6 text-center py-10">

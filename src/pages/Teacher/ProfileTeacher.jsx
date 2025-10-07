@@ -3,7 +3,7 @@ import api from '../../api';
 import { ACCESS_TOKEN } from '../../constants';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
-import ProfileSkeleton from '../../components/profile/ProfileSkeleton';
+import { ProfileSkeleton } from '../../components/loading';
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);

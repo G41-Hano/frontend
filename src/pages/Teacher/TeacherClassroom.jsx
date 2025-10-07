@@ -14,9 +14,8 @@ import ClassroomHeader from './ClassroomHeader';
 import ReactDOM from 'react-dom';
 import { useSuccessModal } from '../../contexts/SuccessModalContext';
 import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
-import ClassroomSkeleton from '../../components/classroom/ClassroomSkeleton';
-import DrillSkeleton from '../../components/drill/DrillSkeleton';
-import Skeleton from '../../components/common/Skeleton';
+import { ClassroomSkeleton, DrillSkeleton } from '../../components/loading';
+import Skeleton from '../../components/Skeleton';
 
 const DrillCard = ({ title, icon, color, hoverColor }) => (
   <div 

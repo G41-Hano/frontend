@@ -108,15 +108,20 @@ const SentenceBuilderQuestionForm = ({
                   wordsToBlank.add(cleanWord);
                 }
                 
-                // Create sentence with blanks
+                // Create sentence with blanks and collect words in order
+                const blankedWordsInOrder = [];
                 const sentenceWithBlanks = allWords.map((word, index) => {
                   const cleanWord = word.toLowerCase().replace(/[.,!?]/g, '');
-                  return wordsToBlank.has(cleanWord) ? '_' : word;
+                  if (wordsToBlank.has(cleanWord)) {
+                    blankedWordsInOrder.push(cleanWord);
+                    return '_';
+                  }
+                  return word;
                 }).join(' ');
                 
-                // Create dragItems - exactly matching the number of blanks
+                // Create dragItems in the correct order matching the blanks
                 const finalBlankCount = (sentenceWithBlanks.match(/_/g) || []).length;
-                const dragItems = Array.from(wordsToBlank).slice(0, finalBlankCount).map(word => ({ text: word, isCorrect: true }));
+                const dragItems = blankedWordsInOrder.slice(0, finalBlankCount).map(word => ({ text: word, isCorrect: true }));
                 const otherWords = allWords.map(w => w.toLowerCase().replace(/[.,!?]/g, '')).filter(w => w.length > 3 && !wordsToBlank.has(w) && w !== 'is');
                 const additionalChoices = otherWords.filter((w, i, arr) => arr.indexOf(w) === i).slice(0, Math.max(0, 5 - dragItems.length));
                 const incorrectChoices = additionalChoices.map(word => ({ text: word, isCorrect: false }));
