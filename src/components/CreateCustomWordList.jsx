@@ -5,9 +5,6 @@ import Definitions, { useDefinitionFetcher } from "./gen-ai/GenerateDefinition";
 
 export default function CreateCustomWordList({index,word,handleUpdateCustomWord,handleRemoveCustomWord,setMediaModal}) {
   const {isLoading, error, definitions, getDefinition} = useDefinitionFetcher()
-  
-  // Debug logging
-  console.log(`Word ${index}:`, word);
 
   return (<div className="mb-4 p-3 md:p-4 rounded-xl border-2 border-gray-100 flex flex-col gap-3">
       <div className="flex flex-col lg:flex-row gap-3 lg:gap-4">

@@ -57,8 +57,6 @@ export const useDefinitionFetcher = () => {
 
 
       if (result.status === 200) {
-        console.log("Raw API response:", response.response);
-
         let jsonDataString = response.response;
 
         // --- Cleaning Step ---
@@ -76,11 +74,8 @@ export const useDefinitionFetcher = () => {
         // Trim any extra whitespace around the string
         jsonDataString = jsonDataString.trim();
 
-        console.log("Cleaned JSON string:", jsonDataString);
-
         // --- Parsing Step ---
         const parsedData = JSON.parse(jsonDataString);
-        console.log("Parsed JSON object:", parsedData);
         return parsedData; // Return parsed object
 
       } else {

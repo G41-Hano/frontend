@@ -177,13 +177,13 @@ const StudentClassroom = () => {
         const getAttemptTotal = (attempt) => (attempt.question_results || [])
           .reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
 
-        // Find the attempt with the highest total points (computed from question_results)
-        const bestAttempt = attempts.reduce((best, current) => {
-          return getAttemptTotal(best) >= getAttemptTotal(current) ? best : current;
+        // Find the latest attempt (highest run_number)
+        const latestAttempt = attempts.reduce((latest, current) => {
+          return (current.run_number || 0) > (latest.run_number || 0) ? current : latest;
         }, attempts[0]);
 
-        const totalPointsForBestAttempt = getAttemptTotal(bestAttempt);
-        setStudentDrillResults(prev => ({ ...prev, [drillId]: totalPointsForBestAttempt }));
+        const totalPointsForLatestAttempt = getAttemptTotal(latestAttempt);
+        setStudentDrillResults(prev => ({ ...prev, [drillId]: totalPointsForLatestAttempt }));
       } else {
         // No attempts for this drill for the current student
         setStudentDrillResults(prev => ({ ...prev, [drillId]: 0 }));
@@ -213,8 +213,6 @@ const StudentClassroom = () => {
         const drillsResponse = await api.get('/api/drills/', {
           params: { classroom: id }
         });
-
-        console.log('Drills:', drillsResponse.data);
         
         // Filter only published drills
         const publishedDrills = drillsResponse.data.filter(drill => drill.status === 'published');

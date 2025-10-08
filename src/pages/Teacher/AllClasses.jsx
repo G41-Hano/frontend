@@ -488,14 +488,9 @@ const AllClasses = () => {
       // If currently archived (isArchived=true), set to false (unarchive)
       const newArchiveStatus = isArchived ? false : true;
       
-      console.log('Current archive status:', isArchived);
-      console.log('New archive status to be set:', newArchiveStatus);
-      
       const response = await api.patch(`/api/classrooms/${classroomId}/`, {
         is_archived: newArchiveStatus
       });
-      
-      console.log('API Response:', response.data);
       
       setClassrooms(prev =>
         prev.map(classroom =>

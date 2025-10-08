@@ -33,7 +33,6 @@ const PasswordReset = () => {
       setLoading(false);
     }
 
-    console.log('Password reset requested for:', email);
     setTimeout(() => {
       setLoading(false);
       setIsSubmitted(true);

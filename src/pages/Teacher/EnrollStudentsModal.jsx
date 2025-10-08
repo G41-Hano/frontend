@@ -64,8 +64,6 @@ const EnrollStudentsModal = ({ isOpen, onClose, classroomId, onEnrollSuccess, st
         params: { role: 'student' }
       });
 
-      // console.log('All Students Response:', response.data);
-
       if (!response.data) {
         throw new Error('No data received from API');
       }
@@ -73,7 +71,6 @@ const EnrollStudentsModal = ({ isOpen, onClose, classroomId, onEnrollSuccess, st
       // Ensure we have arrays to work with
       const allStudents = Array.isArray(response.data) ? response.data : [];
       const enrolledStudents = Array.isArray(students) ? students : [];
-      // console.log('Enrolled students from Classroom:', students)
 
       // Get IDs of enrolled students
       const enrolledStudentIds = enrolledStudents.map(student => student.id);
@@ -82,7 +79,6 @@ const EnrollStudentsModal = ({ isOpen, onClose, classroomId, onEnrollSuccess, st
       let filteredStudents = allStudents.filter(student => !enrolledStudentIds.includes(student.id));
       filteredStudents = [...filteredStudents].sort((a, b) => a.last_name.localeCompare(b.last_name))
 
-      // console.log('Filtered Students:', filteredStudents);
       setAvailableStudents(filteredStudents);
       setError(null);
     } catch (error) {

@@ -20,6 +20,12 @@ const ViewDrillResults = () => {
     studentsAnsweredCurrentQuestion: 0 
   });
   const [refreshing, setRefreshing] = useState(false);
+  
+  // New state for attempt filtering and grouping
+  const [attemptFilter, setAttemptFilter] = useState('latest'); // 'latest', 'all', 'specific'
+  const [specificAttempt, setSpecificAttempt] = useState(1);
+  const [expandedStudents, setExpandedStudents] = useState(new Set());
+  const [groupedResults, setGroupedResults] = useState({});
 
   // Helper function to get absolute URL for media
   const getMediaUrl = (url) => {
@@ -28,28 +34,68 @@ const ViewDrillResults = () => {
     return `http://127.0.0.1:8000${url}`;
   };
 
+  // Function to group drill results by student
+  const groupResultsByStudent = (results) => {
+    const grouped = {};
+    results.forEach(result => {
+      const studentId = result.student.id;
+      if (!grouped[studentId]) {
+        grouped[studentId] = {
+          student: result.student,
+          attempts: []
+        };
+      }
+      grouped[studentId].attempts.push(result);
+    });
+    
+    // Sort attempts by run_number for each student
+    Object.keys(grouped).forEach(studentId => {
+      grouped[studentId].attempts.sort((a, b) => a.run_number - b.run_number);
+    });
+    
+    return grouped;
+  };
+
+  // Function to filter results based on attempt filter
+  const getFilteredResults = (groupedResults, filter, specificAttemptNum) => {
+    const filtered = [];
+    
+    Object.values(groupedResults).forEach(studentData => {
+      switch (filter) {
+        case 'latest':
+          // Get the latest attempt (highest run_number)
+          const latestAttempt = studentData.attempts.reduce((latest, current) => 
+            current.run_number > latest.run_number ? current : latest
+          );
+          filtered.push(latestAttempt);
+          break;
+        case 'specific':
+          // Get specific attempt number
+          const specificAttempt = studentData.attempts.find(attempt => 
+            attempt.run_number === specificAttemptNum
+          );
+          if (specificAttempt) {
+            filtered.push(specificAttempt);
+          }
+          break;
+        case 'all':
+          // Include all attempts
+          filtered.push(...studentData.attempts);
+          break;
+        default:
+          break;
+      }
+    });
+    
+    return filtered;
+  };
+
   // Function to refresh drill results
   const refreshResults = async () => {
     try {
       setRefreshing(true);
       const resultsResponse = await api.get(`/api/drills/${drillId}/results/`);
       setAllDrillResults(resultsResponse.data);
-      console.log("🔄 Refreshed Results Response: ", resultsResponse.data);
-      
-      // Debug: Check memory game question results after refresh
-      const memoryGameQuestion = drill?.questions?.find(q => q.type === 'G');
-      if (memoryGameQuestion) {
-        console.log(`🔍 Memory Game Question ID: ${memoryGameQuestion.id}`);
-        resultsResponse.data.forEach((drillResult, index) => {
-          const questionResult = drillResult.question_results.find(qr => qr.question_id === memoryGameQuestion.id && qr.question_type === 'G');
-          if (questionResult) {
-            console.log(`📊 Student ${drillResult.student.name} - Memory Game Points: ${questionResult.points_awarded}, Correct: ${questionResult.is_correct}, Submitted: ${questionResult.submitted_at}`);
-            console.log(`🔍 Full questionResult object:`, questionResult);
-            console.log(`🔍 questionResult.points_awarded type:`, typeof questionResult.points_awarded);
-            console.log(`🔍 questionResult.points_awarded value:`, questionResult.points_awarded);
-          }
-        });
-      }
     } catch (err) {
       console.error('Error refreshing drill results:', err.response?.data || err.message);
     } finally {
@@ -66,31 +112,10 @@ const ViewDrillResults = () => {
         // Fetch drill details
         const drillResponse = await api.get(`/api/drills/${drillId}/`);
         setDrill(drillResponse.data);
-        console.log("Drill Response: ", drillResponse.data);
-        console.log("Created At: ", drillResponse.data.created_at);
-        console.log("Created At Type: ", typeof drillResponse.data.created_at);
 
         // Fetch drill results
         const resultsResponse = await api.get(`/api/drills/${drillId}/results/`);
         setAllDrillResults(resultsResponse.data);
-        console.log("Results Response: ", resultsResponse.data);
-        console.log("Picture Word: ", drillResponse.data.questions?.find(q => q.type === 'P')?.pictureWord);
-        console.log("Memory Game Cards: ", drillResponse.data.questions?.find(q => q.type === 'G')?.memoryCards);
-        
-        // Debug: Check memory game question results
-        const memoryGameQuestion = drillResponse.data.questions?.find(q => q.type === 'G');
-        if (memoryGameQuestion) {
-          console.log(`🔍 Memory Game Question ID: ${memoryGameQuestion.id}`);
-          resultsResponse.data.forEach((drillResult, index) => {
-            const questionResult = drillResult.question_results.find(qr => qr.question_id === memoryGameQuestion.id && qr.question_type === 'G');
-            if (questionResult) {
-              console.log(`📊 Student ${drillResult.student.name} - Memory Game Points: ${questionResult.points_awarded}, Correct: ${questionResult.is_correct}, Submitted: ${questionResult.submitted_at}`);
-              console.log(`🔍 Full questionResult object:`, questionResult);
-              console.log(`🔍 questionResult.points_awarded type:`, typeof questionResult.points_awarded);
-              console.log(`🔍 questionResult.points_awarded value:`, questionResult.points_awarded);
-            }
-          });
-        }
 
         setLoading(false);
       } catch (err) {
@@ -107,9 +132,33 @@ const ViewDrillResults = () => {
     fetchDrillAndResults();
   }, [drillId]);
 
-  // Calculate stats when question or results change
+  // Update grouped results when allDrillResults changes
   useEffect(() => {
-    if (!drill || allDrillResults.length === 0) {
+    if (allDrillResults.length > 0) {
+      const grouped = groupResultsByStudent(allDrillResults);
+      setGroupedResults(grouped);
+    }
+  }, [allDrillResults]);
+
+  // Update specific attempt options when grouped results change
+  useEffect(() => {
+    if (Object.keys(groupedResults).length > 0) {
+      const allAttemptNumbers = new Set();
+      Object.values(groupedResults).forEach(studentData => {
+        studentData.attempts.forEach(attempt => {
+          allAttemptNumbers.add(attempt.run_number);
+        });
+      });
+      const maxAttempt = Math.max(...allAttemptNumbers);
+      if (specificAttempt > maxAttempt) {
+        setSpecificAttempt(maxAttempt);
+      }
+    }
+  }, [groupedResults, specificAttempt]);
+
+  // Calculate stats when question, results, or filter changes
+  useEffect(() => {
+    if (!drill || Object.keys(groupedResults).length === 0) {
       setStats({ correct: 0, incorrect: 0, avgTime: 0, correctPercentage: 0, totalStudents: 0, studentsAnsweredCurrentQuestion: 0 });
       return;
     }
@@ -120,13 +169,16 @@ const ViewDrillResults = () => {
       return;
     }
 
+    // Get filtered results based on current filter
+    const filteredResults = getFilteredResults(groupedResults, attemptFilter, specificAttempt);
+
     let correctCount = 0;
     let incorrectCount = 0;
     let totalTimeTaken = 0;
     let studentsAnswered = 0;
 
-    // Process each student's drill result
-    allDrillResults.forEach(drillResult => {
+    // Process each filtered drill result
+    filteredResults.forEach(drillResult => {
       const questionResult = drillResult.question_results.find(qr => qr.question_id === currentQuestion.id && qr.question_type === currentQuestion.type);
       if (questionResult) {
         studentsAnswered++;
@@ -141,7 +193,7 @@ const ViewDrillResults = () => {
       }
     });
 
-    const totalStudentsWithResults = allDrillResults.length;
+    const totalStudentsWithResults = filteredResults.length;
     const avgTime = studentsAnswered > 0 ? totalTimeTaken / studentsAnswered : 0;
     const correctPercentage = studentsAnswered > 0 ? Math.round((correctCount / studentsAnswered) * 100) : 0;
 
@@ -153,7 +205,7 @@ const ViewDrillResults = () => {
       correctPercentage,
       studentsAnsweredCurrentQuestion: studentsAnswered
     });
-  }, [questionIdx, allDrillResults, drill]);
+  }, [questionIdx, groupedResults, drill, attemptFilter, specificAttempt]);
 
   if (loading) {
     return (
@@ -286,6 +338,55 @@ const ViewDrillResults = () => {
               {idx + 1}
             </button>
           ))}
+        </div>
+      </div>
+      
+      {/* Attempt Filtering Controls */}
+      <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-lg text-gray-700">Attempt Filtering</h3>
+          <div className="text-sm text-gray-500">
+            {Object.keys(groupedResults).length} students • {allDrillResults.length} total attempts
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-600">Show:</label>
+            <select
+              value={attemptFilter}
+              onChange={(e) => setAttemptFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4C53B4] focus:border-transparent"
+            >
+              <option value="latest">Latest Attempt Only</option>
+              <option value="all">All Attempts</option>
+              <option value="specific">Specific Attempt</option>
+            </select>
+          </div>
+          
+          {attemptFilter === 'specific' && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-600">Attempt #:</label>
+              <select
+                value={specificAttempt}
+                onChange={(e) => setSpecificAttempt(parseInt(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4C53B4] focus:border-transparent"
+              >
+                {Object.keys(groupedResults).length > 0 && 
+                  Array.from({ length: Math.max(...Object.values(groupedResults).map(s => s.attempts.length)) }, (_, i) => i + 1)
+                    .map(num => (
+                      <option key={num} value={num}>Attempt {num}</option>
+                    ))
+                }
+              </select>
+            </div>
+          )}
+          
+          <div className="text-sm text-gray-500">
+            {attemptFilter === 'latest' && 'Showing most recent attempt for each student'}
+            {attemptFilter === 'all' && 'Showing all attempts from all students'}
+            {attemptFilter === 'specific' && `Showing attempt ${specificAttempt} for each student`}
+          </div>
         </div>
       </div>
       
@@ -503,73 +604,173 @@ const ViewDrillResults = () => {
         <div className="p-4 bg-gray-50 border-b border-gray-200">
           <h3 className="font-semibold text-lg text-gray-700">Student Responses</h3>
         </div>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
-             {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Answer</th>*/}
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
-              {questionIdx === questions.length - 1 && (
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Total Points</th>
-              )}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {allDrillResults.length === 0 ? (
-              <tr>
-                <td colSpan={questionIdx === questions.length - 1 ? 5 : 4} className="text-center text-gray-400 py-8">
-                  <div className="flex flex-col items-center">
-                    <i className="fa-solid fa-inbox text-3xl mb-2 text-gray-300"></i>
-                    No results yet for this question.
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              allDrillResults.map((drillResult) => {
-                const questionResult = drillResult.question_results.find(
-                  qr => qr.question_id === questions[questionIdx]?.id && qr.question_type === questions[questionIdx]?.type
+        
+        {Object.keys(groupedResults).length === 0 ? (
+          <div className="text-center text-gray-400 py-8">
+            <div className="flex flex-col items-center">
+              <i className="fa-solid fa-inbox text-3xl mb-2 text-gray-300"></i>
+              No results yet for this drill.
+            </div>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {attemptFilter === 'all' ? (
+              // Show grouped view for "all attempts"
+              Object.values(groupedResults).map((studentData) => {
+                const isExpanded = expandedStudents.has(studentData.student.id);
+                const hasResultsForCurrentQuestion = studentData.attempts.some(attempt => 
+                  attempt.question_results.some(qr => 
+                    qr.question_id === questions[questionIdx]?.id && qr.question_type === questions[questionIdx]?.type
+                  )
                 );
                 
-                if (!questionResult) return null;
-
-                // Calculate total points by summing up all points_awarded
-                const totalPoints = drillResult.question_results.reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
+                if (!hasResultsForCurrentQuestion) return null;
 
                 return (
-                  <tr key={drillResult.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                  <div key={studentData.student.id} className="p-4">
+                    {/* Student Header */}
+                    <div 
+                      className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                      onClick={() => {
+                        const newExpanded = new Set(expandedStudents);
+                        if (isExpanded) {
+                          newExpanded.delete(studentData.student.id);
+                        } else {
+                          newExpanded.add(studentData.student.id);
+                        }
+                        setExpandedStudents(newExpanded);
+                      }}
+                    >
                       <div className="flex items-center">
-                        <div className="w-8 h-8 rounded-full bg-[#4C53B4] flex items-center justify-center text-white">
-                          {drillResult.student.name.charAt(0)}
+                        <div className="w-10 h-10 rounded-full bg-[#4C53B4] flex items-center justify-center text-white font-bold">
+                          {studentData.student.name.charAt(0)}
                         </div>
                         <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">{drillResult.student.name}</div>
-                          <div className="text-sm text-gray-500">@{drillResult.student.username}</div>
+                          <div className="text-sm font-medium text-gray-900">{studentData.student.name}</div>
+                          <div className="text-sm text-gray-500">@{studentData.student.username}</div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {questionResult.points_awarded}                    
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {questionResult.time_taken ? questionResult.time_taken.toFixed(1) : '-'}
-                    </td> 
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(questionResult.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    {questionIdx === questions.length - 1 && (
-                      <td className="px-6 py-4 whitespace-nowrap font-bold text-sm text-green-500">
-                        {totalPoints}
-                      </td>
+                      <div className="flex items-center gap-4">
+                        <div className="text-sm text-gray-500">
+                          {studentData.attempts.length} attempt{studentData.attempts.length !== 1 ? 's' : ''}
+                        </div>
+                        <i className={`fa-solid fa-chevron-${isExpanded ? 'up' : 'down'} text-gray-400`}></i>
+                      </div>
+                    </div>
+
+                    {/* Attempt Details */}
+                    {isExpanded && (
+                      <div className="mt-4 ml-6 space-y-3">
+                        {studentData.attempts.map((attempt) => {
+                          const questionResult = attempt.question_results.find(
+                            qr => qr.question_id === questions[questionIdx]?.id && qr.question_type === questions[questionIdx]?.type
+                          );
+                          
+                          if (!questionResult) return null;
+
+                          const totalPoints = attempt.question_results.reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
+
+                          return (
+                            <div key={attempt.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                                <div>
+                                  <span className="text-gray-500">Attempt:</span>
+                                  <span className="ml-2 font-medium">{attempt.run_number}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Points:</span>
+                                  <span className="ml-2 font-medium">{questionResult.points_awarded}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Time:</span>
+                                  <span className="ml-2 font-medium">
+                                    {questionResult.time_taken ? questionResult.time_taken.toFixed(1) : '-'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500">Submitted:</span>
+                                  <span className="ml-2 font-medium">
+                                    {new Date(questionResult.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                {questionIdx === questions.length - 1 && (
+                                  <div>
+                                    <span className="text-gray-500">Total:</span>
+                                    <span className="ml-2 font-bold text-green-600">{totalPoints}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
-                  </tr>
+                  </div>
                 );
               })
+            ) : (
+              // Show simple table for "latest" or "specific" attempts
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attempt</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                    {questionIdx === questions.length - 1 && (
+                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Total Points</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {getFilteredResults(groupedResults, attemptFilter, specificAttempt).map((drillResult) => {
+                    const questionResult = drillResult.question_results.find(
+                      qr => qr.question_id === questions[questionIdx]?.id && qr.question_type === questions[questionIdx]?.type
+                    );
+                    
+                    if (!questionResult) return null;
+
+                    const totalPoints = drillResult.question_results.reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
+
+                    return (
+                      <tr key={drillResult.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 rounded-full bg-[#4C53B4] flex items-center justify-center text-white">
+                              {drillResult.student.name.charAt(0)}
+                            </div>
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-gray-900">{drillResult.student.name}</div>
+                              <div className="text-sm text-gray-500">@{drillResult.student.username}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {drillResult.run_number}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {questionResult.points_awarded}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {questionResult.time_taken ? questionResult.time_taken.toFixed(1) : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(questionResult.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        {questionIdx === questions.length - 1 && (
+                          <td className="px-6 py-4 whitespace-nowrap font-bold text-sm text-green-500">
+                            {totalPoints}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -111,8 +111,6 @@ const TransferStudentModal = ({ isOpen, onClose, classroomId, studentToTransfer,
     };
 
     try {
-      console.log('Sending transfer request:', requestData); // Debug log
-
       // Make sure we're sending the request with the correct headers
       const response = await api.post('/api/transfer-requests/', requestData, {
         headers: {
@@ -120,9 +118,6 @@ const TransferStudentModal = ({ isOpen, onClose, classroomId, studentToTransfer,
           'Accept': 'application/json'
         }
       });
-
-      // Log the full response for debugging
-      console.log('Full response:', response);
 
       // The response will include additional fields from the serializer
       const { 
@@ -134,8 +129,6 @@ const TransferStudentModal = ({ isOpen, onClose, classroomId, studentToTransfer,
         created_at,
         updated_at
       } = response.data;
-
-      console.log('Transfer request created:', response.data); // Debug log
 
       setIsConfirmationOpen(false);
       setIsSuccessOpen(true);

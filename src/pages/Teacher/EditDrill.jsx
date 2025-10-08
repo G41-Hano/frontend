@@ -305,7 +305,6 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
         }
 
         // 3. Set the drill state
-        console.log('Processed drill data:', drillData);
         setDrill(drillData);
         setOriginalDrill(drillData);
 
@@ -417,7 +416,6 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
   };
 
   const handleUpdateCustomWord = (index, field, value) => {
-    console.log(`Updating word ${index}, field: ${field}, value:`, value);
     if (!drill) return;
     setDrill(prev => ({
       ...prev,

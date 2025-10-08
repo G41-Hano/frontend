@@ -196,8 +196,8 @@ const TakeDrill = () => {
           const leaderboardMap = new Map();
           results.forEach(result => {
             const studentId = result.student.id;
-            const currentBest = leaderboardMap.get(studentId);
-            if (!currentBest || result.points > currentBest.points) {
+            const currentLatest = leaderboardMap.get(studentId);
+            if (!currentLatest || result.run_number > currentLatest.run_number) {
               leaderboardMap.set(studentId, result);
             }
           });
@@ -248,7 +248,6 @@ const TakeDrill = () => {
     } else if (currentQuestion.type === 'F') {
       // For Blank Busters, use the isCorrect parameter passed from the component
       correct = isCorrectOrAttempts;
-      console.log(`Blank Busters - Submitted answer: "${answer}", Correct answer: "${currentQuestion.answer}", Is correct: ${correct}`);
     } else if (currentQuestion.type === 'D') {
       // For Sentence Builder, use the isCorrect parameter passed from the component
       correct = isCorrectOrAttempts;
@@ -259,7 +258,6 @@ const TakeDrill = () => {
       // and isCorrectOrAttempts contains the number of incorrect attempts
       correct = Array.isArray(answer) && answer.length === (currentQuestion.memoryCards?.length || 0);
       memoryGameAttempts = isCorrectOrAttempts || 0;
-      console.log(`Memory Game - Answer: ${JSON.stringify(answer)}, MemoryCards length: ${currentQuestion.memoryCards?.length}, Correct: ${correct}, Attempts: ${memoryGameAttempts}`);
     }
     
     // Always submit to backend for all question types
@@ -276,12 +274,10 @@ const TakeDrill = () => {
       if (currentQuestion.type === 'G') {
         const timePenaltyThreshold = 10; // Memory games use 10-second threshold
         const timePenalty = Math.min(30, Math.floor(timeUsed / timePenaltyThreshold) * 0.5);
-        console.log(`Memory Game Debug - Time used: ${timeUsed}s, Time penalty: ${timePenalty}, Attempts: ${attemptsToUse}, Final points: ${earnedPoints}`);
       }
 
       // Submit correct answer to backend
       try {
-        console.log(`Submitting correct answer for question ID ${currentQuestion.id}, type ${currentQuestion.type}, points ${earnedPoints}, attempts ${attemptsToUse}`);
         const response = await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
           answer: answer,
           time_taken: timeSpent[key],
@@ -289,7 +285,6 @@ const TakeDrill = () => {
           points: earnedPoints,
           question_type: currentQuestion.type
         });
-        console.log(`✅ Successfully submitted answer for question ID ${currentQuestion.id}, response:`, response.data);
       } catch (error) {
         console.error(`❌ Failed to submit answer for question ID ${currentQuestion.id}:`, error);
         console.error('Error details:', error.response?.data);
@@ -304,7 +299,6 @@ const TakeDrill = () => {
       
       // Submit incorrect answer to backend as well
       try {
-        console.log(`Submitting incorrect answer for question ID ${currentQuestion.id}, type ${currentQuestion.type}, points 0`);
         const response = await api.post(`/api/drills/${id}/questions/${currentQuestion.id}/submit/`, {
           answer: answer,
           time_taken: timeSpent[key],
@@ -312,7 +306,6 @@ const TakeDrill = () => {
           points: 0,
           question_type: currentQuestion.type
         });
-        console.log(`✅ Successfully submitted incorrect answer for question ID ${currentQuestion.id}, response:`, response.data);
       } catch (error) {
         console.error(`❌ Failed to submit incorrect answer for question ID ${currentQuestion.id}:`, error);
         console.error('Error details:', error.response?.data);

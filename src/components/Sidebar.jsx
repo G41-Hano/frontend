@@ -3,7 +3,6 @@ import Home from '../assets/Home.png';
 import MyClasses from '../assets/MyClasses.png';
 import Badges from '../assets/Badges.png';
 import Profile from '../assets/Profile.png';
-import Settings from '../assets/Settings.png';
 import logo from '../assets/logo.png';
 import { useUser } from '../contexts/UserContext';
 
@@ -32,11 +31,6 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: Profile, 
       text: 'Profile', 
       path: `/${user?.role === 'teacher' ? 't' : 's'}/profile` 
-    },
-    { 
-      icon: Settings, 
-      text: 'Settings', 
-      path: `/${user?.role === 'teacher' ? 't' : 's'}/settings` 
     },
   ];
 
