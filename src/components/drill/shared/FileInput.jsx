@@ -21,9 +21,7 @@ const FileInput = ({ value, onChange, onPreview }) => {
           className="hidden"
           onChange={e => {
             const file = e.target.files[0];
-            console.log('FileInput onChange:', file);
             if (!file) return;
-            console.log('Calling onChange with file:', file);
             onChange(file);
           }}
         />

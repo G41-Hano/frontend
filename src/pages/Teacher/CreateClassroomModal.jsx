@@ -117,11 +117,9 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
         let response = []
         try {
           response = await importStudentsFromCsv(classroomId, csvFile);
-          // console.log("response: ", response)
           setNotEnrolledNames(response?.data?.['not-enrolled']);
           setEnrolledNames(response?.data?.enrolled ?? [])
         } catch (csvErr) {
-          // console.log("error: ", csvErr)
           setCsvError(csvErr?.data?.error);
           if (csvErr?.status == 404) { // Names in CSV does not exist in system
             setNotEnrolledNames(csvErr?.data?.['not-enrolled']);
@@ -187,7 +185,6 @@ const CreateClassroomModal = ({ isOpen, onClose, onSuccess }) => {
     setCsvFile(file);
     setCsvError(null);
     setIsProcessingCsv(false);
-    // console.log('CSV file selected:', file);
   };
 
   if (!isOpen) return null;

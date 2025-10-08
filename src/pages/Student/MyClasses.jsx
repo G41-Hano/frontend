@@ -25,7 +25,7 @@ import { ClassroomSkeleton, ClassroomHeaderSkeleton } from '../../components/loa
 const CLASSROOM_COLORS = ['#7D83D7', '#E79051', '#A6CB00', '#FE93AA', '#FBC372']; //Classroom Colors
 
 // Sortable Classroom Card Component
-const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleColorChange, handleHideToggle, handleClick }) => {
+const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleColorChange, handleHideToggle, handleClick, unansweredDrills }) => {
   const { getClassroomColor } = useClassroomPreferences();
   const classroomColor = getClassroomColor(classroom.id) || classroom.student_color || classroom.color || '#7D83D7';
   const {
@@ -58,6 +58,16 @@ const SortableClassroomCard = ({ classroom, handleOpenMenu, openMenuId, handleCo
       {...attributes}
       {...listeners}
     >
+      {/* Unanswered Drills Indicator */}
+      {unansweredDrills[classroom.id] > 0 && (
+        <div className="absolute top-5 left-20 z-20">
+          <div className="bg-white text-orange-600 text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 border border-orange-200">
+            <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping"></div>
+            <span> You have {unansweredDrills[classroom.id]} unanswered drill{unansweredDrills[classroom.id] > 1 ? 's' : ''}</span>
+          </div>
+        </div>
+      )}
+
       {/* Menu Button */}
       <div className="absolute top-3 right-3 z-20">
         <button
@@ -266,6 +276,7 @@ const MyClasses = () => {
   const [error, setError] = useState(null);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [activeId, setActiveId] = useState(null);
+  const [unansweredDrills, setUnansweredDrills] = useState({}); // Track unanswered drills per classroom
   const { setClassroomColor, updateOrder, sortClassrooms, initialized } = useClassroomPreferences();
   const didFetch = useRef(false);
 
@@ -278,6 +289,51 @@ const MyClasses = () => {
     })
   );
 
+  // Function to check for unanswered drills in each classroom
+  const checkUnansweredDrills = async (classrooms) => {
+    const unansweredData = {};
+    
+    for (const classroom of classrooms) {
+      try {
+        // Get all drills for this classroom
+        const drillsResponse = await api.get(`/api/drills/?classroom=${classroom.id}`);
+        const drills = drillsResponse.data || [];
+        
+        // Filter for published drills that are currently open
+        const now = new Date();
+        const openDrills = drills.filter(drill => 
+          drill.status === 'published' &&
+          new Date(drill.open_date) <= now &&
+          new Date(drill.deadline) >= now
+        );
+        
+        // Check which drills the student hasn't answered
+        const unansweredCount = await Promise.all(
+          openDrills.map(async (drill) => {
+            try {
+              // Check if student has any results for this drill
+              const resultsResponse = await api.get(`/api/drills/${drill.id}/results/student/`);
+              const results = resultsResponse.data || [];
+              
+              // If no results, it's unanswered
+              return results.length === 0;
+            } catch (error) {
+              // If error fetching results, assume it's unanswered
+              return true;
+            }
+          })
+        );
+        
+        unansweredData[classroom.id] = unansweredCount.filter(Boolean).length;
+      } catch (error) {
+        console.error(`Error checking drills for classroom ${classroom.id}:`, error);
+        unansweredData[classroom.id] = 0;
+      }
+    }
+    
+    setUnansweredDrills(unansweredData);
+  };
+
   useEffect(() => {
     if (!initialized || didFetch.current) return;
     const fetchAndOrderClassrooms = async () => {
@@ -288,6 +344,9 @@ const MyClasses = () => {
         setClassrooms(fetchedClassrooms);
         setError(null);
         didFetch.current = true;
+        
+        // Check for unanswered drills after classrooms are loaded
+        await checkUnansweredDrills(fetchedClassrooms);
       } catch {
         setError('Failed to fetch classrooms');
         setClassrooms([]);
@@ -335,6 +394,9 @@ const MyClasses = () => {
       finalClassrooms.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       
       setClassrooms(finalClassrooms);
+      
+      // Refresh unanswered drills data for all classrooms
+      await checkUnansweredDrills(finalClassrooms);
     } catch (error) {
       console.error('Error refreshing classrooms:', error);
     }
@@ -561,6 +623,7 @@ const MyClasses = () => {
                   handleColorChange={handleColorChange}
                   handleHideToggle={handleHideToggle}
                   handleClick={handleClick}
+                  unansweredDrills={unansweredDrills}
                 />
               ))}
             </div>

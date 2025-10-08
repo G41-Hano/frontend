@@ -19,7 +19,6 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
   useEffect(() => {
     if (matched.length === shuffledCards.length && shuffledCards.length > 0) {
       // All pairs matched, call onAnswer with the matched pairs and incorrect attempts
-      console.log(`MemoryGameQuestion - All matched! Matched: ${matched.length}, Incorrect attempts: ${incorrectAttempts}`);
       onAnswer(matched, incorrectAttempts);
     }
     // eslint-disable-next-line
@@ -45,7 +44,6 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
         // Not a match - increment incorrect attempts
         setIncorrectAttempts(prev => {
           const newAttempts = prev + 1;
-          console.log(`MemoryGameQuestion - Wrong pair! Attempts: ${prev} -> ${newAttempts}`);
           return newAttempts;
         });
         setTimeout(() => {

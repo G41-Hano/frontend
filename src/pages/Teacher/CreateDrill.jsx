@@ -339,7 +339,6 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       } else if (drill.wordlistType === 'builtin') {
         formData.append('custom_wordlist', '');
         formData.append('wordlist_name', drill.wordlistName || '');
-        console.log('Sending wordlist_name:', drill.wordlistName);
       }
       await api.post('/api/drills/', formData);
       setDrill(prev => ({ ...prev, status }));

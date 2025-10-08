@@ -129,10 +129,6 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
       // Compare the complete sentences (normalized)
       const isAllCorrect = userSentence.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
       
-      console.log('User sentence:', userSentence);
-      console.log('Correct answer:', correctAnswer);
-      console.log('Drag items:', question.dragItems);
-      console.log('Match:', isAllCorrect);
       const submittedTexts = blankAnswers.map(idx => choices[idx]?.text || '');
       
       if (isAllCorrect) {

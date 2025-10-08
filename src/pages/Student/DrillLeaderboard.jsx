@@ -32,19 +32,19 @@ const DrillLeaderboard = () => {
         const resultsResponse = await api.get(`/api/drills/${id}/results/`);
         const results = resultsResponse.data;
 
-        // Create a map of student results, keeping only their best score
+        // Create a map of student results, keeping only their latest attempt
         const resultsMap = new Map();
         results.forEach(result => {
           const studentId = result.student.id;
-          const currentBest = resultsMap.get(studentId);
+          const currentLatest = resultsMap.get(studentId);
           
-          // If no result exists for this student or this result is better, update the map
-          if (!currentBest || result.points > currentBest.points) {
+          // If no result exists for this student or this result has a higher run_number, update the map
+          if (!currentLatest || result.run_number > currentLatest.run_number) {
             resultsMap.set(studentId, result);
           }
         });
 
-        // Combine all students with their best results
+        // Combine all students with their latest results
         const transformedData = allStudents.map(student => {
           const result = resultsMap.get(student.id);
           return {
@@ -109,7 +109,7 @@ const DrillLeaderboard = () => {
           <div className="absolute inset-0 bg-blue-100/60 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <h2 className="text-3xl font-extrabold text-[#e09b1a] text-center mb-8 tracking-wide flex items-center justify-center gap-2">
-              <span>- {drillName} Leaderboard -</span>
+              <span>{drillName} Leaderboard</span>
             </h2>
             {loading ? (
               <div className="text-center text-gray-500 py-12">Loading...</div>
