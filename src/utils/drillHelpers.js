@@ -1,5 +1,25 @@
+// Seeded random number generator for consistent shuffling
+const seededRandom = (seed) => {
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
+
+// Fisher-Yates shuffle with seed
+const shuffleWithSeed = (array, seed) => {
+  const shuffled = [...array];
+  let currentSeed = seed;
+  
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    currentSeed = (currentSeed * 9301 + 49297) % 233280; // Linear congruential generator
+    const j = Math.floor(seededRandom(currentSeed) * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  
+  return shuffled;
+};
+
 // Helper: Group questions by word
-export const groupQuestionsByWord = (questions) => {
+export const groupQuestionsByWord = (questions, shuffleSeed = Math.random()) => {
   const map = {};
   questions.forEach(q => {
     const wordKey = q.word_id || q.word; // Use word_id if available, otherwise use word as key
@@ -23,13 +43,11 @@ export const groupQuestionsByWord = (questions) => {
       const firstQuestionB = map[keyB].questions[0];
       return questions.indexOf(firstQuestionA) - questions.indexOf(firstQuestionB);
     })
-    .map(([, group]) => {
-      // Shuffle questions within each word group
-      const shuffledQuestions = [...group.questions];
-      for (let i = shuffledQuestions.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
-      }
+    .map(([, group], groupIndex) => {
+      // Shuffle questions within each word group using seed
+      // Use different seed for each group to ensure variety
+      const groupSeed = shuffleSeed + groupIndex * 1000;
+      const shuffledQuestions = shuffleWithSeed(group.questions, groupSeed);
       return { ...group, questions: shuffledQuestions };
     });
   

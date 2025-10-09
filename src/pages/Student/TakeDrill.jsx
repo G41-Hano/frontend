@@ -40,6 +40,7 @@ const TakeDrill = () => {
     return path.startsWith('/t/');
   });
   const [showTimer, setShowTimer] = useState(false);
+  const [shuffleSeed, setShuffleSeed] = useState(() => Math.random());
   
 
   // Fetch drill and wordlist
@@ -53,44 +54,37 @@ const TakeDrill = () => {
         if (drillData.custom_wordlist) {
           const wordlistRes = await api.get(`/api/wordlist/${drillData.custom_wordlist}/`);
           const words = wordlistRes.data.words || [];
-          
-          // Create a map of questions by word
-          const questionsByWord = {};
           const questions = drillData.questions || [];
           
-          // Calculate how many questions each word should have
-          const totalQuestions = questions.length;
-          const totalWords = words.length;
-          const baseQuestionsPerWord = Math.floor(totalQuestions / totalWords);
-          const extraQuestions = totalQuestions % totalWords;
+          // Create a map of questions by matching word content
+          const questionsByWord = {};
           
-          // Initialize question counters for each word
-          const wordQuestionCounts = words.map((_, index) => 
-            baseQuestionsPerWord + (index < extraQuestions ? 1 : 0)
-          );
-          
-          // Distribute questions to words
-          let currentQuestionIndex = 0;
-          words.forEach((word, wordIndex) => {
-            const questionsForThisWord = wordQuestionCounts[wordIndex];
-            const wordQuestions = questions.slice(
-              currentQuestionIndex,
-              currentQuestionIndex + questionsForThisWord
+          // First, group questions by their actual word content
+          questions.forEach(question => {
+            // Find the matching word from wordlist
+            const matchingWord = words.find(word => 
+              word.word.toLowerCase().trim() === (question.word || '').toLowerCase().trim()
             );
             
-            questionsByWord[word.id] = wordQuestions.map(q => ({
-              ...q,
-              word: word.word,
-              definition: word.definition,
-              image: word.image_url,
-              signVideo: word.video_url,
-              word_id: word.id
-            }));
-            
-            currentQuestionIndex += questionsForThisWord;
+            if (matchingWord) {
+              if (!questionsByWord[matchingWord.id]) {
+                questionsByWord[matchingWord.id] = [];
+              }
+              
+              questionsByWord[matchingWord.id].push({
+                ...question,
+                word: matchingWord.word,
+                definition: matchingWord.definition,
+                image: matchingWord.image_url,
+                signVideo: matchingWord.video_url,
+                word_id: matchingWord.id
+              });
+            } else {
+              console.warn(`No matching word found for question with word: "${question.word}"`);
+            }
           });
           
-          // Then merge into final array maintaining word grouping
+          // Build final array maintaining word order from wordlist
           mergedQuestions = [];
           words.forEach(word => {
             const wordQuestions = questionsByWord[word.id] || [];
@@ -142,7 +136,7 @@ const TakeDrill = () => {
         }
 
         setDrill({ ...drillData, questions: mergedQuestions });
-        const groups = groupQuestionsByWord(mergedQuestions);
+        const groups = groupQuestionsByWord(mergedQuestions, shuffleSeed);
         setWordGroups(groups);
         setLoading(false);
       } catch (error) {
@@ -153,7 +147,7 @@ const TakeDrill = () => {
     };
     
     fetchDrillAndWordlist();
-  }, [id, isTeacherPreview]);
+  }, [id, isTeacherPreview, shuffleSeed]);
 
   // Reset answer when question changes
   useEffect(() => {
@@ -168,30 +162,33 @@ const TakeDrill = () => {
   // Timer logic
   useEffect(() => {
     let intervalId;
-    if (introStep === 5) {
-      // Show timer when question starts
+    if (introStep === 5 && answerStatus !== 'correct') {
+      // Show timer when question starts and student hasn't answered correctly yet
       setShowTimer(true);
       intervalId = setInterval(() => {
         const key = `${currentWordIdx}_${currentQuestionIdx}`;
         setTimeSpent(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
       }, 1000);
     } else {
-      // Hide timer when not on question
+      // Hide timer when not on question or when student answered correctly
       setShowTimer(false);
     }
 
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [introStep, currentWordIdx, currentQuestionIdx]);
+  }, [introStep, currentWordIdx, currentQuestionIdx, answerStatus]);
 
   // Leaderboard fetch
   useEffect(() => {
     if (introStep === 6) {
       setLoadingLeaderboard(true);
       setLeaderboardError(null);
-      api.get(`/api/drills/${id}/results/`)
-        .then(res => {
+      
+      // Add a delay to ensure backend has processed the latest results
+      setTimeout(() => {
+        api.get(`/api/drills/${id}/results/`)
+          .then(res => {
           const results = res.data || [];
           const leaderboardMap = new Map();
           results.forEach(result => {
@@ -202,17 +199,24 @@ const TakeDrill = () => {
             }
           });
           const leaderboardArr = Array.from(leaderboardMap.values())
-            .map(result => ({
-              id: result.student.id,
-              name: result.student.name,
-              avatar: result.student.avatar,
-              points: result.points
-            }))
+            .map(result => {
+              // Calculate points from question_results instead of using backend's result.points
+              const calculatedPoints = (result.question_results || [])
+                .reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
+              
+              return {
+                id: result.student.id,
+                name: result.student.name,
+                avatar: result.student.avatar,
+                points: calculatedPoints
+              };
+            })
             .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
           setDrillLeaderboard(leaderboardArr);
-        })
-        .catch(() => setLeaderboardError('Failed to load leaderboard'))
-        .finally(() => setLoadingLeaderboard(false));
+          })
+          .catch(() => setLeaderboardError('Failed to load leaderboard'))
+          .finally(() => setLoadingLeaderboard(false));
+      }, 3000); // Wait 3 seconds for backend to process results
     }
   }, [introStep, id]);
 
@@ -331,6 +335,8 @@ const TakeDrill = () => {
         setIntroStep(1);
       } else {
         setIntroStep(6); // Show congratulations/summary screen
+        // Dispatch custom event to notify topbar to refresh points
+        window.dispatchEvent(new CustomEvent('drillCompleted'));
       }
     }
   };
@@ -345,6 +351,11 @@ const TakeDrill = () => {
     setTimeSpent({});
     setPoints({});
     setAnswerStatus(null);
+    setCurrentAnswer(null);
+    setWrongAnswers([]);
+    // Generate new shuffle seed for different question order on retake
+    // The useEffect will automatically re-run and re-shuffle when shuffleSeed changes
+    setShuffleSeed(Math.random());
   };
 
   const handleUserSelect = (user) => setSelectedUser(user);
@@ -370,7 +381,7 @@ const TakeDrill = () => {
           </div>
           
           <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
-            Points: 0
+            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
           </div>
         </div>
 
@@ -508,5 +519,4 @@ const TakeDrill = () => {
 
   return null;
 };
-
 export default TakeDrill;

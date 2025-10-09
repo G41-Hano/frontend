@@ -243,25 +243,73 @@ const StudentClassroom = () => {
   }, [id]);
 
   useEffect(() => {
-    if (activeTab === 'leaderboard' && classroom?.id) {
+    if (activeTab === 'leaderboard' && classroom?.id && drills.length > 0) {
       setLoadingLeaderboard(true);
-      api.get(`/api/classrooms/${classroom.id}/points/`)
-        .then(res => {
-          // Filter out students with 0 points (no participation)
-          const filteredLeaderboard = res.data.leaderboard
-            .filter(student => student.total_points > 0)
-            .map(student => ({
-              id: student.student_id,
-              first_name: student.student_name.split(' ')[0], // crude split, adjust if needed
-              avatar: student.avatar || null, // if available from backend
-              points: student.total_points
-            }));
+      
+      const fetchLeaderboardData = async () => {
+        try {
+          // Get all students in the classroom
+          const studentsResponse = await api.get(`/api/classrooms/${classroom.id}/students/`);
+          const allStudents = Array.isArray(studentsResponse.data) ? studentsResponse.data : 
+                            Array.isArray(studentsResponse.data?.students) ? studentsResponse.data.students : [];
+          
+          // Calculate points for each student
+          const studentPointsPromises = allStudents.map(async (student) => {
+            let totalPoints = 0;
+            
+            // For each drill, get the student's latest attempt points
+            for (const drill of drills) {
+              try {
+                const drillResultsResponse = await api.get(`/api/drills/${drill.id}/results/`);
+                const allResults = drillResultsResponse.data || [];
+                
+                // Filter results for this specific student
+                const studentResults = allResults.filter(result => result.student.id === student.id);
+                
+                if (studentResults.length > 0) {
+                  // Find the latest attempt (highest run_number)
+                  const latestAttempt = studentResults.reduce((latest, current) => {
+                    return (current.run_number || 0) > (latest.run_number || 0) ? current : latest;
+                  }, studentResults[0]);
+                  
+                  // Calculate total points for the latest attempt
+                  const attemptPoints = (latestAttempt.question_results || [])
+                    .reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
+                  
+                  totalPoints += attemptPoints;
+                }
+              } catch (error) {
+                console.error(`Error fetching results for drill ${drill.id} for student ${student.id}:`, error);
+              }
+            }
+            
+            return {
+              id: student.id,
+              first_name: student.name ? student.name.split(' ')[0] : student.username,
+              avatar: student.avatar || null,
+              points: totalPoints
+            };
+          });
+          
+          const studentPoints = await Promise.all(studentPointsPromises);
+          
+          // Filter out students with 0 points and sort by points descending
+          const filteredLeaderboard = studentPoints
+            .filter(student => student.points > 0)
+            .sort((a, b) => b.points - a.points);
+          
           setLeaderboard(filteredLeaderboard);
-        })
-        .catch(() => setLeaderboard([]))
-        .finally(() => setLoadingLeaderboard(false));
+        } catch (error) {
+          console.error('Error fetching leaderboard data:', error);
+          setLeaderboard([]);
+        } finally {
+          setLoadingLeaderboard(false);
+        }
+      };
+      
+      fetchLeaderboardData();
     }
-  }, [activeTab, classroom]);
+  }, [activeTab, classroom, drills]);
 
   // Get color when rendering
   const classroomColor = classroom?.id ? getClassroomColor(classroom.id, id) : '#7D83D7';
@@ -511,7 +559,8 @@ const StudentClassroom = () => {
                                     to={`/s/take-drill/${drill.id}`}
                                     className="ml-2 px-6 py-2 rounded-xl bg-[#38CA77] text-white font-bold shadow hover:bg-[#2DA05F] transition-all duration-300 flex items-center gap-2 hover:scale-105"
                                   >
-                                    <i className="fa-solid fa-play"></i> Start Drill
+                                    <i className={`fa-solid ${(studentDrillResults[drill.id] || 0) > 0 ? 'fa-redo' : 'fa-play'}`}></i> 
+                                    {(studentDrillResults[drill.id] || 0) > 0 ? 'Retake Drill' : 'Start Drill'}
                                   </Link>
                                 ) : (
                                   <button 
