@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from "./pages/Login"
 import Register from "./pages/Register"
+import Logout from "./pages/LogOut"
 import AuthRoute from './routes/AuthRoute'
 import StudentRoutes from './routes/StudentRoutes'
 import TeacherRoutes from './routes/TeacherRoutes'
@@ -13,12 +14,6 @@ import { SuccessModalProvider } from './contexts/SuccessModalContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import SuccessModal from './components/SuccessModal'
 import DrillLeaderboard from './pages/Student/DrillLeaderboard'
-
-function Logout() {
-  localStorage.removeItem('access');
-  localStorage.removeItem('refresh');
-  return <Navigate to="/login" />
-}
 
 function RegisterAndLogout() {
   localStorage.removeItem('access');
@@ -38,6 +33,7 @@ function App() {
               <Route path="/" element={<Navigate to="/login"/>}/>
               <Route path="/login" element={<AuthRoute requireAuth={false}><Login /></AuthRoute>} />
               <Route path="/logout" element={<Logout />} />
+              <Route path="/logout-ex" element={<Logout session_expired={true}/>} />
               <Route path="/register" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
               <Route path="/register/teacher" element={<AuthRoute requireAuth={false}><RegisterAndLogout /></AuthRoute>} />
               <Route path="/request-password-reset" element={<AuthRoute requireAuth={false}><PasswordReset /></AuthRoute>} />
