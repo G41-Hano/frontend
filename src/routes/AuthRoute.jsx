@@ -15,52 +15,31 @@ export default function AuthRoute({children, requireAuth = true, requiredRole = 
   const { loginUser } = useUser()
 
   useEffect(()=>{
-    auth().catch(() => setIsAuthorized(false))
-  }, [])
-
-  // refreshes the token 
-  const refreshToken = async () => {
-    const refreshToken = localStorage.getItem(REFRESH_TOKEN)
-    try {
-      const res = await api.post("/api/token/refresh/", {
-        refresh: refreshToken,
-      })
-      if (res.status === 200) {
-        localStorage.setItem(ACCESS_TOKEN, res.data.access)
-        setIsAuthorized(true)
-      }
-      else {
+    const checkAuth = () => {
+      const token = localStorage.getItem(ACCESS_TOKEN)
+      // if no token exists == user is UNAUTHORIZED
+      if (!token) {
         setIsAuthorized(false)
+        return
       }
-    } 
-    catch (error) {
-      console.log(error)
-      setIsAuthorized(false)
+
+     try {
+      const decoded = jwtDecode(token);
+      const now = Date.now() / 1000;
+      if (decoded.exp < now) {
+        // token expired - but interceptor will refresh it automatically on next request
+        setIsAuthorized(true);
+      } else {
+        setIsAuthorized(true);
+      }
+      setUserRole(decoded.role);
+      loginUser(token);
+    } catch {
+      setIsAuthorized(false);
     }
-  }
-
-  // 
-  const auth = async () => {
-    const token = localStorage.getItem(ACCESS_TOKEN)
-
-    // if a token does not exist => UNAUTHORIZED
-    if (!token) {
-      setIsAuthorized(false)
-      return
-    }
-    const decoded = jwtDecode(token)
-    const tokenExpiration = decoded.exp
-    setUserRole(decoded.role)
-    const now = Date.now() / 1000
-
-    if (tokenExpiration < now) {
-      await refreshToken()
-    } else {
-      setIsAuthorized(true)
-    }    
-    
-    loginUser(token)
-  }
+    };
+    checkAuth();
+  }, [])
 
   if (isAuthorized === null) {
     return <div className="flex items-center justify-center min-h-screen">

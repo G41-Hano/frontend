@@ -256,6 +256,8 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           type: q.type,
           word: q.word,
           definition: q.definition,
+          // Ensure word_id is included for proper association
+          word_id: q.word_id || null,
         };
         if (q.type === 'M' || q.type === 'F') {
           base.answer = q.answer;

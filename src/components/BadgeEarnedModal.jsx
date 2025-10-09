@@ -106,7 +106,16 @@ const BadgeEarnedModal = ({ onViewBadges, onClose, badgeId }) => {
           </div>
           <div className="flex justify-center gap-6 mt-8 w-full">
             <button
-              onClick={onViewBadges}
+              onClick={async () => {
+                if (badge && badge.badge && badge.badge.id) {
+                  const badgeId = badge.badge.id;
+                  const notifsForBadge = badges.filter(b => b.badge && b.badge.id === badgeId);
+                  for (const notif of notifsForBadge) {
+                    await api.post(`/api/notifications/${notif.id}/mark-as-read/`);
+                  }
+                }
+                if (onViewBadges) onViewBadges();
+              }}
               className="bg-[#FBE18F] text-[#8A2799] font-bold px-8 py-2 rounded-full shadow hover:bg-yellow-300 transition text-lg w-44"
               style={{fontFamily: 'Baloo, sans-serif'}}>
               View Badges

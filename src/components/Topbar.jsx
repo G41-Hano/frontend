@@ -27,17 +27,50 @@ const Topbar = ({ onMenuClick }) => {
       api.get('/api/badges/student-badges/', { params: { student_id: user.id } })
         .then(res => setBadgeCount(res.data.length))
         .catch(() => setBadgeCount(0));
-      // Fetch all student points from new endpoint (plural)
-      // Fetch all student points from new endpoint
-      api.get('/api/badges/all-student-points/')
-      .then(res => {
-        // For students, res.data is a single object with total_points
-        // For teachers, res.data is an array of student objects
-        const points = isTeacher ? 0 : res.data.total_points || 0;
-        setPoints(points);
-      })
-      .catch(() => setPoints(0));
-          }
+
+      // New logic to calculate total points from latest attempts of all drills
+      const calculateTotalPoints = async () => {
+        try {
+          // 1. Fetch all drills for the student across all classrooms
+          const drillsResponse = await api.get('/api/drills/');
+          const allDrills = drillsResponse.data.filter(drill => drill.status === 'published');
+
+          // 2. For each drill, fetch the student's results and find the latest attempt
+          const pointsPromises = allDrills.map(async (drill) => {
+            try {
+              const resultsResponse = await api.get(`/api/drills/${drill.id}/results/student/`);
+              const attempts = Array.isArray(resultsResponse.data) ? resultsResponse.data : [];
+
+              if (attempts.length > 0) {
+                // Find the latest attempt (highest run_number)
+                const latestAttempt = attempts.reduce((latest, current) => 
+                  (current.run_number || 0) > (latest.run_number || 0) ? current : latest
+                , attempts[0]);
+
+                // Calculate points for that attempt
+                return (latestAttempt.question_results || []).reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
+              }
+              return 0;
+            } catch (error) {
+              // Don't fail the whole calculation if one drill's results fail to load
+              console.error(`Failed to fetch results for drill ${drill.id}`, error);
+              return 0;
+            }
+          });
+
+          // 3. Sum up the points from all latest attempts
+          const allPoints = await Promise.all(pointsPromises);
+          const totalPoints = allPoints.reduce((sum, currentPoints) => sum + currentPoints, 0);
+          setPoints(totalPoints);
+
+        } catch (error) {
+          console.error('Failed to calculate total points:', error);
+          setPoints(0);
+        }
+      };
+
+      calculateTotalPoints();
+    }
   }, [user, isTeacher]);
 
   // Handle click outside
@@ -67,6 +100,23 @@ const Topbar = ({ onMenuClick }) => {
     if (typeof fetchNotifications === 'function') {
       fetchNotifications();
     }
+  }, []);
+
+  // Listen for custom drill completion events
+  useEffect(() => {
+    const handleDrillCompleted = () => {
+      // Add a delay to ensure backend has processed the results
+      setTimeout(() => {
+        calculateTotalPoints();
+      }, 2000);
+    };
+
+    // Listen for drill completion events
+    window.addEventListener('drillCompleted', handleDrillCompleted);
+    
+    return () => {
+      window.removeEventListener('drillCompleted', handleDrillCompleted);
+    };
   }, []);
 
   const handleLogout = () => {
