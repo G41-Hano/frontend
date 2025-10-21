@@ -2,6 +2,7 @@ import React from 'react';
 import DrillHeader from './DrillHeader';
 import IntroBubble from './IntroBubble';
 import HippoIdle from '../../../assets/HippoIdle.gif';
+import GameReminderImg from '../../../assets/GameReminder.png';
 
 const transitions = [
   "Now let's test your knowledge!",
@@ -18,6 +19,7 @@ const DrillIntroSteps = ({
   progress,
   points,
   onBack,
+  onExit,
   onNext
 }) => {
   const totalPoints = Object.values(points).reduce((a, b) => a + (b || 0), 0);
@@ -27,27 +29,94 @@ const DrillIntroSteps = ({
       case 0:
         return {
           mascot: HippoIdle,
-          text: `Hi I'm Hano, and today we'll learn about ${drill.wordlist_name || drill.title}. Are you ready to learn? Click Next to start!`
+          // Return a React node to style part of the text
+          text: (
+            <span>
+              {"Hi I'm Hano, and today we'll learn about "}
+              <span style={{ color: '#4C53B4', fontWeight: 700 }}>
+                {drill.wordlist_name || drill.title}
+              </span>
+              {". Are you ready to learn? Click Next to start!"}
+            </span>
+          )
         };
       case 1:
         return {
           mascot: HippoIdle,
-          text: `This is a ${currentWord.word}`,
-          image: currentWord.image
+          // Small styled label with timer/hourglass icon (larger for readability)
+          text: (
+            <span className="inline-flex items-center gap-3">
+              <span className="inline-flex w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 items-center justify-center text-white shadow-md" aria-hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 2h12M6 22h12M8 6h8M8 18h8" opacity="0.2" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 3h10l-1 4a4 4 0 01-2 2.5V13a4 4 0 012 2.5l1 4H7l1-4A4 4 0 0110 15V9.5A4 4 0 018 7.5L7 3z" />
+                </svg>
+              </span>
+              <span className="text-2xl font-bold text-[#4C53B4]">Game Reminders</span>
+            </span>
+          ),
+          image: GameReminderImg
         };
       case 2:
         return {
           mascot: HippoIdle,
-          text: currentWord.definition,
+          text: (
+            <span>
+              {"This is a "} 
+                <span style={{ color: '#4C53B4', fontWeight: 700 }}> 
+                  {currentWord.word}
+              </span>
+              {"."}
+            </span>
+          ),
           image: currentWord.image
         };
       case 3:
+        // If definition contains the current word, highlight occurrences (case-sensitive)
+        const def = currentWord.definition || '';
+        const wordToHighlight = currentWord.word || '';
+        let highlightedDef = def;
+        if (wordToHighlight && def) {
+          try {
+            const escaped = wordToHighlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escaped})`, 'ig');
+            const parts = def.split(regex);
+            highlightedDef = (
+              <span>
+                {parts.map((part, i) => (
+                  (i % 2 === 1) ? (
+                    <span key={i} style={{ color: '#4C53B4', fontWeight: 700 }}>{part}</span>
+                  ) : (
+                    <span key={i}>{part}</span>
+                  )
+                ))}
+              </span>
+            );
+          } catch (e) {
+            // If regex fails for any reason, fall back to plain text
+            highlightedDef = def;
+          }
+        }
         return {
           mascot: HippoIdle,
-          text: `This is the sign language for ${currentWord.word}. Can you sign it with me? Play the video to see how!`,
-          video: currentWord.signVideo
+          text: highlightedDef,
+          image: currentWord.image
         };
       case 4:
+        return {
+          mascot: HippoIdle,
+          text: (
+            <span>
+              {"This is the sign language for "}
+                <span style={{ color: '#4C53B4', fontWeight: 700 }}>
+                  {currentWord.word}
+                </span>
+              {". Can you sign it with me? Play the video to see how!"}
+            </span>          
+          ),
+          video: currentWord.signVideo
+        };
+      case 5:
         return {
           mascot: HippoIdle,
           text: transitions[Math.floor(Math.random() * transitions.length)]
@@ -65,7 +134,7 @@ const DrillIntroSteps = ({
   return (
     <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
       <DrillHeader 
-        onBack={onBack}
+        onBack={onExit || onBack}
         progress={progress}
         points={totalPoints}
       />
@@ -77,6 +146,16 @@ const DrillIntroSteps = ({
         video={content.video}
       />
       
+      { /* Show Back only when introStep > 0 - for the first intro we hide Back */ }
+      {typeof introStep === 'number' && introStep > 0 && introStep <= 4 && (
+        <button
+          className="fixed bottom-12 left-12 px-6 py-3 bg-white text-[#4C53B4] rounded-xl text-lg font-bold hover:bg-gray-100 shadow-lg z-50 border border-gray-200"
+          onClick={onBack}
+        >
+          Back
+        </button>
+      )}
+
       <button
         className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
         onClick={onNext}

@@ -41,6 +41,7 @@ const TakeDrill = () => {
   });
   const [showTimer, setShowTimer] = useState(false);
   const [shuffleSeed, setShuffleSeed] = useState(() => Math.random());
+  const [reminderShown, setReminderShown] = useState(false);
   
 
   // Fetch drill and wordlist
@@ -158,6 +159,13 @@ const TakeDrill = () => {
       }
     }
   }, [currentWordIdx, currentQuestionIdx, introStep, wordGroups]);
+
+  // Track when the Game Reminder (intro case 1) is shown so it doesn't repeat
+  useEffect(() => {
+    if (introStep === 1 && !reminderShown) {
+      setReminderShown(true);
+    }
+  }, [introStep, reminderShown]);
 
   // Timer logic
   useEffect(() => {
@@ -332,7 +340,8 @@ const TakeDrill = () => {
       } else if (currentWordIdx < wordGroups.length - 1) {
         setCurrentWordIdx(currentWordIdx + 1);
         setCurrentQuestionIdx(0);
-        setIntroStep(1);
+        // If the reminder was already shown earlier in the run, skip case 1
+        setIntroStep(reminderShown ? 2 : 1);
       } else {
         setIntroStep(6); // Show congratulations/summary screen
         // Dispatch custom event to notify topbar to refresh points
@@ -341,7 +350,44 @@ const TakeDrill = () => {
     }
   };
 
-  const handleBack = () => navigate(-1);
+  // Page-exit handler used by the header back arrow
+  const handleExit = () => navigate(-1);
+
+  // Intro-specific back handler (used by the new bottom-left Back button)
+  const handleIntroBack = () => {
+    // If we're in the question view, go back to the final intro step (4)
+    if (introStep === 5) {
+      setIntroStep(4);
+      setAnswerStatus(null);
+      setCurrentAnswer(null);
+      return;
+    }
+
+    // If we're in an intro step (1-4), move back to the previous intro step
+    if (introStep > 0 && introStep <= 4) {
+      setIntroStep(prev => Math.max(0, prev - 1));
+      return;
+    }
+
+    // If we're at the first intro step, exit the drill (navigate back)
+    if (introStep === 0) {
+      navigate(-1);
+      return;
+    }
+
+    // If on summary screen, go back into the last question
+    if (introStep === 6) {
+      const lastWordIdx = Math.max(0, wordGroups.length - 1);
+      const lastQuestionIdx = Math.max(0, (wordGroups[lastWordIdx]?.questions?.length || 1) - 1);
+      setCurrentWordIdx(lastWordIdx);
+      setCurrentQuestionIdx(lastQuestionIdx);
+      setIntroStep(5);
+      return;
+    }
+
+    // Fallback to navigating back a page
+    navigate(-1);
+  };
 
   const handleRetake = () => {
     setIntroStep(0);
@@ -353,6 +399,7 @@ const TakeDrill = () => {
     setAnswerStatus(null);
     setCurrentAnswer(null);
     setWrongAnswers([]);
+    setReminderShown(false);
     // Generate new shuffle seed for different question order on retake
     // The useEffect will automatically re-run and re-shuffle when shuffleSeed changes
     setShuffleSeed(Math.random());
@@ -368,7 +415,7 @@ const TakeDrill = () => {
         <div className="w-full flex items-center px-8 pt-6 mb-2 gap-6">
           <button
             className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-            onClick={handleBack}
+            onClick={handleExit}
             style={{ minWidth: 48, minHeight: 48 }}
           >
             <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
@@ -404,7 +451,7 @@ const TakeDrill = () => {
             <div className="text-xl font-semibold text-red-500 mb-4">{error}</div>
             <button
               className="px-6 py-2 bg-[#8e44ad] text-white rounded-lg hover:bg-[#6f3381]"
-              onClick={handleBack}
+              onClick={handleExit}
             >
               Go Back
             </button>
@@ -451,7 +498,7 @@ const TakeDrill = () => {
             )}
             
             <button
-              onClick={handleBack}
+              onClick={handleExit}
               className="px-6 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition"
             >
               Go Back
@@ -472,7 +519,8 @@ const TakeDrill = () => {
         currentWord={currentWord}
         progress={progress}
         points={points}
-        onBack={handleBack}
+        onBack={handleIntroBack}
+        onExit={handleExit}
         onNext={handleNext}
       />
     );
@@ -493,7 +541,7 @@ const TakeDrill = () => {
         timeSpent={timeSpent}
         currentWordIdx={currentWordIdx}
         currentQuestionIdx={currentQuestionIdx}
-        onBack={handleBack}
+        onExit={handleExit}
         onAnswer={handleAnswer}
         onNext={handleNext}
       />
@@ -505,7 +553,7 @@ const TakeDrill = () => {
       <DrillSummary
         drillBg={drillBg}
         points={points}
-        onBack={handleBack}
+        onExit={handleExit}
         onRetake={handleRetake}
         drillLeaderboard={drillLeaderboard}
         loadingLeaderboard={loadingLeaderboard}
