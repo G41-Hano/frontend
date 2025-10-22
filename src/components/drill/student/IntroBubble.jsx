@@ -58,7 +58,7 @@ const IntroBubble = ({ mascot, text, image, video }) => (
         >
           {image && (
             <img
-              src={image.startsWith('http') ? image : `http://127.0.0.1:8000${image}`}
+              src={(image.startsWith('http') || image.startsWith('/') || image.startsWith('./') || image.startsWith('../') || image.startsWith('data:') || image.startsWith('blob:') || image.includes('/assets/')) ? image : `http://127.0.0.1:8000${image}`}
               alt="Word"
               className="object-contain rounded-xl max-h-72 max-w-full mx-auto"
               style={{ width: '100%', height: 'auto' }}

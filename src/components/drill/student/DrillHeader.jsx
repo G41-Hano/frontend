@@ -8,6 +8,7 @@ const DrillHeader = ({ onBack, progress, points }) => {
         className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
         onClick={onBack}
         aria-label="Exit drill"
+        title="Return to Classroom"
         style={{ minWidth: 48, minHeight: 48 }}
       >
         <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
