@@ -27,7 +27,9 @@ const QuestionFormContainer = ({
   handleChoiceMedia,
   onSave,
   onCancel,
-  questionEditIdx
+  questionEditIdx,
+  drill,
+  builtinWords
 }) => {
   return (
     <div className="mb-6 p-3 md:p-6 rounded-xl border-2 border-gray-100 bg-[#F7F9FC] overflow-x-auto">
@@ -140,6 +142,8 @@ const QuestionFormContainer = ({
                 handleChoiceChange={handleChoiceChange}
                 handleChoiceMedia={handleChoiceMedia}
                 setMediaModal={setMediaModal}
+                drill={drill}
+                builtinWords={builtinWords}
               />
             )}
 

@@ -269,6 +269,9 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
               choice.media = key;
             } else if (c.media && c.media.url) {
               choice.media = c.media.url;
+            } else if (typeof c.media === 'string') {
+              // Handle direct URL strings
+              choice.media = c.media;
             }
             Object.keys(choice).forEach(k => (choice[k] == null) && delete choice[k]);
             return choice;
@@ -487,6 +490,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
             onContinue={() => setStep(3)}
             submittingAction={submittingAction}
             setMediaModal={setMediaModal}
+            builtinWords={builtinWords}
           />
         )}
 

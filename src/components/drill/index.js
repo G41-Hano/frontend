@@ -3,6 +3,7 @@ export { default as Stepper } from './shared/Stepper';
 export { default as FileInput } from './shared/FileInput';
 export { default as AiGenerateButton } from './shared/AiGenerateButton';
 export { default as MediaModal } from './shared/MediaModal';
+export { default as MediaSelector } from './shared/MediaSelector';
 
 // Question components
 export { default as MemoryGameCard } from './questions/MemoryGameCard';

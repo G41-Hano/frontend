@@ -5,7 +5,9 @@ const SmartSelectQuestionForm = ({
   setQuestionDraft,
   handleChoiceChange,
   handleChoiceMedia,
-  setMediaModal
+  setMediaModal,
+  drill,
+  builtinWords
 }) => {
   return (
     <div className="mb-4">
@@ -23,6 +25,9 @@ const SmartSelectQuestionForm = ({
               value={c.media} 
               onChange={file => handleChoiceMedia(i, file)} 
               onPreview={(src, type) => setMediaModal({ open: true, src, type })} 
+              drill={drill}
+              builtinWords={builtinWords}
+              showMediaSelector={true}
             />
           </div>
         ))}

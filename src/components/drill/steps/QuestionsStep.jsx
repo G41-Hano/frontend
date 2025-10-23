@@ -23,7 +23,8 @@ const QuestionsStep = ({
   handleChoiceMedia,
   emptyQuestion,
   onBack,
-  onContinue
+  onContinue,
+  builtinWords
 }) => {
   const questionFormRef = useRef(null);
 
@@ -165,6 +166,8 @@ const QuestionsStep = ({
           onSave={handleSaveQuestion}
           onCancel={handleCancelEdit}
           questionEditIdx={questionEditIdx}
+          drill={drill}
+          builtinWords={builtinWords}
         />
       </div>
       
