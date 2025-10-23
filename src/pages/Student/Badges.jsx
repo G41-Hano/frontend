@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
-import sparkle from '../../assets/sparkles.png'; // Assuming the sparkle asset is named sparkle.png
+import sparkle from '../../assets/sparkles.png'; 
+import { BadgeSkeleton } from '../../components/loading';
 
 const Badges = ({ studentId }) => {
   const [badges, setBadges] = useState([]);
@@ -33,8 +34,13 @@ const Badges = ({ studentId }) => {
     <div className="min-h-screen p-6 bg-transparent">
       <div className="max-w-6xl mx-auto">
         {loading ? (
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
+          <div className="rounded-3xl p-8">
+            <h1 className="text-5xl font-extrabold text-[#e09b1a] mb-2">Badges</h1>
+            <div className="flex items-center mb-8">
+              <span className="text-lg font-semibold text-gray-500 mr-4">Earned Badges</span>
+              <div className="flex-1 h-1 bg-gray-300 rounded opacity-50"></div>
+            </div>
+            <BadgeSkeleton count={6} />
           </div>
         ) : badges.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] w-full animate-fadeIn">

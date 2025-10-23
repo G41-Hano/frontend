@@ -514,7 +514,7 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
             }
           }
 
-          defaultQuestion = `What is the definition of "${selectedQuestionWord}"?`;
+          defaultQuestion = `What does "${selectedQuestionWord}" mean?`;
           defaultChoices = choices;
           defaultAnswer = correctAnswerPosition;
           break;
@@ -551,7 +551,7 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
               .slice(0, Math.max(0, 6 - missingLetters.length))
           ].sort(() => Math.random() - 0.5);
           
-          defaultQuestion = `Complete the word by filling in the missing letters`;
+          defaultQuestion = `Fill in the missing letters to make the word`;
           defaultPattern = pattern;
           defaultAnswer = word;
           defaultHint = `Hint: ${selectedQuestionWordData.definition || 'A word related to the lesson'}`;
@@ -565,18 +565,18 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
         }
         
         case 'D': {
-          defaultQuestion = `Build the correct sentence using the given words`;
+          defaultQuestion = `Put the words in the right order to make a sentence`;
           defaultAnswer = selectedQuestionWord;
           break;
         }
         
         case 'G': {
-          defaultQuestion = `Find matching pairs to complete this exercise`;
+          defaultQuestion = `Match the pairs that go together`;
           break;
         }
         
         case 'P': {
-          defaultQuestion = `What word connects all these pictures?`;
+          defaultQuestion = `What word do all these pictures show?`;
           defaultAnswer = selectedQuestionWord;
           break;
         }

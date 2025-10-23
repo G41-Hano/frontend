@@ -72,34 +72,30 @@ const DrillIntroSteps = ({
           image: currentWord.image
         };
       case 3:
-        // If definition contains the current word, highlight occurrences (case-sensitive)
+        // Format: "A/An [word] is [definition]" with proper article and lowercase definition
         const def = currentWord.definition || '';
         const wordToHighlight = currentWord.word || '';
-        let highlightedDef = def;
-        if (wordToHighlight && def) {
-          try {
-            const escaped = wordToHighlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`(${escaped})`, 'ig');
-            const parts = def.split(regex);
-            highlightedDef = (
-              <span>
-                {parts.map((part, i) => (
-                  (i % 2 === 1) ? (
-                    <span key={i} style={{ color: '#4C53B4', fontWeight: 700 }}>{part}</span>
-                  ) : (
-                    <span key={i}>{part}</span>
-                  )
-                ))}
-              </span>
-            );
-          } catch (e) {
-            // If regex fails for any reason, fall back to plain text
-            highlightedDef = def;
-          }
-        }
+        
+        // Determine if we should use "A" or "An" based on first letter
+        const firstLetter = wordToHighlight.charAt(0).toLowerCase();
+        const article = ['a', 'e', 'i', 'o', 'u'].includes(firstLetter) ? 'An' : 'A';
+        
+        // Make sure definition starts with lowercase
+        const formattedDef = def.charAt(0).toLowerCase() + def.slice(1);
+        
         return {
           mascot: HippoIdle,
-          text: highlightedDef,
+          text: (
+            <span>
+              {article + " "}
+              <span style={{ color: '#4C53B4', fontWeight: 700 }}>
+                {wordToHighlight}
+              </span>
+              {" is "}
+              {formattedDef}
+              {"."}
+            </span>
+          ),
           image: currentWord.image
         };
       case 4:
