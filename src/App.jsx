@@ -54,7 +54,7 @@ function App() {
               {/* Teacher Routes */}
               <Route path="/t" element={
                 <AuthRoute requiredRole="teacher">
-                  <DashboardLayout />
+                  <TeacherLayout />
                 </AuthRoute>
               }>
                 <Route path="*" element={<TeacherRoutes />} />
