@@ -4,9 +4,6 @@ import api from '../../api';
 import drillBg from '../../assets/drill_bg.png';
 import StudentDrillResultsModal from '../../components/StudentDrillResultsModal';
 
-// --- HELPER COMPONENTS ---
-
-// Score Badge Component with appropriate color based on score
 const ScoreBadge = ({ score }) => {
   let bgColor = "bg-red-400";
   if (score >= 80) bgColor = "bg-green-400";
@@ -19,7 +16,6 @@ const ScoreBadge = ({ score }) => {
   );
 };
 
-// Progress Badge Component
 const ProgressBadge = ({ count, bgColor }) => {
   const baseSize = 5;
   const maxSize = 16; 
@@ -43,7 +39,6 @@ const ProgressBadge = ({ count, bgColor }) => {
   );
 };
 
-// Student Avatar Component
 const StudentAvatar = ({ name, avatarUrl, color }) => {
   const initials = name
     .split(' ')
@@ -74,7 +69,6 @@ const StudentAvatar = ({ name, avatarUrl, color }) => {
   );
 };
 
-// Progress Icon Component
 const ProgressIcon = ({ percentage }) => (
   <div className="relative w-20 h-20 flex items-center justify-center">
     <div className="absolute inset-0 rounded-full border-4 border-gray-100"></div>
@@ -87,32 +81,6 @@ const ProgressIcon = ({ percentage }) => (
     <i className="fa-solid fa-chart-line text-[#8ED75F] text-2xl"></i>
   </div>
 );
-
-// Student Distribution Card with dynamic sizing
-const DistributionCard = ({ count, percentage, gradeAvg, bgColor }) => {
-  const getWidth = (c) => {
-    const minW = 80; 
-    const step = 20; 
-    return minW + c * step;
-  };
-
-  return (
-    <div
-      className={`${bgColor} rounded-2xl p-6 text-white flex flex-col items-center shadow-lg`}
-      style={{ width: `${getWidth(count)}px`, minHeight: '180px' }}
-    >
-      <div className="text-4xl font-bold">{count}</div>
-      <div className="flex flex-col items-center mt-2">
-        <span className="text-xl font-semibold">{percentage}%</span>
-        <span className="text-sm opacity-90">of class</span>
-      </div>
-      <div className="flex flex-col items-center mt-4">
-        <span className="text-xl font-semibold">{gradeAvg}%</span>
-        <span className="text-sm opacity-90">grade avg</span>
-      </div>
-    </div>
-  );
-};
 
 const getProgressColor = (percentage) => {
   if (percentage <= 30) return {
@@ -173,9 +141,8 @@ const TeacherDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // State for the new modal functionality
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [allAssignedDrills, setAllAssignedDrills] = useState([]); // Store drill list for modal
+  const [allAssignedDrills, setAllAssignedDrills] = useState([]); 
 
   const handleStudentClick = (student) => {
     setSelectedStudent(student);
@@ -214,8 +181,6 @@ const TeacherDashboard = () => {
 
       // Store all drills for the modal component
       setAllAssignedDrills(drillsList);
-
-      // 2. FIX: Fetch Missing Custom Word List Names
       
       const drillWordlistMap = new Map();
       const customWordlistIdsToFetch = new Set();
@@ -341,7 +306,7 @@ const TeacherDashboard = () => {
               if (drillCount > 0) {
                   const avgScorePerDrill = stats.totalScore / drillCount;
                   
-                  // FIX: Use 100 as the normalization base for accurate single-drill score percentage
+                  // Use 100 as the normalization base for accurate single-drill score percentage
                   const normalizationBase = MAX_DRILL_SCORE_FOR_PROFICIENCY; 
                   const proficiencyScore = (normalizationBase > 0)
                       ? Math.min(100, Math.round((avgScorePerDrill / normalizationBase) * 100))
@@ -405,7 +370,6 @@ const TeacherDashboard = () => {
             strugglingIn: strugglingIn,
             needingAttention: needingAttention,
             mastered: masteredCount,
-            // Merge raw student data (needed for modal)
             ...student
           };
       });
@@ -478,7 +442,6 @@ const TeacherDashboard = () => {
     if (!data || !Array.isArray(data.students)) return [];
     return [...data.students].sort((a, b) => (b.totalPoints || 0) - (a.totalPoints || 0));
   }, [data]);
-  // --- RENDERING ---
 
   if (loading) {
     return (
@@ -513,7 +476,7 @@ const TeacherDashboard = () => {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Dashboard: {data.classroom.name}</h1>
+            <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
           </div>
         </div>
 
@@ -554,30 +517,6 @@ const TeacherDashboard = () => {
             </div>
             <div className="text-sm text-gray-500 mt-2">
               Avg. Completion: {data.classStats.workAverage}%
-            </div>
-          </div>
-
-          {/* Student Distribution Cards */}
-          <div className="lg:col-span-6">
-            <div className="flex gap-0 justify-center">
-              <DistributionCard 
-                count={data.studentDistribution.excelling.count} 
-                percentage={data.studentDistribution.excelling.percentage} 
-                gradeAvg={data.studentDistribution.excelling.gradeAvg}
-                bgColor="bg-[#82D616]"
-              />
-              <DistributionCard 
-                count={data.studentDistribution.onTrack.count} 
-                percentage={data.studentDistribution.onTrack.percentage} 
-                gradeAvg={data.studentDistribution.onTrack.gradeAvg}
-                bgColor="bg-[#FFB946]"
-              />
-              <DistributionCard 
-                count={data.studentDistribution.needingHelp.count} 
-                percentage={data.studentDistribution.needingHelp.percentage} 
-                gradeAvg={data.studentDistribution.needingHelp.gradeAvg}
-                bgColor="bg-[#FF6B6B]"
-              />
             </div>
           </div>
         </div>
