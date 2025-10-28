@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../api';
 
 const StudentDrillResultsModal = ({ student, drills, onClose }) => {
@@ -64,11 +65,9 @@ const StudentDrillResultsModal = ({ student, drills, onClose }) => {
 
   if (!student) return null;
 
-  return (
-    // FIX: Removed background classes entirely to make the backdrop transparent
-    // To ensure overlay, keep fixed inset-0 and z-50
-    <div className="fixed inset-0 z-50 flex justify-center items-center p-4"> 
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-fadeIn">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex justify-center items-center p-4 bg-black/40 overflow-y-auto" onClick={onClose}> 
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-fadeIn my-auto" onClick={(e) => e.stopPropagation()}>
         
         {/* Modal Header */}
         <div className="sticky top-0 bg-[#4C53B4] rounded-t-3xl p-6 text-white shadow-lg z-10">
@@ -82,7 +81,7 @@ const StudentDrillResultsModal = ({ student, drills, onClose }) => {
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto flex-1">
           {loading && (
             <div className="flex justify-center items-center h-48">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#4C53B4]"></div>
@@ -153,6 +152,8 @@ const StudentDrillResultsModal = ({ student, drills, onClose }) => {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
 
 export default StudentDrillResultsModal;

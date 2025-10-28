@@ -3,6 +3,7 @@ import { useUser } from '../../contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
 import HippoHappy from '../../assets/HippoIdle.gif';
 import api from '../../api';
+import { DashboardSkeleton } from '../../components/loading';
 
 const StudentHome = () => {
   const { user } = useUser();
@@ -540,6 +541,10 @@ const StudentHome = () => {
     }
   }, [badges, drillStats, studentPoints]);
 
+
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="p-8 bg-[#EEF1F5] min-h-[calc(100vh-64px)]">

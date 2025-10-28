@@ -3,7 +3,11 @@ import { useParams } from 'react-router-dom';
 import api from '../../api';
 import drillBg from '../../assets/drill_bg.png';
 import StudentDrillResultsModal from '../../components/StudentDrillResultsModal';
+import { DashboardSkeleton } from '../../components/loading';
 
+// --- HELPER COMPONENTS ---
+
+// Score Badge Component with appropriate color based on score
 const ScoreBadge = ({ score }) => {
   let bgColor = "bg-red-400";
   if (score >= 80) bgColor = "bg-green-400";
@@ -81,6 +85,32 @@ const ProgressIcon = ({ percentage }) => (
     <i className="fa-solid fa-chart-line text-[#8ED75F] text-2xl"></i>
   </div>
 );
+
+// Student Distribution Card with dynamic sizing
+const DistributionCard = ({ count, percentage, gradeAvg, bgColor }) => {
+  const getWidth = (c) => {
+    const minW = 140; 
+    const step = 20; 
+    return minW + c * step;
+  };
+
+  return (
+    <div
+      className={`${bgColor} rounded-2xl p-6 text-white flex flex-col items-center shadow-lg`}
+      style={{ width: `${getWidth(count)}px`, minHeight: '180px' }}
+    >
+      <div className="text-4xl font-bold">{count}</div>
+      <div className="flex flex-col items-center mt-2">
+        <span className="text-xl font-semibold">{percentage}%</span>
+        <span className="text-sm opacity-90">of class</span>
+      </div>
+      <div className="flex flex-col items-center mt-4">
+        <span className="text-xl font-semibold">{gradeAvg}%</span>
+        <span className="text-sm opacity-90">grade avg</span>
+      </div>
+    </div>
+  );
+};
 
 const getProgressColor = (percentage) => {
   if (percentage <= 30) return {
@@ -444,12 +474,7 @@ const TeacherDashboard = () => {
   }, [data]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
-        <p className="ml-4 text-gray-600">Loading Dashboard Data...</p>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (error) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api';
+import { DrillResultsSkeleton } from '../../components/loading';
 
 const ViewDrillResults = () => {
   const [searchParams] = useSearchParams();
@@ -208,11 +209,7 @@ const ViewDrillResults = () => {
   }, [questionIdx, groupedResults, drill, attemptFilter, specificAttempt]);
 
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
-      </div>
-    );
+    return <DrillResultsSkeleton />;
   }
   
   if (error) {
@@ -407,8 +404,31 @@ const ViewDrillResults = () => {
           </span>
         </div>
 
-        {/* Question Image */}
-        {questions[questionIdx]?.image && (
+        {/* Question Media (Image or Video) */}
+        {questions[questionIdx]?.question_media && (
+          <div className="mb-4">
+            <div className="flex justify-center">
+              {questions[questionIdx].question_media.toLowerCase().endsWith('.mp4') || 
+               questions[questionIdx].question_media.toLowerCase().endsWith('.webm') || 
+               questions[questionIdx].question_media.toLowerCase().endsWith('.mov') ? (
+                <video 
+                  src={getMediaUrl(questions[questionIdx].question_media)}
+                  className="max-h-64 rounded-lg shadow object-cover"
+                  controls
+                />
+              ) : (
+                <ImageWithFallback 
+                  src={questions[questionIdx].question_media} 
+                  alt={`Question ${questionIdx + 1} Media`} 
+                  className="max-h-64 rounded-lg shadow object-cover"
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Question Image (legacy support) */}
+        {questions[questionIdx]?.image && !questions[questionIdx]?.question_media && (
           <div className="mb-4 flex justify-center">
             <ImageWithFallback 
               src={questions[questionIdx].image} 

@@ -18,6 +18,7 @@ const TakeDrill = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [drill, setDrill] = useState(null);
+  const [wordlistData, setWordlistData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dateError, setDateError] = useState(null); 
@@ -51,11 +52,18 @@ const TakeDrill = () => {
         const drillRes = await api.get(`/api/drills/${id}/`);
         const drillData = drillRes.data;
         let mergedQuestions = [];
+        let wordlistInfo = null;
 
         if (drillData.custom_wordlist) {
           const wordlistRes = await api.get(`/api/wordlist/${drillData.custom_wordlist}/`);
           const words = wordlistRes.data.words || [];
           const questions = drillData.questions || [];
+          
+          // Store wordlist info for custom wordlist
+          wordlistInfo = {
+            name: wordlistRes.data.name,
+            description: wordlistRes.data.description
+          };
           
           // Create a map of questions by matching word content
           const questionsByWord = {};
@@ -91,6 +99,18 @@ const TakeDrill = () => {
             const wordQuestions = questionsByWord[word.id] || [];
             mergedQuestions.push(...wordQuestions);
           });
+        } else if (drillData.wordlist_name) {
+          // For built-in wordlists, fetch the wordlist data to get description
+          try {
+            const builtinWordlistRes = await api.get(`/api/builtin-wordlist/${drillData.wordlist_name}/`);
+            wordlistInfo = {
+              name: builtinWordlistRes.data.name,
+              description: builtinWordlistRes.data.description
+            };
+          } catch (error) {
+            console.error('Failed to load built-in wordlist data:', error);
+          }
+          mergedQuestions = drillData.questions || [];
         } else {
           mergedQuestions = drillData.questions || [];
         }
@@ -137,6 +157,7 @@ const TakeDrill = () => {
         }
 
         setDrill({ ...drillData, questions: mergedQuestions });
+        setWordlistData(wordlistInfo);
         const groups = groupQuestionsByWord(mergedQuestions, shuffleSeed);
         setWordGroups(groups);
         setLoading(false);
@@ -152,7 +173,7 @@ const TakeDrill = () => {
 
   // Reset answer when question changes
   useEffect(() => {
-    if (wordGroups.length > 0 && introStep === 5) {
+    if (wordGroups.length > 0 && introStep === 6) {
       const currentQuestion = wordGroups[currentWordIdx]?.questions[currentQuestionIdx];
       if (currentQuestion) {
         setCurrentAnswer(initializeAnswer(currentQuestion));
@@ -160,9 +181,9 @@ const TakeDrill = () => {
     }
   }, [currentWordIdx, currentQuestionIdx, introStep, wordGroups]);
 
-  // Track when the Game Reminder (intro case 1) is shown so it doesn't repeat
+  // Track when the Game Reminder (intro case 2) is shown so it doesn't repeat
   useEffect(() => {
-    if (introStep === 1 && !reminderShown) {
+    if (introStep === 2 && !reminderShown) {
       setReminderShown(true);
     }
   }, [introStep, reminderShown]);
@@ -170,7 +191,7 @@ const TakeDrill = () => {
   // Timer logic
   useEffect(() => {
     let intervalId;
-    if (introStep === 5 && answerStatus !== 'correct') {
+    if (introStep === 6 && answerStatus !== 'correct') {
       // Show timer when question starts and student hasn't answered correctly yet
       setShowTimer(true);
       intervalId = setInterval(() => {
@@ -189,7 +210,7 @@ const TakeDrill = () => {
 
   // Leaderboard fetch
   useEffect(() => {
-    if (introStep === 6) {
+    if (introStep === 7) {
       setLoadingLeaderboard(true);
       setLeaderboardError(null);
       
@@ -327,23 +348,23 @@ const TakeDrill = () => {
   };
 
   const handleNext = () => {
-    // Allow proceeding if it's teacher preview OR intro steps (0-4) OR if student has answered (introStep 5)
-    if (isTeacherPreview || (introStep < 5) || (introStep === 5 && currentAnswer !== null)) {
+    // Allow proceeding if it's teacher preview OR intro steps (0-5) OR if student has answered (introStep 6)
+    if (isTeacherPreview || (introStep < 6) || (introStep === 6 && currentAnswer !== null)) {
       setCurrentAnswer(null);
       setAnswerStatus(null);
       setWrongAnswers([]);
 
-      if (introStep < 5) {
+      if (introStep < 6) {
         setIntroStep(introStep + 1);
       } else if (currentQuestionIdx < wordGroups[currentWordIdx]?.questions?.length - 1) {
         setCurrentQuestionIdx(currentQuestionIdx + 1);
       } else if (currentWordIdx < wordGroups.length - 1) {
         setCurrentWordIdx(currentWordIdx + 1);
         setCurrentQuestionIdx(0);
-        // If the reminder was already shown earlier in the run, skip case 1
-        setIntroStep(reminderShown ? 2 : 1);
+        // If the reminder was already shown earlier in the run, skip case 2 (Game Reminders)
+        setIntroStep(reminderShown ? 3 : 2);
       } else {
-        setIntroStep(6); // Show congratulations/summary screen
+        setIntroStep(7); // Show congratulations/summary screen
         // Dispatch custom event to notify topbar to refresh points
         window.dispatchEvent(new CustomEvent('drillCompleted'));
       }
@@ -355,16 +376,16 @@ const TakeDrill = () => {
 
   // Intro-specific back handler (used by the new bottom-left Back button)
   const handleIntroBack = () => {
-    // If we're in the question view, go back to the final intro step (4)
-    if (introStep === 5) {
-      setIntroStep(4);
+    // If we're in the question view, go back to the final intro step (5)
+    if (introStep === 6) {
+      setIntroStep(5);
       setAnswerStatus(null);
       setCurrentAnswer(null);
       return;
     }
 
-    // If we're in an intro step (1-4), move back to the previous intro step
-    if (introStep > 0 && introStep <= 4) {
+    // If we're in an intro step (1-5), move back to the previous intro step
+    if (introStep > 0 && introStep <= 5) {
       setIntroStep(prev => Math.max(0, prev - 1));
       return;
     }
@@ -376,12 +397,12 @@ const TakeDrill = () => {
     }
 
     // If on summary screen, go back into the last question
-    if (introStep === 6) {
+    if (introStep === 7) {
       const lastWordIdx = Math.max(0, wordGroups.length - 1);
       const lastQuestionIdx = Math.max(0, (wordGroups[lastWordIdx]?.questions?.length || 1) - 1);
       setCurrentWordIdx(lastWordIdx);
       setCurrentQuestionIdx(lastQuestionIdx);
-      setIntroStep(5);
+      setIntroStep(6);
       return;
     }
 
@@ -510,12 +531,13 @@ const TakeDrill = () => {
   }
 
   // Render different steps based on introStep
-  if (introStep >= 0 && introStep <= 4) {
+  if (introStep >= 0 && introStep <= 5) {
     return (
       <DrillIntroSteps
         drillBg={drillBg}
         introStep={introStep}
         drill={drill}
+        wordlistData={wordlistData}
         currentWord={currentWord}
         progress={progress}
         points={points}
@@ -526,7 +548,7 @@ const TakeDrill = () => {
     );
   }
 
-  if (introStep === 5) {
+  if (introStep === 6) {
     return (
       <QuestionRenderer
         drillBg={drillBg}
@@ -548,7 +570,7 @@ const TakeDrill = () => {
     );
   }
 
-  if (introStep === 6) {
+  if (introStep === 7) {
     return (
       <DrillSummary
         drillBg={drillBg}

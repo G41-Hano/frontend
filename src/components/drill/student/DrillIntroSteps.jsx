@@ -15,6 +15,7 @@ const DrillIntroSteps = ({
   drillBg,
   introStep,
   drill,
+  wordlistData,
   currentWord,
   progress,
   points,
@@ -34,13 +35,22 @@ const DrillIntroSteps = ({
             <span>
               {"Hi I'm Hano, and today we'll learn about "}
               <span style={{ color: '#4C53B4', fontWeight: 700 }}>
-                {drill.wordlist_name || drill.title}
+                {wordlistData?.name || drill.title}
               </span>
               {". Are you ready to learn? Click Next to start!"}
             </span>
           )
         };
       case 1:
+        return {
+          mascot: HippoIdle,
+          text: (
+            <span>
+              {wordlistData?.description || "Let's explore these words together!"}
+            </span>
+          )
+        };
+      case 2:
         return {
           mascot: HippoIdle,
           // Small styled label with timer/hourglass icon (larger for readability)
@@ -57,7 +67,7 @@ const DrillIntroSteps = ({
           ),
           image: GameReminderImg
         };
-      case 2:
+      case 3:
         return {
           mascot: HippoIdle,
           text: (
@@ -71,7 +81,7 @@ const DrillIntroSteps = ({
           ),
           image: currentWord.image
         };
-      case 3:
+      case 4:
         // Format: "A/An [word] is [definition]" with proper article and lowercase definition
         const def = currentWord.definition || '';
         const wordToHighlight = currentWord.word || '';
@@ -98,7 +108,7 @@ const DrillIntroSteps = ({
           ),
           image: currentWord.image
         };
-      case 4:
+      case 5:
         return {
           mascot: HippoIdle,
           text: (
@@ -112,7 +122,7 @@ const DrillIntroSteps = ({
           ),
           video: currentWord.signVideo
         };
-      case 5:
+      case 6:
         return {
           mascot: HippoIdle,
           text: transitions[Math.floor(Math.random() * transitions.length)]
@@ -143,7 +153,7 @@ const DrillIntroSteps = ({
       />
       
       { /* Show Back only when introStep > 0 - for the first intro we hide Back */ }
-      {typeof introStep === 'number' && introStep > 0 && introStep <= 4 && (
+      {typeof introStep === 'number' && introStep > 0 && introStep <= 5 && (
         <button
           className="fixed bottom-12 left-12 px-6 py-3 bg-white text-[#4C53B4] rounded-xl text-lg font-bold hover:bg-gray-100 shadow-lg z-50 border border-gray-200"
           onClick={onBack}
