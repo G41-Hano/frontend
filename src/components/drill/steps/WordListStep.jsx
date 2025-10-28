@@ -105,7 +105,7 @@ const WordListStep = ({
     }
   };
 
-  // Generate description for custom word list
+  // Generate description for custom word list using AI
   const generateListDescription = async () => {
     if (!drill.wordlistName) {
       setNotification({
@@ -121,44 +121,100 @@ const WordListStep = ({
       // Check if there are any words added
       const existingWords = drill.customWordList.map(w => w.word).filter(w => w);
       
-      let prompt;
+      // Add random seed and timestamp to force different descriptions each time
+      const randomSeed = Math.floor(Math.random() * 1000000);
+      const timestamp = Date.now();
+      
+      // Different starting phrases to force variety
+      const startingPhrases = [
+        `${drill.wordlistName} ${drill.wordlistName.toLowerCase().endsWith('s') ? 'are' : 'is'}`,
+        `We call them ${drill.wordlistName.toLowerCase()} because they ${drill.wordlistName.toLowerCase().endsWith('s') ? 'are' : 'is'}`,
+        `${drill.wordlistName} ${drill.wordlistName.toLowerCase().endsWith('s') ? 'are' : 'is'} special because they`,
+        `You can find ${drill.wordlistName.toLowerCase()} when you look for things that ${drill.wordlistName.toLowerCase().endsWith('s') ? 'are' : 'is'}`,
+        `${drill.wordlistName} ${drill.wordlistName.toLowerCase().endsWith('s') ? 'help' : 'helps'} us because they ${drill.wordlistName.toLowerCase().endsWith('s') ? 'are' : 'is'}`
+      ];
+      
+      const perspectives = [
+        'Explain what they are in a simple way',
+        'Describe how they look or feel',
+        'Tell where we see or use them',
+        'Explain why they are helpful',
+        'Describe what makes them special'
+      ];
+      
+      const randomStart = startingPhrases[Math.floor(Math.random() * startingPhrases.length)];
+      const randomPerspective = perspectives[Math.floor(Math.random() * perspectives.length)];
+      
+      let promptText;
+      let systemMessage;
+      
       if (existingWords.length > 0) {
         // If words exist, use them to generate description
-        prompt = `Create a brief, educational description for a word list called "${drill.wordlistName}" that contains these words: ${existingWords.join(', ')}. The description should explain what these words have in common or what topic/theme they relate to. Keep it concise and suitable for students.`;
+        promptText = `[ID:${timestamp}-${randomSeed}] Create a BRAND NEW description about "${drill.wordlistName}". The wordlist contains: ${existingWords.join(', ')}. ${randomPerspective}. Start your description with: "${randomStart}". Then add 1 more short sentence. Use VERY simple words for grade 3 students. IMPORTANT: Describe the TOPIC "${drill.wordlistName}" in general - do NOT try to mention or use the individual words (${existingWords.join(', ')}) in your description. Just explain what ${drill.wordlistName.toLowerCase()} means. Be creative and different!`;
+        systemMessage = "You are a creative special education teacher. Write for grade 3 hearing impaired students using the simplest words possible. Describe the TOPIC/CATEGORY, not the individual words in the list. For example, if the topic is 'School' and words are 'pencil, book, apple', describe what school is in general - do NOT mention pencils, books, or apples in your description. Each description must be COMPLETELY DIFFERENT - use different sentence structures and examples. Start with the given phrase, then continue with fresh ideas. Output ONLY the description text.";
       } else {
         // If no words yet, generate description based on the word list name/topic
-        prompt = `Create a brief, educational description for a word list called "${drill.wordlistName}". Based on the name, suggest what kind of words this list might contain and what educational purpose it serves. Keep it concise and suitable for students.`;
+        promptText = `[ID:${timestamp}-${randomSeed}] Create a BRAND NEW description about "${drill.wordlistName}". ${randomPerspective}. Start your description with: "${randomStart}". Then add 1 more short sentence. Use VERY simple words for grade 3 students. DO NOT repeat common phrases. Be creative and different!`;
+        systemMessage = "You are a creative special education teacher. Write for grade 3 hearing impaired students using the simplest words possible. Each description must be COMPLETELY DIFFERENT - use different sentence structures, different examples, different words. Never repeat the same phrases or patterns. Start with the given phrase, then continue with fresh ideas. Output ONLY the description text.";
       }
       
-      // Generate intelligent description based on word list name and existing words
-      let generatedDescription;
+      // Call the AI API with maximum temperature for variety
+      const prompt = {
+        prompt: promptText,
+        system_message: systemMessage,
+        temperature: 1.0,
+        max_tokens: 150
+      };
       
-      if (existingWords.length > 0) {
-        generatedDescription = `A collection of ${existingWords.length} vocabulary words focused on ${drill.wordlistName.toLowerCase()}. This word list includes: ${existingWords.join(', ')}.`;
+      const result = await api.post("/api/gen-ai/", prompt);
+      
+      if (result.status === 200 && result.data?.response) {
+        let generatedDescription = result.data.response.trim();
+        
+        // Clean up the response - remove any markdown formatting or extra quotes
+        generatedDescription = generatedDescription
+          .replace(/^["']|["']$/g, '') // Remove leading/trailing quotes
+          .replace(/```.*?\n/g, '') // Remove markdown code blocks
+          .replace(/```/g, '') // Remove remaining backticks
+          .trim();
+        
+        // If multiple descriptions are returned (separated by newlines), take only the first one
+        const lines = generatedDescription.split('\n').filter(line => line.trim());
+        if (lines.length > 1) {
+          // Take the first non-empty line that starts with the wordlist name
+          generatedDescription = lines.find(line => 
+            line.toLowerCase().startsWith(drill.wordlistName.toLowerCase())
+          ) || lines[0];
+        }
+        
+        setCustomListDesc(generatedDescription.trim());
+        setNotification({
+          show: true,
+          message: 'AI-generated description created successfully!',
+          type: 'success'
+        });
       } else {
-        // Generate simple, general description based on word list name
-        generatedDescription = `A curated collection of vocabulary words focused on ${drill.wordlistName.toLowerCase()}. This word list will help students expand their knowledge and learn new terms related to this topic.`;
+        throw new Error('Invalid API response');
       }
-      
-      setCustomListDesc(generatedDescription);
-      setNotification({
-        show: true,
-        message: 'Description generated successfully!',
-        type: 'success'
-      });
     } catch (err) {
-      console.error('Failed to generate description:', err);
-      // Fallback description if API fails
+      console.error('Failed to generate AI description:', err);
+      // Fallback to template-based description if AI fails
       const existingWords = drill.customWordList.map(w => w.word).filter(w => w);
+      
+      // Determine if wordlist name should use "is" or "are"
+      const verb = drill.wordlistName.toLowerCase().endsWith('s') && 
+                   !drill.wordlistName.toLowerCase().match(/\b(news|physics|mathematics|economics|politics)\b/) 
+                   ? 'are' : 'is';
+      
       const fallbackDescription = existingWords.length > 0 
-        ? `A collection of ${existingWords.length} words related to ${drill.wordlistName.toLowerCase()}, including: ${existingWords.slice(0, 5).join(', ')}${existingWords.length > 5 ? ' and more' : ''}.`
-        : `A curated collection of vocabulary words focused on ${drill.wordlistName.toLowerCase()}. This word list will help students expand their knowledge in this subject area.`;
+        ? `${drill.wordlistName} ${verb} important words to learn. You will learn about: ${existingWords.slice(0, 5).join(', ')}${existingWords.length > 5 ? ', and more' : ''}.`
+        : `${drill.wordlistName} ${verb} important words to learn. These words will help you understand new things.`;
       
       setCustomListDesc(fallbackDescription);
       setNotification({
         show: true,
         message: 'Generated a basic description. You can edit it as needed.',
-        type: 'success'
+        type: 'warning'
       });
     } finally {
       setAiLoading(prev => ({ ...prev, listDesc: false }));

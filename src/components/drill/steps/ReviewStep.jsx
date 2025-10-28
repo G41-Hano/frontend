@@ -7,7 +7,8 @@ const ReviewStep = ({
   submittingAction,
   setMediaModal,
   onBack,
-  isEditing = false
+  isEditing = false,
+  customListDesc = ''
 }) => {
   return (
     <div>
@@ -20,10 +21,44 @@ const ReviewStep = ({
       )}
       
       <div className="mb-6">
-        <div className="mb-2 font-medium">Title: <span className="font-normal">{drill.title}</span></div>
+        <div className="mb-2 font-medium">Drill Title: <span className="font-normal">{drill.title}</span></div>
         <div className="mb-2 font-medium">Description: <span className="font-normal">{drill.description}</span></div>
         <div className="mb-2 font-medium">Open: <span className="font-normal">{drill.openDate ? new Date(drill.openDate).toLocaleString() : 'N/A'}</span></div>
         <div className="mb-2 font-medium">Due: <span className="font-normal">{drill.dueDate ? new Date(drill.dueDate).toLocaleString() : 'N/A'}</span></div>
+        
+        {/* Drill Type */}
+        <div className="mb-2 font-medium">
+          Drill Type: <span className="font-normal">
+            {drill.wordlistType === 'custom' ? (
+              <span className="inline-flex items-center gap-1">
+                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">Custom</span>
+              </span>
+            ) : drill.wordlistType === 'builtin' ? (
+              <span className="inline-flex items-center gap-1">
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">Built-in</span>
+              </span>
+            ) : 'N/A'}
+          </span>
+        </div>
+        
+        {/* Wordlist Name */}
+        {drill.wordlistName && (
+          <div className="mb-2 font-medium">
+            Wordlist Name: <span className="font-normal">
+              {drill.wordlistName}
+            </span>
+          </div>
+        )}
+        
+        {/* Wordlist Description */}
+        {(customListDesc || (drill.wordlistType === 'custom' && drill.customWordList)) && (
+          <div className="mb-2 font-medium">
+            Wordlist Description: <span className="font-normal italic text-gray-600">
+              {customListDesc || 'No description provided'}
+            </span>
+          </div>
+        )}
+        
         <div className="mb-2 font-medium">Questions: <span className="font-normal">{drill.questions.length}</span></div>
       </div>
       

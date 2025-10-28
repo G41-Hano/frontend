@@ -511,6 +511,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
             handleSubmit={handleSubmit}
             submittingAction={submittingAction}
             setMediaModal={setMediaModal}
+            customListDesc={customListDesc}
           />
         )}
 

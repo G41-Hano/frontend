@@ -831,6 +831,7 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
               submittingAction={submittingAction}
               setMediaModal={setMediaModal}
               isEditing={true}
+              customListDesc={customListDesc}
             />
           )}
             </>
