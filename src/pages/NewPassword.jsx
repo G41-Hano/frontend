@@ -162,6 +162,28 @@ const NewPassword = () => {
             </div>
             {errors.confirmPassword && <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>}
           </div>
+
+          <div className="mt-2 p-3 bg-blue-50 border border-[#4C53B4] rounded-lg">
+                        <p className="text-sm font-medium text-[#4C53B4] mb-2">Password must contain:</p>
+                        <ul className="text-xs text-[#4C53B4] space-y-1">
+                            <li className={`flex items-center ${formData.password.length >= 8 ? 'text-green-600' : ''}`}>
+                                <i className={`fa-solid ${formData.password.length >= 8 ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>
+                                At least 8 characters
+                            </li>
+                            <li className={`flex items-center ${/(?=.*[A-Z])/.test(formData.password) ? 'text-green-600' : ''}`}>
+                                <i className={`fa-solid ${/(?=.*[A-Z])/.test(formData.password) ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>
+                                At least one capital letter
+                            </li>
+                            <li className={`flex items-center ${/(?=.*\d)/.test(formData.password) ? 'text-green-600' : ''}`}>
+                                <i className={`fa-solid ${/(?=.*\d)/.test(formData.password) ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>
+                                At least one number
+                            </li>
+                            <li className={`flex items-center ${/(?=.*[@$!%*?&_])/.test(formData.password) ? 'text-green-600' : ''}`}>
+                                <i className={`fa-solid ${/(?=.*[@$!%*?&_])/.test(formData.password) ? 'fa-check-circle' : 'fa-circle'} mr-2`}></i>
+                                At least one special character
+                            </li>
+                        </ul>
+                    </div>
           
           {/* Submit button */}
           <button
