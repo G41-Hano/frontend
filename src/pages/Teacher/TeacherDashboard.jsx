@@ -1,88 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+import api from '../../api';
 
-// Mock data for the dashboard
-const MOCK_DATA = {
-  classroom: {
-    name: "Class A",
-    id: "A123",
-    code: "XYZ123"
-  },
-  classStats: {
-    overallScore: 68,
-    gradeAverage: 71,
-    workAssigned: 36,
-    workAverage: 38,
-    categories: [
-      { name: 'Animals', score: 82 },
-      { name: 'Weather', score: 71 },
-      { name: 'Objects', score: 79 },
-    ]
-  },
-  studentDistribution: {
-    excelling: {
-      count: 5,
-      percentage: 20,
-      gradeAvg: 92
-    },
-    onTrack: {
-      count: 10,
-      percentage: 40,
-      gradeAvg: 80
-    },
-    needingHelp: {
-      count: 5,
-      percentage: 20,
-      gradeAvg: 65
-    }
-  },
-  students: [
-    { 
-      id: 1, 
-      name: "Sabine Klein", 
-      avatarColor: "#FFB6C1",
-      drillsCompleted: 23,
-      totalPoints: 450,
-      excellingIn: ["Animals", "Weather"],
-      strugglingIn: ["Objects"],
-      needingAttention: 3,
-      mastered: 12
-    },
-    { 
-      id: 2, 
-      name: "Dante Pederzana", 
-      avatarColor: "#ADD8E6", 
-      drillsCompleted: 53,
-      totalPoints: 890,
-      excellingIn: ["Objects"],
-      strugglingIn: ["Animals", "Weather"],
-      needingAttention: 5,
-      mastered: 8
-    },
-    { 
-      id: 3, 
-      name: "Susan Chan", 
-      avatarColor: "#D8BFD8", 
-      drillsCompleted: 82,
-      totalPoints: 1240,
-      excellingIn: ["Weather", "Objects"],
-      strugglingIn: [],
-      needingAttention: 1,
-      mastered: 15
-    },
-    { 
-      id: 4, 
-      name: "Alex Johnson", 
-      avatarColor: "#90EE90", 
-      drillsCompleted: 75,
-      totalPoints: 980,
-      excellingIn: ["Animals"],
-      strugglingIn: ["Weather"],
-      needingAttention: 2,
-      mastered: 10
-    }
-  ]
-};
+// --- HELPER COMPONENTS (UNCHANGED LOGIC) ---
 
 // Score Badge Component with appropriate color based on score
 const ScoreBadge = ({ score }) => {
@@ -99,21 +19,14 @@ const ScoreBadge = ({ score }) => {
 
 // Progress Badge Component
 const ProgressBadge = ({ count, bgColor }) => {
-  // Ensure even small numbers (1-5) have distinct visual differences
-  // Scale starts from 5 and goes up progressively (min 5, max 16)
   const baseSize = 5;
   const maxSize = 16; 
-  
   let size;
   if (count <= 5) {
-    // Linear scale for small numbers
     size = baseSize + count;
   } else {
-    // Logarithmic scale for larger numbers
     size = baseSize + 5 + Math.min(6, Math.floor(Math.log(count) * 2));
   }
-  
-  // Clamp size to max
   size = Math.min(size, maxSize);
   
   return (
@@ -129,8 +42,7 @@ const ProgressBadge = ({ count, bgColor }) => {
 };
 
 // Student Avatar Component
-const StudentAvatar = ({ name, color }) => {
-  // Get initials from name
+const StudentAvatar = ({ name, avatarUrl, color }) => {
   const initials = name
     .split(' ')
     .map(part => part[0])
@@ -138,12 +50,21 @@ const StudentAvatar = ({ name, color }) => {
     .toUpperCase()
     .substring(0, 2);
     
-  // Generate a pastel color based on name if no color provided
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name}
+        className="w-full h-full object-cover rounded-full"
+      />
+    );
+  }
+
   const bgColor = color || `hsl(${name.charCodeAt(0) * 5}, 70%, 80%)`;
   
   return (
     <div 
-      className="flex items-center justify-center rounded-full text-white font-medium"
+      className="flex items-center justify-center rounded-full text-white font-medium w-full h-full"
       style={{ backgroundColor: bgColor }}
     >
       {initials}
@@ -167,10 +88,9 @@ const ProgressIcon = ({ percentage }) => (
 
 // Student Distribution Card with dynamic sizing
 const DistributionCard = ({ count, percentage, gradeAvg, bgColor }) => {
-  // dynamic width: base + per-item increment
   const getWidth = (c) => {
-    const minW = 80; // px
-    const step = 20; // px per item
+    const minW = 80; 
+    const step = 20; 
     return minW + c * step;
   };
 
@@ -224,24 +144,348 @@ const DrillProgress = ({ percentage }) => {
   );
 };
 
-// Main Dashboard Component
+// --- CONSTANTS AND INITIAL STATE ---
+
+// MAX_POINTS_PER_STUDENT is used only for the overall dashboard score normalization.
+const MAX_POINTS_PER_STUDENT = 1500; 
+const MAX_DRILL_SCORE_FOR_PROFICIENCY = 100; // FIX: Use 100 points as the maximum score for a single drill proficiency calculation
+
+const INITIAL_DATA = {
+  classroom: { name: "", id: "", code: "" },
+  classStats: {
+    overallScore: 0,
+    gradeAverage: 0,
+    workAssigned: 0,
+    workAverage: 0,
+    categories: []
+  },
+  studentDistribution: {
+    excelling: { count: 0, percentage: 0, gradeAvg: 0 },
+    onTrack: { count: 0, percentage: 0, gradeAvg: 0 },
+    needingHelp: { count: 0, percentage: 0, gradeAvg: 0 }
+  },
+  students: []
+};
+
+
+// --- MAIN DASHBOARD COMPONENT ---
+
 const TeacherDashboard = () => {
   const { id: classroomId } = useParams();
-  const [data] = useState(MOCK_DATA);
+  const [data, setData] = useState(INITIAL_DATA);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchData = useCallback(async () => {
+    if (!classroomId) {
+      setError("Classroom ID is missing.");
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // 1. Fetch concurrent core data
+      const [classroomResponse, studentsResponse, pointsResponse, drillsResponse] = await Promise.all([
+        api.get(`/api/classrooms/${classroomId}/`),
+        api.get(`/api/classrooms/${classroomId}/students/`),
+        api.get(`/api/classrooms/${classroomId}/points/`),
+        api.get(`/api/drills/?classroom=${classroomId}`)
+      ]);
+      
+      const classData = classroomResponse.data;
+      const studentsList = studentsResponse.data.students || []; 
+      const pointsList = pointsResponse.data.leaderboard || []; 
+      const drillsList = drillsResponse.data || [];
+      
+      const totalStudents = studentsList.length;
+      const totalDrillsAssigned = drillsList.length;
+
+      // 2. FIX: Fetch Missing Custom Word List Names
+      
+      const drillWordlistMap = new Map();
+      const customWordlistIdsToFetch = new Set();
+
+      drillsList.forEach(drill => {
+          const customWordlistId = drill.custom_wordlist;
+          const builtinWordlistName = drill.wordlist_name;
+
+          if (builtinWordlistName) {
+              drillWordlistMap.set(drill.id, builtinWordlistName);
+          } 
+          if (customWordlistId && !builtinWordlistName) { 
+              customWordlistIdsToFetch.add(customWordlistId);
+          }
+      });
+
+      const customWordlistPromises = Array.from(customWordlistIdsToFetch).map(id => 
+          api.get(`/api/wordlist/${id}/`).catch(err => {
+              console.warn(`Failed to fetch custom wordlist ${id}:`, err);
+              return { data: { id, name: `Custom List ID: ${id}` } }; 
+          })
+      );
+
+      const customWordlistResponses = await Promise.all(customWordlistPromises);
+      const customWordlistNamesMap = new Map();
+      customWordlistResponses.forEach(res => {
+          if (res.data?.id && res.data?.name) {
+              customWordlistNamesMap.set(res.data.id, res.data.name);
+          }
+      });
+      
+      drillsList.forEach(drill => {
+          const customWordlistId = drill.custom_wordlist;
+          
+          if (customWordlistId && !drillWordlistMap.has(drill.id)) {
+              const fetchedName = customWordlistNamesMap.get(customWordlistId);
+              if (fetchedName) {
+                  drillWordlistMap.set(drill.id, fetchedName);
+              } else {
+                  drillWordlistMap.set(drill.id, `Custom List ID: ${customWordlistId}`);
+              }
+          }
+      });
+      
+      // 3. Proficiency Calculation: Get Best Score Per Drill Attempt
+
+      const resultsPromises = drillsList.map(drill => {
+          // FIX: Robust catch block to prevent 404s (e.g., failed drills) from crashing Promise.all
+          return api.get(`/api/drills/${drill.id}/results/`).catch(err => {
+              console.warn(`Failed to fetch results for drill ${drill.id}: ${err.message}`, err);
+              return { data: [] }; 
+          });
+      });
+      const resultsResponses = await Promise.all(resultsPromises);
+      
+      // Structure: { studentId_drillId: maxScore }
+      const bestScorePerDrillAttempt = new Map();
+      const completedDrillsMap = new Map();
+      
+      resultsResponses.forEach(response => {
+          const results = response.data || [];
+          results.forEach(drillResult => {
+              if (!drillResult.drill || !drillResult.student) return;
+              
+              const drillId = drillResult.drill; 
+              const studentId = drillResult.student.id; 
+              const key = `${studentId}_${drillId}`;
+              const score = drillResult.points || 0;
+              
+              // FIX: Only store the maximum score for this unique student-drill combo
+              const currentMaxScore = bestScorePerDrillAttempt.get(key) || 0;
+
+              if (score > currentMaxScore) {
+                  bestScorePerDrillAttempt.set(key, score);
+              }
+
+              // Track completed drills
+              if (!completedDrillsMap.has(studentId)) {
+                  completedDrillsMap.set(studentId, new Set());
+              }
+              completedDrillsMap.get(studentId).add(drillId);
+          });
+      });
+      
+      // 4. Group Best Scores by Word List
+      const studentProficiency = new Map();
+      
+      drillsList.forEach(drill => {
+          const drillId = drill.id;
+          const wordListName = drillWordlistMap.get(drillId);
+
+          if (!wordListName) return;
+
+          studentsList.forEach(student => {
+              const studentId = student.id;
+              const key = `${studentId}_${drillId}`;
+              const bestScore = bestScorePerDrillAttempt.get(key) || 0;
+              
+              if (bestScore > 0) {
+                  if (!studentProficiency.has(studentId)) {
+                      studentProficiency.set(studentId, new Map());
+                  }
+                  
+                  const studentStats = studentProficiency.get(studentId);
+                  if (!studentStats.has(wordListName)) {
+                      studentStats.set(wordListName, { totalScore: 0, drillCount: 0 });
+                  }
+                  
+                  const wordlistStats = studentStats.get(wordListName);
+                  
+                  // Accumulate the best score for this Word List
+                  wordlistStats.totalScore += bestScore;
+                  wordlistStats.drillCount += 1;
+              }
+          });
+      });
+
+      // 5. Finalize Proficiency Scores and Derive Excelling/Struggling Lists
+      const finalizedProficiency = new Map(); 
+      studentProficiency.forEach((wordlistMap, studentId) => {
+          const finalMap = new Map();
+          wordlistMap.forEach((stats, wordListName) => {
+              const drillCount = stats.drillCount; // Already aggregated
+              if (drillCount > 0) {
+                  // Proficiency Score = Average Score of BEST ATTEMPTS per Drill (Normalized)
+                  const avgScorePerDrill = stats.totalScore / drillCount;
+                  
+                  // FIX: Use 100 as the normalization base for accurate percentage calculation
+                  const normalizationBase = MAX_DRILL_SCORE_FOR_PROFICIENCY; 
+                  const proficiencyScore = Math.min(100, Math.round((avgScorePerDrill / normalizationBase) * 100));
+
+                  finalMap.set(wordListName, { proficiencyScore, drillCount });
+              }
+          });
+          finalizedProficiency.set(studentId, finalMap);
+      });
+      
+      // 6. Build final studentsData list
+      
+      const pointsMap = new Map(pointsList.map(item => [item.student_id, item]));
+
+      const studentsData = studentsList.map((student) => {
+          const studentId = student.id;
+          const pointsMetrics = pointsMap.get(studentId) || {};
+          const wordlistProficiency = finalizedProficiency.get(studentId) || new Map();
+          
+          const totalPoints = pointsMetrics.total_points || 0; 
+          
+          const totalCompletedDrills = completedDrillsMap.has(studentId) 
+                ? completedDrillsMap.get(studentId).size 
+                : 0;
+          
+          const drillsCompletedPercent = (totalDrillsAssigned > 0) 
+              ? Math.min(100, Math.round((totalCompletedDrills / totalDrillsAssigned) * 100)) 
+              : 0; 
+
+          let excellingIn = [];
+          let strugglingIn = [];
+          let needingAttention = 0;
+          let lowProficiencyCount = 0;
+
+          // Populate Excelling/Struggling Lists with Word List Names
+          wordlistProficiency.forEach((wl, name) => {
+              if (wl.drillCount >= 1) { 
+                  if (wl.proficiencyScore >= 80) { // Excelling threshold (80%)
+                      excellingIn.push(name);
+                  } else if (wl.proficiencyScore < 60) { // Struggling threshold (below 60%)
+                      strugglingIn.push(name);
+                      lowProficiencyCount++;
+                  }
+              }
+          });
+          
+          const hasSpecificStrugglingTag = strugglingIn.length > 0;
+
+          if (lowProficiencyCount > 0) {
+              needingAttention = Math.max(needingAttention, lowProficiencyCount * 2);
+          }
+
+          const masteredCount = totalCompletedDrills;
+
+          return {
+            id: student.id,
+            name: student.name,
+            avatarUrl: student.avatar,
+            drillsCompleted: drillsCompletedPercent, 
+            totalPoints: totalPoints,
+            excellingIn: excellingIn,
+            strugglingIn: strugglingIn,
+            needingAttention: needingAttention,
+            mastered: masteredCount
+          };
+      });
+      
+      // 7. Calculate Aggregate Class Metrics (Overall Score, Averages)
+      
+      let totalClassPoints = studentsData.reduce((sum, s) => sum + s.totalPoints, 0);
+      const totalMaxPoints = totalStudents * MAX_POINTS_PER_STUDENT; 
+      
+      const overallScore = (totalMaxPoints > 0) 
+          ? Math.min(100, Math.round((totalClassPoints / totalMaxPoints) * 100)) 
+          : 0;
+      const gradeAverage = overallScore; 
+      
+      const workAverage = (totalStudents > 0)
+          ? Math.round(studentsData.reduce((sum, s) => sum + s.drillsCompleted, 0) / totalStudents) 
+          : 0;
+      
+      // Student Distribution Calculation
+      const excelling = studentsData.filter(s => s.totalPoints >= 1000);
+      const onTrack = studentsData.filter(s => s.totalPoints >= 500 && s.totalPoints < 1000);
+      const needingHelp = studentsData.filter(s => s.totalPoints < 500);
+
+      const distribute = (list) => {
+          const count = list.length;
+          const percentage = (totalStudents > 0) ? Math.round((count / totalStudents) * 100) : 0;
+          const gradeAvg = (count > 0) 
+              ? Math.round(list.reduce((sum, s) => sum + Math.min(100, (s.totalPoints / MAX_POINTS_PER_STUDENT) * 100), 0) / count)
+              : 0;
+          return { count, percentage, gradeAvg };
+      };
+
+      const processedData = {
+        classroom: {
+          name: classData.name,
+          id: classData.id,
+          code: classData.class_code
+        },
+        classStats: {
+          overallScore: overallScore,
+          gradeAverage: gradeAverage,
+          workAssigned: totalDrillsAssigned, 
+          workAverage: workAverage, 
+          categories: [] 
+        },
+        studentDistribution: {
+          excelling: distribute(excelling),
+          onTrack: distribute(onTrack),
+          needingHelp: distribute(needingHelp)
+        },
+        students: studentsData
+      };
+      
+      setData(processedData);
+      
+    } catch (e) {
+      console.error("Failed to fetch dashboard data:", e.response?.data || e.message);
+      setError(`Failed to load dashboard data. Please check your network connection and API endpoints. Error: ${e.response?.data?.detail || e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [classroomId]);
 
   useEffect(() => {
-    // Simulate API call
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [classroomId]);
+    fetchData();
+  }, [fetchData]);
+
+  // --- RENDERING ---
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4C53B4]"></div>
+        <p className="ml-4 text-gray-600">Loading Dashboard Data...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-red-600 p-6">
+        <p className="text-xl font-semibold">⚠️ Data Fetch Error</p>
+        <p className="text-sm text-center">{error}</p>
+      </div>
+    );
+  }
+  
+  if (!data || !data.students || data.students.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-gray-500">
+        <p className="text-xl font-semibold">No data available for this classroom.</p>
+        <p className="text-sm">Ensure students are enrolled and have completed drills.</p>
       </div>
     );
   }
@@ -260,7 +504,7 @@ const TeacherDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-10">
           {/* Overall Class Score */}
           <div className="bg-white rounded-3xl p-6 shadow-sm lg:col-span-3">
-            <h3 className="text-gray-500 text-sm mb-6">Overall Class </h3>
+            <h3 className="text-gray-500 text-sm mb-6">Overall Class Score</h3>
             <div className="flex items-center gap-4">
               <div className="text-5xl font-bold text-gray-800">{data.classStats.overallScore}%</div>
               <div className="flex-shrink-0">
@@ -274,7 +518,7 @@ const TeacherDashboard = () => {
 
           {/* Drill Assigned */}
           <div className="bg-white rounded-3xl p-6 shadow-sm lg:col-span-3">
-            <h3 className="text-gray-500 text-sm mb-6">Drill Assigned</h3>
+            <h3 className="text-gray-500 text-sm mb-6">Drills Assigned</h3>
             <div className="flex items-center gap-4">
               <div className="text-5xl font-bold text-gray-800">{data.classStats.workAssigned}</div>
               <div className="flex-shrink-0">
@@ -292,7 +536,7 @@ const TeacherDashboard = () => {
               </div>
             </div>
             <div className="text-sm text-gray-500 mt-2">
-              Grade average: {data.classStats.workAverage}%
+              Avg. Completion: {data.classStats.workAverage}%
             </div>
           </div>
 
@@ -336,7 +580,7 @@ const TeacherDashboard = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Full Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <div className="flex items-center gap-2">
-                      Drills Completed
+                      Drill Completion
                     </div>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
@@ -354,7 +598,7 @@ const TeacherDashboard = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="w-8 h-8 mr-3">
-                            <StudentAvatar name={student.name} color={student.avatarColor} />
+                            <StudentAvatar name={student.name} avatarUrl={student.avatarUrl} />
                           </div>
                           <span className="font-medium text-gray-900">{student.name}</span>
                         </div>
