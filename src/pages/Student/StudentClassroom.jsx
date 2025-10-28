@@ -508,9 +508,13 @@ const StudentClassroom = () => {
                               </button>
                               {openMenuDrillId === drill.id && (
                                 <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 animate-fadeIn">
+                                  {/* Disable the leaderboard button when drill is not accessible */}
                                   <button
-                                    className="w-full text-left px-4 py-3 hover:bg-[#F7D9A0] text-[#4C53B4] font-semibold rounded-xl transition-colors"
-                                    onClick={() => handleShowLeaderboard(drill.id)}
+                                    className={`w-full text-left px-4 py-3 ${getDrillAvailabilityStatus(drill).canAccess ? 'hover:bg-[#F7D9A0] text-[#4C53B4] cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed'} font-semibold rounded-xl transition-colors`}
+                                    onClick={() => getDrillAvailabilityStatus(drill).canAccess && handleShowLeaderboard(drill.id)}
+                                    disabled={!getDrillAvailabilityStatus(drill).canAccess}
+                                    aria-disabled={!getDrillAvailabilityStatus(drill).canAccess}
+                                    title={!getDrillAvailabilityStatus(drill).canAccess ? 'Leaderboard unavailable while drill is closed or expired' : 'Show Leaderboard'}
                                   >
                                     <i className="fa-solid fa-trophy mr-2"></i> Show Leaderboard
                                   </button>
