@@ -140,6 +140,7 @@ const QuestionFormContainer = ({
                 handleChoiceChange={handleChoiceChange}
                 handleChoiceMedia={handleChoiceMedia}
                 setMediaModal={setMediaModal}
+                availableWords={getAvailableWords()}
               />
             )}
 

@@ -1,12 +1,60 @@
+import { useState } from 'react';
 import { FileInput } from '../index';
+import MediaSelector from '../shared/MediaSelector';
 
 const SmartSelectQuestionForm = ({
   questionDraft,
   setQuestionDraft,
   handleChoiceChange,
   handleChoiceMedia,
-  setMediaModal
+  setMediaModal,
+  availableWords
 }) => {
+  const [showMediaSelector, setShowMediaSelector] = useState(false);
+  const [currentChoiceIndex, setCurrentChoiceIndex] = useState(null);
+
+  // Prepare available media from wordlist
+  const availableMedia = [];
+  if (availableWords && availableWords.length > 0) {
+    availableWords.forEach(word => {
+      // Add image if available
+      if (word.image || word.image_url) {
+        availableMedia.push({
+          word: word.word,
+          url: word.image_url || (word.image && word.image.url) || word.image,
+          type: 'image'
+        });
+      }
+      // Add video if available
+      if (word.signVideo || word.video_url) {
+        availableMedia.push({
+          word: word.word,
+          url: word.video_url || (word.signVideo && word.signVideo.url) || word.signVideo,
+          type: 'video'
+        });
+      }
+    });
+  }
+
+  const handleSelectFromWordlist = (choiceIndex) => {
+    setCurrentChoiceIndex(choiceIndex);
+    setShowMediaSelector(true);
+  };
+
+  const handleMediaSelect = (selectedMedia) => {
+    if (currentChoiceIndex !== null) {
+      // Create a media object that mimics the structure of uploaded files
+      const mediaObject = {
+        url: selectedMedia.url,
+        type: selectedMedia.type === 'image' ? 'image/jpeg' : 'video/mp4',
+        fromWordlist: true
+      };
+      handleChoiceMedia(currentChoiceIndex, mediaObject);
+    }
+    setShowMediaSelector(false);
+    setCurrentChoiceIndex(null);
+  };
+
   return (
     <div className="mb-4">
       <label className="block mb-1 font-medium text-sm md:text-base">Choices</label>
@@ -23,10 +71,25 @@ const SmartSelectQuestionForm = ({
               value={c.media} 
               onChange={file => handleChoiceMedia(i, file)} 
               onPreview={(src, type) => setMediaModal({ open: true, src, type })} 
+              onSelectFromWordlist={() => handleSelectFromWordlist(i)}
+              hasWordlistMedia={availableMedia.length > 0}
             />
           </div>
         ))}
       </div>
+
+      {/* Media Selector Modal */}
+      {showMediaSelector && (
+        <MediaSelector
+          availableMedia={availableMedia}
+          onSelect={handleMediaSelect}
+          onClose={() => {
+            setShowMediaSelector(false);
+            setCurrentChoiceIndex(null);
+          }}
+        />
+      )}
+
       {/* Correct Answer Dropdown */}
       <div className="mt-4">
         <label className="block mb-1 font-medium text-sm md:text-base">Correct Answer</label>
