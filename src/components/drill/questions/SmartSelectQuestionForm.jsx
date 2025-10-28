@@ -19,19 +19,33 @@ const SmartSelectQuestionForm = ({
     availableWords.forEach(word => {
       // Add image if available
       if (word.image || word.image_url) {
-        availableMedia.push({
-          word: word.word,
-          url: word.image_url || (word.image && word.image.url) || word.image,
-          type: 'image'
-        });
+        const imageSource = word.image_url || (word.image && word.image.url) || word.image;
+        // Handle File objects by creating object URLs
+        const imageUrl = imageSource instanceof File ? URL.createObjectURL(imageSource) : imageSource;
+        if (imageUrl) {
+          availableMedia.push({
+            word: word.word,
+            url: imageUrl,
+            type: 'image',
+            isFile: imageSource instanceof File,
+            source: imageSource // Keep reference to original File or URL
+          });
+        }
       }
       // Add video if available
       if (word.signVideo || word.video_url) {
-        availableMedia.push({
-          word: word.word,
-          url: word.video_url || (word.signVideo && word.signVideo.url) || word.signVideo,
-          type: 'video'
-        });
+        const videoSource = word.video_url || (word.signVideo && word.signVideo.url) || word.signVideo;
+        // Handle File objects by creating object URLs
+        const videoUrl = videoSource instanceof File ? URL.createObjectURL(videoSource) : videoSource;
+        if (videoUrl) {
+          availableMedia.push({
+            word: word.word,
+            url: videoUrl,
+            type: 'video',
+            isFile: videoSource instanceof File,
+            source: videoSource // Keep reference to original File or URL
+          });
+        }
       }
     });
   }
@@ -43,12 +57,20 @@ const SmartSelectQuestionForm = ({
 
   const handleMediaSelect = (selectedMedia) => {
     if (currentChoiceIndex !== null) {
-      // Create a media object that mimics the structure of uploaded files
-      const mediaObject = {
-        url: selectedMedia.url,
-        type: selectedMedia.type === 'image' ? 'image/jpeg' : 'video/mp4',
-        fromWordlist: true
-      };
+      // If the source is a File object, pass it directly so it can be uploaded
+      // If it's a URL string, create a media object with the URL
+      let mediaObject;
+      if (selectedMedia.source instanceof File) {
+        // Pass the File object directly
+        mediaObject = selectedMedia.source;
+      } else {
+        // It's already a URL string from the server
+        mediaObject = {
+          url: selectedMedia.source,
+          type: selectedMedia.type === 'image' ? 'image/jpeg' : 'video/mp4',
+          fromWordlist: true
+        };
+      }
       handleChoiceMedia(currentChoiceIndex, mediaObject);
     }
     setShowMediaSelector(false);
