@@ -69,6 +69,7 @@ const WordListStep = ({
           builtinWordlist: {
             id: wordlistData.id,
             name: wordlistData.name,
+            description: wordlistData.description,
             words: words.map(w => ({
               word: w.word,
               definition: w.definition,
@@ -219,6 +220,20 @@ const WordListStep = ({
             )}
           </div>
           
+          {drill.wordlistName && (
+            (() => {
+              const selected = builtinWordLists.find(list => list.id === drill.wordlistName);
+              const description = drill.builtinWordlist?.description || selected?.description;
+              return description ? (
+                <div className="mt-4 p-4 bg-[#F7F9FC] rounded-xl border border-[#4C53B4]/20">
+                  <p className="text-gray-700 m-0">
+                    <span className="font-medium">Description:</span> {description}
+                  </p>
+                </div>
+              ) : null;
+            })()
+          )}
+
           {/* Word List Preview */}
           {drill.wordlistName && builtinWords && builtinWords.length > 0 && (
             <div className="mt-4">
