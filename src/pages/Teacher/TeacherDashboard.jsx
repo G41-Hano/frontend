@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../../api';
+import StudentDrillResultsModal from '../../components/StudentDrillResultsModal';
 
-// --- HELPER COMPONENTS (UNCHANGED LOGIC) ---
+// --- HELPER COMPONENTS ---
 
 // Score Badge Component with appropriate color based on score
 const ScoreBadge = ({ score }) => {
@@ -144,11 +145,8 @@ const DrillProgress = ({ percentage }) => {
   );
 };
 
-// --- CONSTANTS AND INITIAL STATE ---
-
-// MAX_POINTS_PER_STUDENT is used only for the overall dashboard score normalization.
 const MAX_POINTS_PER_STUDENT = 1500; 
-const MAX_DRILL_SCORE_FOR_PROFICIENCY = 100; // FIX: Use 100 points as the maximum score for a single drill proficiency calculation
+const MAX_DRILL_SCORE_FOR_PROFICIENCY = 100;
 
 const INITIAL_DATA = {
   classroom: { name: "", id: "", code: "" },
@@ -168,13 +166,23 @@ const INITIAL_DATA = {
 };
 
 
-// --- MAIN DASHBOARD COMPONENT ---
-
 const TeacherDashboard = () => {
   const { id: classroomId } = useParams();
   const [data, setData] = useState(INITIAL_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // State for the new modal functionality
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [allAssignedDrills, setAllAssignedDrills] = useState([]); // Store drill list for modal
+
+  const handleStudentClick = (student) => {
+    setSelectedStudent(student);
+  };
+  
+  const handleCloseModal = () => {
+    setSelectedStudent(null);
+  };
 
   const fetchData = useCallback(async () => {
     if (!classroomId) {
@@ -202,6 +210,9 @@ const TeacherDashboard = () => {
       
       const totalStudents = studentsList.length;
       const totalDrillsAssigned = drillsList.length;
+
+      // Store all drills for the modal component
+      setAllAssignedDrills(drillsList);
 
       // 2. FIX: Fetch Missing Custom Word List Names
       
@@ -251,7 +262,6 @@ const TeacherDashboard = () => {
       // 3. Proficiency Calculation: Get Best Score Per Drill Attempt
 
       const resultsPromises = drillsList.map(drill => {
-          // FIX: Robust catch block to prevent 404s (e.g., failed drills) from crashing Promise.all
           return api.get(`/api/drills/${drill.id}/results/`).catch(err => {
               console.warn(`Failed to fetch results for drill ${drill.id}: ${err.message}`, err);
               return { data: [] }; 
@@ -265,6 +275,7 @@ const TeacherDashboard = () => {
       
       resultsResponses.forEach(response => {
           const results = response.data || [];
+          
           results.forEach(drillResult => {
               if (!drillResult.drill || !drillResult.student) return;
               
@@ -273,9 +284,9 @@ const TeacherDashboard = () => {
               const key = `${studentId}_${drillId}`;
               const score = drillResult.points || 0;
               
-              // FIX: Only store the maximum score for this unique student-drill combo
               const currentMaxScore = bestScorePerDrillAttempt.get(key) || 0;
 
+              // Only store the best score (Max Points) for this unique student-drill combo
               if (score > currentMaxScore) {
                   bestScorePerDrillAttempt.set(key, score);
               }
@@ -314,7 +325,6 @@ const TeacherDashboard = () => {
                   
                   const wordlistStats = studentStats.get(wordListName);
                   
-                  // Accumulate the best score for this Word List
                   wordlistStats.totalScore += bestScore;
                   wordlistStats.drillCount += 1;
               }
@@ -326,14 +336,15 @@ const TeacherDashboard = () => {
       studentProficiency.forEach((wordlistMap, studentId) => {
           const finalMap = new Map();
           wordlistMap.forEach((stats, wordListName) => {
-              const drillCount = stats.drillCount; // Already aggregated
+              const drillCount = stats.drillCount; 
               if (drillCount > 0) {
-                  // Proficiency Score = Average Score of BEST ATTEMPTS per Drill (Normalized)
                   const avgScorePerDrill = stats.totalScore / drillCount;
                   
-                  // FIX: Use 100 as the normalization base for accurate percentage calculation
+                  // FIX: Use 100 as the normalization base for accurate single-drill score percentage
                   const normalizationBase = MAX_DRILL_SCORE_FOR_PROFICIENCY; 
-                  const proficiencyScore = Math.min(100, Math.round((avgScorePerDrill / normalizationBase) * 100));
+                  const proficiencyScore = (normalizationBase > 0)
+                      ? Math.min(100, Math.round((avgScorePerDrill / normalizationBase) * 100))
+                      : 0;
 
                   finalMap.set(wordListName, { proficiencyScore, drillCount });
               }
@@ -368,16 +379,14 @@ const TeacherDashboard = () => {
           // Populate Excelling/Struggling Lists with Word List Names
           wordlistProficiency.forEach((wl, name) => {
               if (wl.drillCount >= 1) { 
-                  if (wl.proficiencyScore >= 80) { // Excelling threshold (80%)
+                  if (wl.proficiencyScore >= 80) { // Excelling threshold
                       excellingIn.push(name);
-                  } else if (wl.proficiencyScore < 60) { // Struggling threshold (below 60%)
+                  } else if (wl.proficiencyScore < 60) { // Struggling threshold
                       strugglingIn.push(name);
                       lowProficiencyCount++;
                   }
               }
           });
-          
-          const hasSpecificStrugglingTag = strugglingIn.length > 0;
 
           if (lowProficiencyCount > 0) {
               needingAttention = Math.max(needingAttention, lowProficiencyCount * 2);
@@ -394,11 +403,13 @@ const TeacherDashboard = () => {
             excellingIn: excellingIn,
             strugglingIn: strugglingIn,
             needingAttention: needingAttention,
-            mastered: masteredCount
+            mastered: masteredCount,
+            // Merge raw student data (needed for modal)
+            ...student
           };
       });
       
-      // 7. Calculate Aggregate Class Metrics (Overall Score, Averages)
+      // 7. Calculate Aggregate Class Metrics
       
       let totalClassPoints = studentsData.reduce((sum, s) => sum + s.totalPoints, 0);
       const totalMaxPoints = totalStudents * MAX_POINTS_PER_STUDENT; 
@@ -496,7 +507,7 @@ const TeacherDashboard = () => {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+            <h1 className="text-3xl font-bold text-gray-800">Dashboard: {data.classroom.name}</h1>
           </div>
         </div>
 
@@ -594,7 +605,11 @@ const TeacherDashboard = () => {
                 {data.students.map(student => {
                   const { wrapper } = getProgressColor(student.drillsCompleted);
                   return (
-                    <tr key={student.id} className={`${wrapper}`}>
+                    <tr 
+                      key={student.id} 
+                      className={`${wrapper} cursor-pointer hover:bg-gray-200 transition-colors`}
+                      onClick={() => handleStudentClick(student)}
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="w-8 h-8 mr-3">
@@ -645,6 +660,15 @@ const TeacherDashboard = () => {
           </div>
         </div>
       </div>
+      
+      {/* Student Drill Results Modal */}
+      {selectedStudent && (
+        <StudentDrillResultsModal 
+          student={selectedStudent}
+          drills={allAssignedDrills}
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   );
 };
