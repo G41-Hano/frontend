@@ -881,6 +881,18 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
             >
               <i className="fa-solid fa-eye"></i> Preview Drill
             </button>
+            {/* View Drill Ranking button: navigates to the drill results view with a ranking view param */}
+            <button
+              className="ml-2 px-6 py-2 rounded-xl bg-[#FFD166] text-[#814200] font-bold shadow hover:bg-[#ffca60] transition-all duration-300 flex items-center gap-2"
+              onClick={() => {
+                // Navigate to the teacher-mounted leaderboard route so it resolves to /t/drill/:id/leaderboard
+                // Also pass classroom and title as state for the leaderboard to use if needed.
+                setOpenMenuDrillId(null);
+                navigate(`/t/drill/${drill.id}/leaderboard`, { state: { classroomId: drill.classroom, drillName: drill.title } });
+              }}
+            >
+              <i className="fa-solid fa-trophy"></i> View Drill Ranking
+            </button>
           </div>
         </div>
       )}

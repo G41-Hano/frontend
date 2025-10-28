@@ -5,6 +5,7 @@ import TeacherClassroom from "../pages/Teacher/TeacherClassroom"
 import TakeDrill from "../pages/Student/TakeDrill"
 import Profile from "../pages/Teacher/ProfileTeacher"
 import TransferRequestList from '../pages/Teacher/TransferRequestList'
+import TeacherDrillRankings from '../pages/Teacher/TeacherDrillRankings';
 
 export default function TeacherRoutes() {
   return (
@@ -15,6 +16,7 @@ export default function TeacherRoutes() {
       <Route path="/take-drill/:id" element={<TakeDrill />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="transfer-requests" element={<TransferRequestList />} />
+      <Route path="drill/:id/leaderboard" element={<TeacherDrillRankings />} />
     </Routes>
   )
 }
