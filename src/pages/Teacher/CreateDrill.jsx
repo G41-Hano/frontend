@@ -259,6 +259,18 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
           // Ensure word_id is included for proper association
           word_id: q.word_id || null,
         };
+        
+        // Handle questionMedia for Multiple Choice questions
+        if (q.type === 'M' && q.questionMedia) {
+          if (q.questionMedia instanceof File) {
+            const key = `question_media_${qIdx}`;
+            formData.append(key, q.questionMedia);
+            base.question_media = key;
+          } else if (q.questionMedia.url) {
+            base.question_media = q.questionMedia.url;
+          }
+        }
+        
         if (q.type === 'M' || q.type === 'F') {
           base.answer = q.answer;
           base.choices = (q.choices || []).map((c, cIdx) => {
@@ -404,7 +416,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
     if (drill.wordlistType === 'builtin' && !drill.wordlistName) return false;
     if (drill.wordlistType === 'custom') {
       if (!drill.wordlistName || !customListDesc) return false;
-      if (drill.customWordList.length < 4) return false;
+      if (drill.customWordList.length < 1) return false;
       for (const w of drill.customWordList) {
         if (!w.word || !w.definition || !w.image || !w.signVideo) return false;
       }

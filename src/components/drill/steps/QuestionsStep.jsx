@@ -118,7 +118,7 @@ const QuestionsStep = ({
   };
 
   return (
-    <div className="min-w-0 overflow-x-auto">
+    <div className="min-w-0">
       <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Add Questions</h2>
       
       {notification.show && (

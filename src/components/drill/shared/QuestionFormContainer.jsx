@@ -5,7 +5,8 @@ import {
   BlankBusterQuestionForm,
   SentenceBuilderQuestionForm,
   MemoryGameQuestionForm,
-  PictureWordQuestionForm
+  PictureWordQuestionForm,
+  FileInput
 } from '../index';
 import WordSelector from './WordSelector';
 import QuestionTypeSelector from './QuestionTypeSelector';
@@ -52,10 +53,17 @@ const QuestionFormContainer = ({
             <QuestionTypeSelector
               selectedType={questionDraft.type}
               onTypeChange={(newType) => {
+                // Set default instruction text based on question type
+                let defaultText = '';
+                if (newType === 'F') defaultText = 'Fill in the letters';
+                else if (newType === 'D') defaultText = 'Make a sentence';
+                else if (newType === 'G') defaultText = 'Match the pairs';
+                else if (newType === 'P') defaultText = 'What word is this?';
+                
                 setQuestionDraft({
                   ...questionDraft,
                   type: newType,
-                  text: '',
+                  text: defaultText,
                   choices: newType === 'M' ? emptyQuestion.choices.map(() => ({ text: '', media: null })) : [],
                   answer: '',
                   pattern: newType === 'F' ? '' : undefined,
@@ -73,21 +81,41 @@ const QuestionFormContainer = ({
                 {questionDraft.type === 'M' ? 'Question Text' : 'Drill Instruction'} <span className="text-red-500">*</span>
               </label>
               {questionDraft.type !== 'F' && (
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    className="flex-1 border-2 border-gray-100 rounded-xl px-3 md:px-4 py-2 focus:border-[#4C53B4] text-sm md:text-base min-w-0"
-                    placeholder={questionDraft.type === 'M' ? "Enter question text" : "Enter drill instruction"}
-                    value={questionDraft.text}
-                    onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
-                    id="question-text-input"
-                  />
-                  <div className="flex-shrink-0">
-                    <AiGenerateButton
-                      onClick={generateQuestion}
-                      loading={aiLoading.question}
+                <>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      className="flex-1 border-2 border-gray-100 rounded-xl px-3 md:px-4 py-2 focus:border-[#4C53B4] text-sm md:text-base min-w-0"
+                      placeholder={questionDraft.type === 'M' ? "Enter question text" : "Enter drill instruction"}
+                      value={questionDraft.text}
+                      onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
+                      id="question-text-input"
                     />
+                    {/* Only show generate button for Multiple Choice (M) */}
+                    {questionDraft.type === 'M' && (
+                      <div className="flex-shrink-0">
+                        <AiGenerateButton
+                          onClick={generateQuestion}
+                          loading={aiLoading.question}
+                        />
+                      </div>
+                    )}
                   </div>
-                </div>
+                  {/* Media for Question Text (only for Multiple Choice) */}
+                  {questionDraft.type === 'M' && (
+                    <div className="mt-2">
+                      <div className="max-w-xs">
+                        <FileInput
+                          value={questionDraft.questionMedia}
+                          onChange={file => setQuestionDraft({ ...questionDraft, questionMedia: file })}
+                          onPreview={(src, type) => setMediaModal({ open: true, src, type })}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Add an image or video to show with your question
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -97,8 +125,6 @@ const QuestionFormContainer = ({
                 questionDraft={questionDraft}
                 setQuestionDraft={setQuestionDraft}
                 selectedQuestionWord={selectedQuestionWord}
-                generateQuestion={generateQuestion}
-                aiLoading={aiLoading}
               />
             )}
 

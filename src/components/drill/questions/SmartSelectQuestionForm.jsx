@@ -125,7 +125,7 @@ const SmartSelectQuestionForm = ({
             <option key={i} value={i}>
               Choice {i + 1}: {c.text || (c.media ? 
                 (c.media instanceof File ? c.media.name : 
-                 c.media.url ? c.media.url.split('/').pop() : 
+                 c.media.url && typeof c.media.url === 'string' ? c.media.url.split('/').pop() : 
                  '(Media)') : '(Empty)')}
             </option>
           ))}

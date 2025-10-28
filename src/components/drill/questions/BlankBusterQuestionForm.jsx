@@ -1,30 +1,20 @@
-import { AiGenerateButton } from '../index';
-
 const BlankBusterQuestionForm = ({
   questionDraft,
   setQuestionDraft,
-  selectedQuestionWord,
-  generateQuestion,
-  aiLoading
+  selectedQuestionWord
 }) => {
   return (
     <div className="mb-4">
       <div className="space-y-4">
         {/* Question Text */}
         <div>
-          <div className="flex gap-2">
-            <input
-              className="flex-1 border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
-              placeholder="Enter drill instruction"
-              value={questionDraft.text}
-              onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
-              id="question-text-input"
-            />
-            <AiGenerateButton
-              onClick={generateQuestion}
-              loading={aiLoading.question}
-            />
-          </div>
+          <input
+            className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]"
+            placeholder="Enter drill instruction"
+            value={questionDraft.text}
+            onChange={e => setQuestionDraft({ ...questionDraft, text: e.target.value })}
+            id="question-text-input"
+          />
         </div>
         
         {/* Word Pattern */}

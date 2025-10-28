@@ -134,6 +134,28 @@ const QuestionRenderer = ({
             {/* Speech Bubble */}
             <div className="relative bg-white rounded-3xl p-6 shadow-lg" style={{ width: '600px' }}>
               <div className="text-xl font-semibold">{currentQuestion.text}</div>
+              
+              {/* Question Media (for Multiple Choice questions) */}
+              {currentQuestion.type === 'M' && currentQuestion.question_media && (
+                <div className="mt-4 flex justify-center">
+                  {currentQuestion.question_media.includes('.mp4') || currentQuestion.question_media.includes('.mov') || currentQuestion.question_media.includes('video') ? (
+                    <video 
+                      src={currentQuestion.question_media.startsWith('http') ? currentQuestion.question_media : `http://127.0.0.1:8000${currentQuestion.question_media}`}
+                      className="w-64 h-48 rounded-lg object-cover"
+                      controls
+                      autoPlay
+                      loop
+                    />
+                  ) : (
+                    <img 
+                      src={currentQuestion.question_media.startsWith('http') ? currentQuestion.question_media : `http://127.0.0.1:8000${currentQuestion.question_media}`}
+                      alt="Question media"
+                      className="w-64 h-48 rounded-lg object-cover"
+                    />
+                  )}
+                </div>
+              )}
+              
               {/* Arrow */}
               <div 
                 className="absolute left-[-16px] top-1/2 -translate-y-1/2 w-0 h-0"

@@ -39,7 +39,7 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
   const [submittingAction, setSubmittingAction] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const definitionFetcher = useDefinitionFetcher();
-  const { aiLoading, setAiLoading, generateDefinitionForWord: generateDefForWord } = useAIQuestionGenerator();
+  const { aiLoading, setAiLoading, generateDefinitionForWord: generateDefForWord, generateQuestion: aiGenerateQuestion } = useAIQuestionGenerator();
   
   // Wrapper function to pass the required parameters
   const generateDefinitionForWord = (index, word) => {
@@ -236,6 +236,28 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
               }
             }
 
+            // Process question media for Multiple Choice questions
+            let questionMedia = null;
+            if (q.question_media) {
+              if (typeof q.question_media === 'object' && q.question_media.url) {
+                const url = getAbsoluteUrl(q.question_media.url);
+                if (url) {
+                  questionMedia = { 
+                    url, 
+                    type: q.question_media.type || (url.includes('.mp4') || url.includes('.mov') ? 'video/mp4' : 'image/jpeg')
+                  };
+                }
+              } else if (typeof q.question_media === 'string') {
+                const url = getAbsoluteUrl(q.question_media);
+                if (url) {
+                  questionMedia = { 
+                    url, 
+                    type: url.includes('.mp4') || url.includes('.mov') ? 'video/mp4' : 'image/jpeg'
+                  };
+                }
+              }
+            }
+
             return {
               ...q,
               answer: q.type === 'P' ? q.answer : q.type === 'F' ? q.answer : answerIdx,
@@ -249,7 +271,8 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
               hint: q.hint || '',
               letterChoices: q.letterChoices || [],
               signVideo,
-              image
+              image,
+              questionMedia
             };
           }),
         };
@@ -465,7 +488,7 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
     setQuestionDraft({ ...questionDraft, choices: newChoices });
   };
 
-  // AI question generation function (from original working code)
+  // AI question generation function - use the shared AI generator
   const generateQuestion = async () => {
     if (!selectedQuestionWord) {
       setNotification({
@@ -476,141 +499,15 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
       return;
     }
 
-    setAiLoading(prev => ({ ...prev, question: true }));
-    try {
-      let defaultQuestion = '';
-      let defaultAnswer = '';
-      let defaultChoices = [];
-      let defaultPattern = '';
-      let defaultHint = '';
-      let word = '';
-      let pattern = '';
-      let missingLetters = [];
-      let letterChoices = [];
-      const allPossibleLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-      
-      // Generate default content based on question type
-      switch(questionDraft.type) {
-        case 'M': {
-          // Get available words excluding the current word
-          const availableWords = getAvailableWords().filter(w => w.word !== selectedQuestionWord);
-          
-          // Shuffle available words for random selection
-          const shuffledWords = [...availableWords].sort(() => Math.random() - 0.5);
-          
-          // Create choices array with correct definition and other word definitions
-          let choices = [];
-          
-          // Randomly place the correct answer
-          const correctAnswerPosition = Math.floor(Math.random() * 4); // Random position 0-3
-          
-          // Fill all positions
-          for (let i = 0; i < 4; i++) {
-            if (i === correctAnswerPosition) {
-              choices[i] = { text: selectedQuestionWordData.definition || 'Correct definition here', media: null };
-            } else {
-              const otherWord = shuffledWords[choices.filter((c, idx) => idx !== correctAnswerPosition && c !== undefined).length];
-              choices[i] = { text: otherWord?.definition || `Alternative word definition ${i + 1}`, media: null };
-            }
-          }
-
-          defaultQuestion = `What does "${selectedQuestionWord}" mean?`;
-          defaultChoices = choices;
-          defaultAnswer = correctAnswerPosition;
-          break;
-        }
-        
-        case 'F': {
-          word = selectedQuestionWord.toUpperCase();
-          
-          // Ensure word is at least 4 letters long
-          if (word.length < 4) {
-            throw new Error('Word must be at least 4 letters long for Blank Buster');
-          }
-          
-          // Create pattern with first and last letters visible
-          pattern = word.split('').map((char, idx) => 
-            idx === 0 || idx === word.length - 1 ? char : '_'
-          ).join(' ');
-          
-          // Find missing letter indices
-          const missingIndices = word.split('').reduce((acc, char, idx) => {
-            if (idx !== 0 && idx !== word.length - 1) acc.push(idx);
-            return acc;
-          }, []);
-          
-          // Get missing letters
-          missingLetters = missingIndices.map(idx => word[idx]);
-          
-          // Create letter choices: include missing letters (with duplicates) and some random letters
-          letterChoices = [
-            ...missingLetters, 
-            ...allPossibleLetters
-              .filter(l => !missingLetters.includes(l))
-              .sort(() => Math.random() - 0.5)
-              .slice(0, Math.max(0, 6 - missingLetters.length))
-          ].sort(() => Math.random() - 0.5);
-          
-          defaultQuestion = `Fill in the missing letters to make the word`;
-          defaultPattern = pattern;
-          defaultAnswer = word;
-          defaultHint = `Hint: ${selectedQuestionWordData.definition || 'A word related to the lesson'}`;
-          
-          // Create choices for the question (optional, but can help with validation)
-          defaultChoices = letterChoices.map(letter => ({
-            text: letter,
-            is_correct: missingLetters.includes(letter)
-          }));
-          break;
-        }
-        
-        case 'D': {
-          defaultQuestion = `Put the words in the right order to make a sentence`;
-          defaultAnswer = selectedQuestionWord;
-          break;
-        }
-        
-        case 'G': {
-          defaultQuestion = `Match the pairs that go together`;
-          break;
-        }
-        
-        case 'P': {
-          defaultQuestion = `What word do all these pictures show?`;
-          defaultAnswer = selectedQuestionWord;
-          break;
-        }
-        
-        default:
-          break;
-      }
-
-      const newQuestionDraft = {
-        ...questionDraft,
-        text: defaultQuestion,
-        answer: defaultAnswer,
-        pattern: defaultPattern,
-        hint: defaultHint,
-        letterChoices: questionDraft.type === 'F' ? letterChoices : undefined,
-        choices: defaultChoices
-      };
-
-      setQuestionDraft(newQuestionDraft);
-      setNotification({
-        show: true,
-        message: 'Question generated successfully!',
-        type: 'success'
-      });
-    } catch (err) {
-      console.error('Failed to generate question:', err);
-      setNotification({
-        show: true,
-        message: 'Failed to generate question: ' + (err.message || 'Unknown error'),
-        type: 'error'
-      });
-    } finally {
-      setAiLoading(prev => ({ ...prev, question: false }));
-    }
+    // Call the AI generator from the hook
+    await aiGenerateQuestion(
+      questionDraft,
+      selectedQuestionWord,
+      selectedQuestionWordData,
+      getAvailableWords,
+      setQuestionDraft,
+      setNotification
+    );
   };
 
 
@@ -695,6 +592,17 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
           word: q.word,
           definition: q.definition,
         };
+
+        // Handle questionMedia for Multiple Choice questions
+        if (q.type === 'M' && q.questionMedia) {
+          if (q.questionMedia instanceof File) {
+            const key = `question_media_${qIdx}`;
+            formData.append(key, q.questionMedia);
+            base.question_media = key;
+          } else if (q.questionMedia.url) {
+            base.question_media = q.questionMedia.url;
+          }
+        }
 
         // Smart Select (M) and Blank Busters (F) - both use choices
         if (q.type === 'M' || q.type === 'F') {

@@ -220,6 +220,46 @@ const QuestionPreview = ({ question, index, onEdit, onDelete, setMediaModal, hid
         ) : question.text}
       </div>
 
+      {/* Question Media for Smart Select */}
+      {question.type === 'M' && question.questionMedia && (
+        <div className="mb-3">
+          <div className="mt-2 w-48">
+            {(() => {
+              let src = null;
+              let type = '';
+              if (question.questionMedia instanceof File) {
+                src = URL.createObjectURL(question.questionMedia);
+                type = question.questionMedia.type;
+              } else if (question.questionMedia && question.questionMedia.url) {
+                src = question.questionMedia.url;
+                type = question.questionMedia.type || '';
+              }
+              
+              if (type.startsWith('image/') || type.includes('image')) {
+                return (
+                  <img
+                    src={src}
+                    alt="Question media"
+                    className="w-full h-32 object-cover rounded-lg border cursor-pointer"
+                    onClick={() => setMediaModal({ open: true, src, type })}
+                  />
+                );
+              } else if (type.startsWith('video/') || type.includes('video')) {
+                return (
+                  <video
+                    src={src}
+                    className="w-full h-32 object-cover rounded-lg border"
+                    controls
+                    onClick={e => { e.stopPropagation(); setMediaModal({ open: true, src, type }); }}
+                  />
+                );
+              }
+              return null;
+            })()}
+          </div>
+        </div>
+      )}
+
       {renderPreviewContent()}
 
       {!hideActions && (
