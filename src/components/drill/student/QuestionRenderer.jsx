@@ -24,7 +24,9 @@ const QuestionRenderer = ({
   currentQuestionIdx,
   onBack,
   onAnswer,
-  onNext
+  onNext,
+  drillTitle,
+  wordlistName
 }) => {
   const totalPoints = Object.values(points).reduce((a, b) => a + (b || 0), 0);
   const [showSadTemporarily, setShowSadTemporarily] = useState(false);
@@ -115,6 +117,8 @@ const QuestionRenderer = ({
         onBack={onBack}
         progress={progress}
         points={totalPoints}
+        drillTitle={drillTitle}
+        wordlistName={wordlistName}
       />
 
       {/* Main content - Reduced top margin */}

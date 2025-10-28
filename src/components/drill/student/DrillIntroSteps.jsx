@@ -143,6 +143,8 @@ const DrillIntroSteps = ({
         onBack={onExit || onBack}
         progress={progress}
         points={totalPoints}
+        drillTitle={drill?.title}
+        wordlistName={wordlistData?.name}
       />
       
       <IntroBubble

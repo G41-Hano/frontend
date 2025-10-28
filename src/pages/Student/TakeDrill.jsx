@@ -566,6 +566,8 @@ const TakeDrill = () => {
         onExit={handleExit}
         onAnswer={handleAnswer}
         onNext={handleNext}
+        drillTitle={drill?.title}
+        wordlistName={wordlistData?.name}
       />
     );
   }
