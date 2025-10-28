@@ -378,15 +378,6 @@ const TeacherDashboard = () => {
           });
           
           const hasSpecificStrugglingTag = strugglingIn.length > 0;
-          
-          // Apply Fallback Tags if needed
-          if (excellingIn.length === 0 && totalPoints >= 1000 && totalCompletedDrills > 0) {
-              excellingIn.push("High Overall Points");
-          }
-          if (!hasSpecificStrugglingTag && drillsCompletedPercent < 30 && totalDrillsAssigned > 0) {
-              strugglingIn.push("No Progress");
-              needingAttention = 5;
-          }
 
           if (lowProficiencyCount > 0) {
               needingAttention = Math.max(needingAttention, lowProficiencyCount * 2);
