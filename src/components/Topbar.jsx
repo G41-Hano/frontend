@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Badge from '../assets/Badge.png';
 import Points from '../assets/Points.png';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +20,49 @@ const Topbar = ({ onMenuClick }) => {
   const profileRef = useRef(null);
   const notificationRef = useRef(null);
 
+  // Define calculateTotalPoints function with useCallback so it can be reused
+  const calculateTotalPoints = useCallback(async () => {
+    if (!isTeacher && user?.id) {
+      try {
+        // 1. Fetch all drills for the student across all classrooms
+        const drillsResponse = await api.get('/api/drills/');
+        const allDrills = drillsResponse.data.filter(drill => drill.status === 'published');
+
+        // 2. For each drill, fetch the student's results and find the latest attempt
+        const pointsPromises = allDrills.map(async (drill) => {
+          try {
+            const resultsResponse = await api.get(`/api/drills/${drill.id}/results/student/`);
+            const attempts = Array.isArray(resultsResponse.data) ? resultsResponse.data : [];
+
+            if (attempts.length > 0) {
+              // Find the latest attempt (highest run_number)
+              const latestAttempt = attempts.reduce((latest, current) => 
+                (current.run_number || 0) > (latest.run_number || 0) ? current : latest
+              , attempts[0]);
+
+              // Calculate points for that attempt
+              return (latestAttempt.question_results || []).reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
+            }
+            return 0;
+          } catch (error) {
+            // Don't fail the whole calculation if one drill's results fail to load
+            console.error(`Failed to fetch results for drill ${drill.id}`, error);
+            return 0;
+          }
+        });
+
+        // 3. Sum up the points from all latest attempts
+        const allPoints = await Promise.all(pointsPromises);
+        const totalPoints = allPoints.reduce((sum, currentPoints) => sum + currentPoints, 0);
+        setPoints(totalPoints);
+
+      } catch (error) {
+        console.error('Failed to calculate total points:', error);
+        setPoints(0);
+      }
+    }
+  }, [isTeacher, user?.id]);
+
   // Fetch badge count and points for students
   useEffect(() => {
     if (!isTeacher && user?.id) {
@@ -28,50 +71,9 @@ const Topbar = ({ onMenuClick }) => {
         .then(res => setBadgeCount(res.data.length))
         .catch(() => setBadgeCount(0));
 
-      // New logic to calculate total points from latest attempts of all drills
-      const calculateTotalPoints = async () => {
-        try {
-          // 1. Fetch all drills for the student across all classrooms
-          const drillsResponse = await api.get('/api/drills/');
-          const allDrills = drillsResponse.data.filter(drill => drill.status === 'published');
-
-          // 2. For each drill, fetch the student's results and find the latest attempt
-          const pointsPromises = allDrills.map(async (drill) => {
-            try {
-              const resultsResponse = await api.get(`/api/drills/${drill.id}/results/student/`);
-              const attempts = Array.isArray(resultsResponse.data) ? resultsResponse.data : [];
-
-              if (attempts.length > 0) {
-                // Find the latest attempt (highest run_number)
-                const latestAttempt = attempts.reduce((latest, current) => 
-                  (current.run_number || 0) > (latest.run_number || 0) ? current : latest
-                , attempts[0]);
-
-                // Calculate points for that attempt
-                return (latestAttempt.question_results || []).reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
-              }
-              return 0;
-            } catch (error) {
-              // Don't fail the whole calculation if one drill's results fail to load
-              console.error(`Failed to fetch results for drill ${drill.id}`, error);
-              return 0;
-            }
-          });
-
-          // 3. Sum up the points from all latest attempts
-          const allPoints = await Promise.all(pointsPromises);
-          const totalPoints = allPoints.reduce((sum, currentPoints) => sum + currentPoints, 0);
-          setPoints(totalPoints);
-
-        } catch (error) {
-          console.error('Failed to calculate total points:', error);
-          setPoints(0);
-        }
-      };
-
       calculateTotalPoints();
     }
-  }, [user, isTeacher]);
+  }, [user, isTeacher, calculateTotalPoints]);
 
   // Handle click outside
   useEffect(() => {
@@ -105,10 +107,11 @@ const Topbar = ({ onMenuClick }) => {
   // Listen for custom drill completion events
   useEffect(() => {
     const handleDrillCompleted = () => {
-      // Add a delay to ensure backend has processed the results
+      // Increase delay to 3.5 seconds to ensure backend has fully processed the results
+      // This matches the leaderboard delay in TakeDrill.jsx (3 seconds) plus buffer
       setTimeout(() => {
         calculateTotalPoints();
-      }, 2000);
+      }, 3500);
     };
 
     // Listen for drill completion events
@@ -117,7 +120,7 @@ const Topbar = ({ onMenuClick }) => {
     return () => {
       window.removeEventListener('drillCompleted', handleDrillCompleted);
     };
-  }, []);
+  }, [calculateTotalPoints]);
 
   const handleLogout = () => {
     setIsDropdownOpen(false);
