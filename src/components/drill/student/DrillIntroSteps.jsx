@@ -73,7 +73,7 @@ const DrillIntroSteps = ({
           mascot: HippoIdle,
           text: (
             <span>
-              {"This is a "} 
+              {"The word is "} 
                 <span style={{ color: '#4C53B4', fontWeight: 700 }}> 
                   {currentWord.word}
               </span>
@@ -88,8 +88,8 @@ const DrillIntroSteps = ({
         const wordToHighlight = currentWord.word || '';
         
         // Determine if we should use "A" or "An" based on first letter
-        const firstLetter = wordToHighlight.charAt(0).toLowerCase();
-        const article = ['a', 'e', 'i', 'o', 'u'].includes(firstLetter) ? 'An' : 'A';
+        //const firstLetter = wordToHighlight.charAt(0).toLowerCase();
+       // const article = ['a', 'e', 'i', 'o', 'u'].includes(firstLetter) ? 'An' : 'A';
         
         // Make sure definition starts with lowercase
         const formattedDef = def.charAt(0).toLowerCase() + def.slice(1);
@@ -98,11 +98,11 @@ const DrillIntroSteps = ({
           mascot: HippoIdle,
           text: (
             <span>
-              {article + " "}
+            {/*  {article + " "}  // Commented out to remove article */}
               <span style={{ color: '#4C53B4', fontWeight: 700 }}>
                 {wordToHighlight}
               </span>
-              {" is "}
+              {" means "}
               {formattedDef}
               {"."}
             </span>
