@@ -113,11 +113,11 @@ const DrillIntroSteps = ({
           mascot: HippoIdle,
           text: (
             <span>
-              {"This is the sign language for "}
+              {"This is "}
                 <span style={{ color: '#4C53B4', fontWeight: 700 }}>
                   {currentWord.word}
                 </span>
-              {". Can you sign it with me? Play the video to see how!"}
+              {"when spoken. Can you read it with me? Play the video to see how!"}
             </span>          
           ),
           video: currentWord.signVideo
