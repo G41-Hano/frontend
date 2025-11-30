@@ -184,7 +184,7 @@ const QuestionRenderer = ({
                 
                 // Determine timer color based on time and question type
                 const isMemoryGame = currentQuestion.type === 'G';
-                const penaltyThreshold = isMemoryGame ? 10 : 5; // Memory games have 10s threshold, others 5s
+                const penaltyThreshold = isMemoryGame ? 20 : 15; // Memory games have 10s threshold, others 5s
                 
                 let timerColor = 'from-blue-500 to-purple-600'; // Default blue
                 let timerText = isMemoryGame ? 'Memory Game' : 'Question';
