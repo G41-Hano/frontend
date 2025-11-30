@@ -36,7 +36,7 @@ export const useDefinitionFetcher = () => {
 
       // GEN AI API is TURNED ON  // enable/disable at constants.js
       if (ENABLE_GEN_AI_API) {
-        result = await api.post("/api/gen-ai/", prompt);
+        result = await api.post("/api/gen-ai-definitions/", prompt);
         response = result.data
       }
       // GEN AI API is TURNED OFF
@@ -57,25 +57,16 @@ export const useDefinitionFetcher = () => {
 
 
       if (result.status === 200) {
-        let jsonDataString = response.response;
-
-        // --- Cleaning Step ---
-        let startIndex = jsonDataString.indexOf('{');
-        let endIndex = jsonDataString.lastIndexOf('}');
-
-        if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-          jsonDataString = jsonDataString.substring(startIndex, endIndex + 1);
-        } else {
-          // Handle cases where { or } might be missing, or in the wrong order
-          console.warn("Could not find a valid JSON object within the string using {} delimiters.");
-          setError("Failed to parse server response. The API response did not follow correct format. Please try again.")
-          return null
-        }
-        // Trim any extra whitespace around the string
-        jsonDataString = jsonDataString.trim();
-
         // --- Parsing Step ---
-        const parsedData = JSON.parse(jsonDataString);
+        const parsedData = response.response;
+
+        // Check if the content is truly empty (e.g., if the AI was blocked)
+        if (parsedData === null || parsedData === undefined) {
+          console.warn("Received empty data object from the server.");
+          setError("AI did not return a valid response. Please try a different prompt.");
+          return null;
+        }
+
         return parsedData; // Return parsed object
 
       } else {
