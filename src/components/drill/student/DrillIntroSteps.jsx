@@ -2,7 +2,8 @@ import React from 'react';
 import DrillHeader from './DrillHeader';
 import IntroBubble from './IntroBubble';
 import HippoIdle from '../../../assets/HippoIdle.gif';
-import GameReminderImg from '../../../assets/GameReminder.png';
+//import GameReminderImg from '../../../assets/GameReminder.png';
+import GameReminderImg from '../../../assets/usabilityTestGM.jpg';
 
 const transitions = [
   "Now let's test your knowledge!",
