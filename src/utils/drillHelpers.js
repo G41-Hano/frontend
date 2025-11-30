@@ -105,13 +105,13 @@ export const calculatePoints = (attempts, timeSpent, isCorrect, questionType = n
 
   // Adjust time penalty based on question type
   let timePenaltyMultiplier = 1;
-  let timePenaltyThreshold = 5;
+  let timePenaltyThreshold = 15;
   
   if (questionType === 'G') {
     // Memory games need more time due to animations and multiple interactions
-    // -1 point per 10 seconds instead of 5 seconds
-    timePenaltyMultiplier = 0.5;
-    timePenaltyThreshold = 10;
+    // -1 point per 20 seconds
+    timePenaltyMultiplier = 1;
+    timePenaltyThreshold = 20;
   }
   
   const timePenalty = Math.min(30, Math.floor((timeSpent || 0) / timePenaltyThreshold) * timePenaltyMultiplier);

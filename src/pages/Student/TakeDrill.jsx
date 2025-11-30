@@ -305,7 +305,7 @@ const TakeDrill = () => {
 
       // Debug logging for memory games
       if (currentQuestion.type === 'G') {
-        const timePenaltyThreshold = 10; // Memory games use 10-second threshold
+        const timePenaltyThreshold = 20; // Memory games use 20-second threshold
         const timePenalty = Math.min(30, Math.floor(timeUsed / timePenaltyThreshold) * 0.5);
       }
 
@@ -577,7 +577,7 @@ const TakeDrill = () => {
       <DrillSummary
         drillBg={drillBg}
         points={points}
-        onExit={handleExit}
+        onBack={handleExit}
         onRetake={handleRetake}
         drillLeaderboard={drillLeaderboard}
         loadingLeaderboard={loadingLeaderboard}
