@@ -7,11 +7,12 @@ An Interactive Vocabulary Learning Platform for Hearing-Impaired Grade 3 Student
 Uses the React library for building a dynamic, responsive, and interactive user interface.
 
 ### Frontend Stack
-- <strong>React.js</strong> – Core JavaScript library for building the UI
-- <strong>React Router 7</strong> – Handles navigation between pages
-- <strong>Material UI (MUI)</strong> – Pre-built React components for styling and icons
-- <strong>Tailwind CSS</strong> – Utility-first CSS framework for responsive design
-- <strong>Emotion</strong> – CSS-in-JS styling library
+- <strong>Vite v6.2.4</strong> – Build tool and development server
+- <strong>React.js v19.0.0</strong> – Core JavaScript library for building the UI
+- <strong>React Router v7.4.1</strong> – Handles navigation between pages
+- <strong>Material UI (MUI) v7.0.1</strong> – Pre-built React components for styling and icons
+- <strong>Tailwind CSS v4.1.1</strong> – Utility-first CSS framework for responsive design
+- <strong>Emotion v11.14.0</strong> – CSS-in-JS styling library
 
 ### State Management & Authentication
 - <strong>Axios</strong> – Handles HTTP requests to the backend
@@ -44,4 +45,17 @@ npm install
 7. Run the server
 ```
 npm run dev
+```
+
+### Deployment:
+
+### Sample Credentials for Testing:
+1. Teacher 
+Username:
+```
+TeacherJohn
+```
+Password:
+```
+SirJohn2025
 ```
