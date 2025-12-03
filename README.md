@@ -60,7 +60,7 @@ Password:
 JohnSmith025
 ```
 
-2. Student <br>
+2. Student<br>
 Username:
 ```
 StudentGrace
