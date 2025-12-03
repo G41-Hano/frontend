@@ -50,7 +50,7 @@ npm run dev
 ### Deployment:
 
 ### Sample Credentials for Testing:
-1. Teacher <br>
+1. Teacher<br>
 Username:
 ```
 TeacherJohn
