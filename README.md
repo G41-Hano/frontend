@@ -48,10 +48,10 @@ Ensure you have **Node.js** and **npm** installed.
     Paste the following structure into your `.env` file and replace the placeholder with your local backend server URL:
     ```
     VITE_API_URL = "http://localhost:8000"
-    > <i>Note: paste the URL provided when running the backend server</i> <br>
     >  Example: VITE_API_URL = "http://localhost:8000"
     ```
     > 💡 ***Note:*** *The `VITE_API_URL` should match the URL provided when running the backend server.*
+    > 💡 ***Example:*** *VITE_API_URL = "http://localhost:8000"*
 6.  **Install Dependencies:**
     ```bash
     npm install
