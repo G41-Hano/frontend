@@ -64,6 +64,7 @@ The Hano frontend is deployed using **Vercel's Git Integration** for Continuous 
     * Go to **Settings** $\rightarrow$ **Environment Variables**.
     * Add:
         | Name | Value | Environments |
+        | :--- | :--- | :--- |
         | **`VITE_API_URL`** | *https://backend-o2s1.onrender.com* | **Production, Preview, Development** |
 6.  **Deploy:** Click **"Deploy"**. The application will now build and be live at the provided Vercel URL.
 
