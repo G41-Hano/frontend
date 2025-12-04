@@ -47,7 +47,30 @@ npm install
 npm run dev
 ```
 
-### Deployment:
+### 🚀 Deployment: Vercel Git Integration
+
+The Hano frontend is deployed using **Vercel's Git Integration** for Continuous Deployment (CD). Every push to the main branch of the connected repository will automatically trigger a new build and deployment.
+
+### ⚙️ Vercel Setup Steps
+
+1.  **Prerequisites:** Ensure you have a Vercel account and the repository is hosted on **GitHub, GitLab, or Bitbucket**.
+2.  **Import Project:** Navigate to the [Vercel Dashboard](https://vercel.com/dashboard) and click **"Add New..."** $\rightarrow$ **"Project"**.
+3.  **Connect Git Repository:** Select the Git provider and import the **`G41-Hano/frontend`** repository.
+4.  **Configure Project:** Vercel will auto-detect the **Vite/React** configuration, but ensure the settings are correct:
+    * **Root Directory:** If the project is the root of the Git repo, leave this blank.
+    * **Build Command:** `npm run build`
+    * **Output Directory:** `dist` (Vite's default output directory)
+5.  **Environment Variables:** Add the required environment variable for the API endpoint:
+    * Go to **Settings** $\rightarrow$ **Environment Variables**.
+    * Add:
+        | Name | Value | Environments |
+        | **`VITE_API_URL`** | *https://backend-o2s1.onrender.com* | **Production, Preview, Development** |
+6.  **Deploy:** Click **"Deploy"**. The application will now build and be live at the provided Vercel URL.
+
+### 🔄 Continuous Deployment
+
+* **Production:** Pushes to the **`main`** branch will automatically trigger a new build and update the production URL.
+* **Preview:** Opening a Pull Request (PR) against the `main` branch will trigger a **Preview Deployment** with a unique URL, allowing for testing before merging.
 
 ### Sample Credentials for Testing:
 1. Teacher
