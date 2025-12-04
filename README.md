@@ -1,51 +1,68 @@
-# Hano
-An Interactive Vocabulary Learning Platform for Hearing-Impaired Grade 3 Students.
+# 📚 Hano Frontend
+### An Interactive Vocabulary Learning Platform for Hearing-Impaired Grade 3 Students.
 
-<br>
+---
 
-## Frontend for Hano
-Uses the React library for building a dynamic, responsive, and interactive user interface.
+## 🌟 Project Overview
+This repository contains the frontend application for **Hano**, an educational platform built to facilitate vocabulary learning for hearing-impaired Grade 3 students. It provides a dynamic, responsive, and highly interactive user interface.
 
-### Frontend Stack
-- <strong>Vite v6.2.4</strong> – Build tool and development server
-- <strong>React.js v19.0.0</strong> – Core JavaScript library for building the UI
-- <strong>React Router v7.4.1</strong> – Handles navigation between pages
-- <strong>Material UI (MUI) v7.0.1</strong> – Pre-built React components for styling and icons
-- <strong>Tailwind CSS v4.1.1</strong> – Utility-first CSS framework for responsive design
-- <strong>Emotion v11.14.0</strong> – CSS-in-JS styling library
+## 💻 Frontend Stack & Technologies
 
-### State Management & Authentication
-- <strong>Axios</strong> – Handles HTTP requests to the backend
-- <strong>JWT Decode</strong> – Decodes JSON Web Tokens for authentication
+| Category | Technology | Version | Description |
+| :--- | :--- | :--- | :--- |
+| **Core** | React.js | v19.0.0 | Core JavaScript library for building the UI. |
+| **Build Tool** | Vite | v6.2.4 | Fast build tool and development server. |
+| **Styling 1** | Material UI (MUI) | v7.0.1 | Pre-built React components for styling and icons. |
+| **Styling 2** | Tailwind CSS | v4.1.1 | Utility-first CSS framework for responsive design. |
+| **Styling 3** | Emotion | v11.14.0 | CSS-in-JS styling library for flexible styling. |
+| **Navigation** | React Router | v7.4.1 | Handles client-side routing and navigation between pages. |
+| **Data Fetching** | Axios | Latest | Promise-based HTTP client for making API requests. |
+| **Authentication** | JWT Decode | Latest | Decodes JSON Web Tokens for user authentication. |
 
-### Installation:
-1. Navigate to your main app folder (Hano)
-```
-cd Hano
-```
-2. Clone the repository
-```
-git clone https://github.com/G41-Hano/frontend.git
-```
-3. Navigate to the frontend folder
-```
-cd frontend
-```
-4. Create a <strong>.env file<strong>
-5. Paste this inside the <strong>.env file<strong>
-```
-VITE_API_URL = ""
-```
-> <i>Note: paste the URL provided when running the backend server</i> <br>
-> Example: VITE_API_URL = "http://localhost:8000"
-6. Install the dependencies
-```
-npm install
-```
-7. Run the server
-```
-npm run dev
-```
+---
+
+## 🚀 Local Installation & Run
+
+Follow these steps to get the Hano frontend running on your local machine.
+
+### Prerequisites
+Ensure you have **Node.js** and **npm** installed.
+
+### Steps
+
+1.  **Navigate to the Main App Folder:**
+    ```bash
+    cd Hano
+    ```
+2.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/G41-Hano/frontend.git
+    ```
+3.  **Navigate to the Frontend Directory:**
+    ```bash
+    cd frontend
+    ```
+4.  **Create Environment File:**
+    Create a file named `.env` in the `frontend` directory.
+5.  **Configure API URL:**
+    Paste the following structure into your `.env` file and replace the placeholder with your local backend server URL:
+    ```
+    VITE_API_URL = "http://localhost:8000"
+    > <i>Note: paste the URL provided when running the backend server</i> <br>
+    >  Example: VITE_API_URL = "http://localhost:8000"
+    ```
+    > 💡 ***Note:*** *The `VITE_API_URL` should match the URL provided when running the backend server.*
+6.  **Install Dependencies:**
+    ```bash
+    npm install
+    ```
+7.  **Run the Server:**
+    ```bash
+    npm run dev
+    ```
+    The application will typically be accessible at `http://localhost:5173`.
+
+---
 
 ### 🚀 Deployment: Vercel Git Integration
 
@@ -73,23 +90,14 @@ The Hano frontend is deployed using **Vercel's Git Integration** for Continuous 
 * **Production:** Pushes to the **`main`** branch will automatically trigger a new build and update the production URL.
 * **Preview:** Opening a Pull Request (PR) against the `main` branch will trigger a **Preview Deployment** with a unique URL, allowing for testing before merging.
 
-### Sample Credentials for Testing:
-1. Teacher
-- Username:
-```
-TeacherJohn
-```
-- Password:
-```
-JohnSmith025
-```
+---
 
-2. Student
-- Username:
-```
-StudentGrace
-```
-- Password:
-```
-GraceAdam2025
-```
+## 🔑 Sample Credentials for Testing
+
+Use the following accounts for system testing and validation:
+
+| User Type | Username | Password |
+| :--- | :--- | :--- |
+| **🧑‍🏫 Teacher** | `TeacherJohn` | `JohnSmith025` |
+| **👩‍🎓 Student** | `StudentGrace` | `GraceAdam2025` |
+
