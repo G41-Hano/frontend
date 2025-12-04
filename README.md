@@ -50,7 +50,7 @@ Ensure you have **Node.js** and **npm** installed.
     VITE_API_URL = "http://localhost:8000"
     >  Example: VITE_API_URL = "http://localhost:8000"
     ```
-    > 💡 ***Note:*** *The `VITE_API_URL` should match the URL provided when running the backend server.*
+    > 💡 ***Note:*** *The `VITE_API_URL` should match the URL provided when running the backend server.* <br>
     > 💡 ***Example:*** *VITE_API_URL = "http://localhost:8000"*
 6.  **Install Dependencies:**
     ```bash
