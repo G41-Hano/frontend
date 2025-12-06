@@ -93,7 +93,7 @@ const NewPassword = () => {
       </div>
 
       {/* Main form container */}
-      <div className="form-container bg-white/80 backdrop-blur-md p-6 sm:p-12 rounded-3xl shadow-lg w-full max-w-[600px] text-center shadow-[0_0_50px_0_rgba(76,83,180,0.2)] hover:shadow-[0_0_70px_0_rgba(76,83,180,0.3)] transition-shadow duration-300 mt-16 sm:mt-0">
+      <div className="form-container bg-white/80 backdrop-blur-md p-6 sm:p-12 rounded-3xl w-full max-w-[600px] text-center shadow-[0_0_50px_0_rgba(76,83,180,0.2)] hover:shadow-[0_0_70px_0_rgba(76,83,180,0.3)] transition-shadow duration-300 mt-16 sm:mt-0">
         {/* Lock icon header */}
         <div className="flex justify-center mb-6">
           <img src={lockIcon} alt="Lock Icon" className="w-20 sm:w-30 h-20 sm:h-30" />

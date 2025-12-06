@@ -16,6 +16,7 @@ import { useSuccessModal } from '../../contexts/SuccessModalContext';
 import { useClassroomPreferences } from '../../contexts/ClassroomPreferencesContext';
 import { ClassroomSkeleton, DrillSkeleton } from '../../components/loading';
 import Skeleton from '../../components/Skeleton';
+import { useToast } from '../../contexts/ToastContext';
 
 const DrillCard = ({ title, icon, color, hoverColor }) => (
   <div 
@@ -132,6 +133,7 @@ const TeacherClassroom = () => {
   const [openMenuDrillId, setOpenMenuDrillId] = useState(null);
   const { showSuccessModal } = useSuccessModal();
   const { getClassroomColor } = useClassroomPreferences();
+  const { addToast } = useToast();
 
   // Combined fetch for classroom and students data
   const fetchClassroomData = useCallback(async () => {
@@ -353,7 +355,7 @@ const TeacherClassroom = () => {
       
       navigate('/t/classes'); // Redirect to all classes after archiving/unarchiving
     } catch (err) {
-      alert('Failed to update archive status.');
+      addToast('Failed to update archive status.', 'error');
       console.error('Error updating archive status:', err);
     }
   };
@@ -657,7 +659,7 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
       if (onDelete) onDelete();
     } catch (error) {
       console.error('Failed to delete drill:', error);
-      alert('Failed to delete drill. Please try again.');
+      addToast('Failed to delete drill. Please try again.', 'error');
       setConfirmDelete(false);
       setOpenMenuDrillId(null);
     } finally {
@@ -670,7 +672,7 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
       await api.patch(`/api/drills/${drill.id}/`, { status: 'published' });
       if (onDelete) onDelete();
     } catch {
-      alert('Failed to publish drill.');
+      addToast('Failed to publish drill.', 'error');
     }
   };
 

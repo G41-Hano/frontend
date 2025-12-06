@@ -17,6 +17,7 @@ import {
   emptyQuestion, 
   validateOverviewFields
 } from '../../utils/drill';
+import { useToast } from '../../contexts/ToastContext';
 
 const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   const [step, setStep] = useState(0);
@@ -34,6 +35,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const definitionFetcher = useDefinitionFetcher();
   const { aiLoading, setAiLoading, generateDefinitionForWord: generateDefForWord, generateQuestion: generateQ } = useAIQuestionGenerator();
+  const { addToast } = useToast();
   
   // Wrapper functions to pass the required parameters
   const generateDefinitionForWord = (index, word) => {
@@ -150,7 +152,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       if (q.type === 'M') {
         for (const c of q.choices) {
           if (!c.text && !c.media) {
-            alert('Each choice in Multiple Choice must have text or media.');
+            addToast('Each choice in Multiple Choice must have text or media.', 'error');
             setSubmittingAction(null);
             return;
           }
@@ -158,18 +160,18 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       }
       if (q.type === 'G') {
         if (!q.memoryCards || q.memoryCards.length < 2) {
-          alert('Memory game must have at least 2 cards.');
+          addToast('Memory game must have at least 2 cards.', 'error');
           setSubmittingAction(null);
           return;
         }
         if (q.memoryCards.length % 2 !== 0) {
-          alert('Memory game must have an even number of cards for matching pairs.');
+          addToast('Memory game must have an even number of cards for matching pairs.', 'error');
           setSubmittingAction(null);
           return;
         }
         for (const card of q.memoryCards) {
           if (!card.content && !card.media) {
-            alert('Each memory game card must have either text or media content.');
+            addToast('Each memory game card must have either text or media content.', 'error');
             setSubmittingAction(null);
             return;
           }
@@ -177,23 +179,23 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
       }
       if (q.type === 'P') {
         if (!q.text) {
-          alert('Picture Word questions must have a drill instructions.');
+          addToast('Picture Word questions must have a drill instructions.', 'error');
           setSubmittingAction(null);
           return;
         }
         if (!q.answer) {
-          alert('Picture Word questions must have a correct answer.');
+          addToast('Picture Word questions must have a correct answer.', 'error');
           setSubmittingAction(null);
           return;
         }
         if (!q.pictureWord || q.pictureWord.length !== 4) {
-          alert('Picture Word questions must have exactly 4 pictures.');
+          addToast('Picture Word questions must have exactly 4 pictures.', 'error');
           setSubmittingAction(null);
           return;
         }
         for (const pic of q.pictureWord) {
           if (!pic.media) {
-            alert('Each picture in Picture Word questions must have an image.');
+            addToast('Each picture in Picture Word questions must have an image.', 'error');
             setSubmittingAction(null);
             return;
           }
@@ -367,9 +369,9 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
     } catch (err) {
       setSubmittingAction(null);
       if (err.response && err.response.data) {
-        alert('Failed to create drill: ' + JSON.stringify(err.response.data));
+        addToast('Failed to create drill: ' + JSON.stringify(err.response.data), 'error');
       } else {
-        alert('Failed to create drill: ' + (err.message || 'Unknown error'));
+        addToast('Failed to create drill: ' + (err.message || 'Unknown error', 'error'));
       }
     }
   };

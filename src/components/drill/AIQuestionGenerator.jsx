@@ -66,14 +66,14 @@ export const useAIQuestionGenerator = () => {
           const hasImage = !!(selectedQuestionWordData.image || selectedQuestionWordData.image_url);
           const hasVideo = !!(selectedQuestionWordData.signVideo || selectedQuestionWordData.video_url);
           
-          console.log('Media check for', selectedQuestionWord, ':', { 
-            hasImage, 
-            hasVideo,
-            image: selectedQuestionWordData.image,
-            signVideo: selectedQuestionWordData.signVideo,
-            image_url: selectedQuestionWordData.image_url,
-            video_url: selectedQuestionWordData.video_url
-          });
+          // console.log('Media check for', selectedQuestionWord, ':', { 
+          //   hasImage, 
+          //   hasVideo,
+          //   image: selectedQuestionWordData.image,
+          //   signVideo: selectedQuestionWordData.signVideo,
+          //   image_url: selectedQuestionWordData.image_url,
+          //   video_url: selectedQuestionWordData.video_url
+          // });
           
           // Determine available question types based on media
           const availableTypes = [];
@@ -81,12 +81,12 @@ export const useAIQuestionGenerator = () => {
           if (hasVideo) availableTypes.push('identify_sign', 'what_word_sign');
           availableTypes.push('definition', 'meaning'); // Always available
           
-          console.log('Available question types:', availableTypes);
+          // console.log('Available question types:', availableTypes);
           
           // Randomly select from available types
           questionType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
           
-          console.log('Selected question type:', questionType);
+          // console.log('Selected question type:', questionType);
           
           // Create choices array
           let choices = [];
