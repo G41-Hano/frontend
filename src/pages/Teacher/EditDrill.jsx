@@ -655,6 +655,7 @@ const EditDrill = ({ classroom: passedClassroom, students: passedStudents }) => 
               content: card.content,
               pairId: card.pairId,
               media: mediaValue,
+              number: card.number,
             };
           }) : [];
         }

@@ -1,31 +1,33 @@
 import MemoryGameCard from './MemoryGameCard';
 
-const MemoryGameQuestionForm = ({ question, onChange, setNotification, setMediaModal }) => {
+const MemoryGameQuestionForm = ({ question, onChange, setNotification, setMediaModal, availableWords }) => {
   const addCard = () => {
+    const currentCards = question.memoryCards || [];
+
     const newCard = {
       id: `card_${Date.now()}`,
       content: '',
       pairId: '',
-      media: null
+      media: null,
+      number: currentCards.length + 1,
     };
     onChange({
       ...question,
-      memoryCards: [...(question.memoryCards || []), newCard]
+      memoryCards: [...currentCards, newCard]
     });
   };
 
   const removeCard = (cardId) => {
-    const cards = (question.memoryCards || []).filter(card => card.id !== cardId);
-    // Remove pairings to this card
-    const updatedCards = cards.map(card => {
-      if (card.pairId === cardId) {
-        return { ...card, pairId: '' };
-      }
-      return card;
-    });
+    const remaining   = (question.memoryCards || []).filter(card => card.id !== cardId);
+    // Re-number cards
+     const renumbered = remaining.map((card, index) => ({
+    ...card,
+    number: index + 1
+  }));
+
     onChange({
       ...question,
-      memoryCards: updatedCards
+      memoryCards: renumbered
     });
   };
 
@@ -94,19 +96,22 @@ const MemoryGameQuestionForm = ({ question, onChange, setNotification, setMediaM
         </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {(question.memoryCards || []).map((card) => (
-          <MemoryGameCard
-            key={card.id}
-            card={card}
-            cards={question.memoryCards}
-            onRemove={() => removeCard(card.id)}
-            onTextChange={(value) => updateCard(card.id, 'content', value)}
-            onMediaChange={(file) => updateCardMedia(card.id, file)}
-            onPairChange={(pairId) => updateCardPair(card.id, pairId)}
-            setNotification={setNotification}
-            setMediaModal={setMediaModal}
-          />
-        ))}
+        {(question.memoryCards || []).map((card) => {
+          return (
+            <MemoryGameCard
+              key={card.id}
+              card={card}
+              cards={question.memoryCards}
+              onRemove={() => removeCard(card.id)}
+              onTextChange={(value) => updateCard(card.id, 'content', value)}
+              onMediaChange={(file) => updateCardMedia(card.id, file)}
+              onPairChange={(pairId) => updateCardPair(card.id, pairId)}
+              setNotification={setNotification}
+              setMediaModal={setMediaModal}
+              availableWords={availableWords}
+            />
+          )
+        })}
       </div>
       {(question.memoryCards || []).length > 0 && (
         <div className="mt-4 p-4 bg-yellow-50 rounded-lg">

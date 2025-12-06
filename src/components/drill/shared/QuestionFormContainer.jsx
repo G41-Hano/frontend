@@ -147,6 +147,7 @@ const QuestionFormContainer = ({
                 }}
                 setNotification={setNotification}
                 setMediaModal={setMediaModal}
+                availableWords={getAvailableWords()}
               />
             )}
 

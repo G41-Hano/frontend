@@ -313,6 +313,7 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
               content: card.content,
               pairId: card.pairId,
               media: mediaValue,
+              number: card.number,
             };
           }) : [];
         }
