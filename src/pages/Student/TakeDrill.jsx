@@ -43,6 +43,24 @@ const TakeDrill = () => {
   const [showTimer, setShowTimer] = useState(false);
   const [shuffleSeed, setShuffleSeed] = useState(() => Math.random());
   const [reminderShown, setReminderShown] = useState(false);
+
+  // Seeded shuffle function for reproducible shuffling
+  const seededShuffle = (array, seed) => {
+    let currentIndex = array.length, temporaryValue, randomIndex;
+    const random = () => {
+      var x = Math.sin(seed++) * 10000;
+      return x - Math.floor(x);
+    };
+
+    while (0 !== currentIndex) {
+      randomIndex = Math.floor(random() * currentIndex);
+      currentIndex -= 1;
+      temporaryValue = array[currentIndex];
+      array[currentIndex] = array[randomIndex];
+      array[randomIndex] = temporaryValue;
+    }
+    return array;
+  };
   
 
   // Fetch drill and wordlist
@@ -158,7 +176,11 @@ const TakeDrill = () => {
 
         setDrill({ ...drillData, questions: mergedQuestions });
         setWordlistData(wordlistInfo);
-        const groups = groupQuestionsByWord(mergedQuestions, shuffleSeed);
+        let groups = groupQuestionsByWord(mergedQuestions, shuffleSeed);
+        
+        // Shuffle the word groups themselves for a different word order on retake
+        groups = seededShuffle([...groups], shuffleSeed);
+
         setWordGroups(groups);
         setLoading(false);
       } catch (error) {
@@ -376,13 +398,6 @@ const TakeDrill = () => {
 
   // Intro-specific back handler (used by the new bottom-left Back button)
   const handleIntroBack = () => {
-    // If we're in the question view, go back to the final intro step (5)
-    if (introStep === 6) {
-      setIntroStep(5);
-      setAnswerStatus(null);
-      setCurrentAnswer(null);
-      return;
-    }
 
     // If we're in an intro step (1-5), move back to the previous intro step
     if (introStep > 0 && introStep <= 5) {

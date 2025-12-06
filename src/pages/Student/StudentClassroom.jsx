@@ -44,7 +44,7 @@ const getDrillAvailabilityStatus = (drill) => {
   if (deadline && now > deadline) {
     return {
       status: 'expired',
-      message: `Expired on ${formatDateTime(drill.deadline)}`,
+      message: `Closed on ${formatDateTime(drill.deadline)}`,
       canAccess: false
     };
   }
