@@ -15,6 +15,7 @@ import { SuccessModalProvider } from './contexts/SuccessModalContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import SuccessModal from './components/SuccessModal'
 import DrillLeaderboard from './pages/Student/DrillLeaderboard'
+import { ToastProvider } from './contexts/ToastContext'
 
 function RegisterAndLogout() {
   localStorage.removeItem('access');
@@ -24,6 +25,7 @@ function RegisterAndLogout() {
 
 function App() {
   return (
+    <ToastProvider>
     <SuccessModalProvider>
       <UserProvider>
         <NotificationProvider>
@@ -94,6 +96,7 @@ function App() {
         </NotificationProvider>
       </UserProvider>
     </SuccessModalProvider>
+    </ToastProvider>
   )
 }
 
