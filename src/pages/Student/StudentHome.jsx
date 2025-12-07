@@ -546,7 +546,7 @@ const StudentHome = () => {
               {/* Placeholder for Hippo Image */}
               <img src={MascotHippo} alt="Hippo" className="w-32 sm:w-44 h-32 sm:h-44 object-cover object-center scale-150 mb-6" />
             </div>
-            <div className="text-center sm:text-left relative z-50">
+            <div className="text-center sm:text-left relative">
               <h1 className="text-3xl sm:text-4xl lg:text-5xl text-[#4C53B4] mb-2 font-baloo font-bold">
                 Hi, {user?.first_name || 'Student'}!
               </h1>
