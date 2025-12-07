@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useCallback, useReducer } from 'react';
 
 const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }) => {
+  const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsSmallScreen(window.innerWidth < 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const safeQuestion = question || {};
   const letterChoices = Array.isArray(safeQuestion.letterChoices) && safeQuestion.letterChoices.length > 0
     ? safeQuestion.letterChoices
@@ -149,7 +159,7 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
   const display = pattern.map((char, idx) => {
     if (char !== '_') {
       return (
-        <div key={idx} className="w-14 h-14 flex items-center justify-center rounded bg-[#4C53B4] text-white font-bold text-2xl mx-2">{char}</div>
+        <div key={idx} className={`flex items-center justify-center rounded bg-[#4C53B4] text-white font-bold ${isSmallScreen ? 'w-10 h-10 text-lg mx-1' : 'w-14 h-14 text-2xl mx-2'}`}>{char}</div>
       );
     } else {
       const thisBlankIdx = blankCounter;
@@ -157,7 +167,8 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
       const box = (
         <div
           key={idx}
-          className={`w-14 h-14 flex items-center justify-center rounded bg-[#EEF1F5] text-[#4C53B4] font-bold text-2xl mx-2 border-2 relative cursor-pointer 
+          className={`flex items-center justify-center rounded bg-[#EEF1F5] text-[#4C53B4] font-bold border-2 relative cursor-pointer 
+            ${isSmallScreen ? 'w-10 h-10 text-lg mx-1' : 'w-14 h-14 text-2xl mx-2'}
             ${isShaking ? 'animate-shake' : ''}
             ${checked 
               ? isCorrect 
@@ -208,12 +219,12 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
 
   return (
     <div className="animate-fadeIn">
-      <div className="flex justify-center gap-2 mb-8">{display}</div>
-      <div className="flex flex-wrap justify-center gap-4 mb-6">
+      <div className={`flex justify-center flex-wrap ${isSmallScreen ? 'gap-1 mb-4' : 'gap-2 mb-8'}`}>{display}</div>
+      <div className={`flex flex-wrap justify-center ${isSmallScreen ? 'gap-2 mb-4' : 'gap-4 mb-6'}`}>
         {availableChoices.map(({ letter, idx, canUse }) => (
           <button
-            key={`${letter}-${idx}`} // Use unique key for duplicate letters
-            className={`w-14 h-14 px-6 py-4 flex items-center justify-center rounded bg-white border-2 border-[#4C53B4] text-[#4C53B4] font-bold text-2xl cursor-pointer hover:bg-[#EEF1F5] transition ${!canUse || answerStatus === 'correct' ? 'opacity-50 cursor-not-allowed' : ''}`}
+            key={`${letter}-${idx}`}
+            className={`flex items-center justify-center rounded bg-white border-2 border-[#4C53B4] text-[#4C53B4] font-bold cursor-pointer hover:bg-[#EEF1F5] transition ${!canUse || answerStatus === 'correct' ? 'opacity-50 cursor-not-allowed' : ''} ${isSmallScreen ? 'w-10 h-10 text-lg' : 'w-14 h-14 text-2xl'}`}
             onClick={() => canUse && answerStatus !== 'correct' && handleLetterChoiceClick(idx)}
             disabled={!canUse || answerStatus === 'correct'}
           >
@@ -223,7 +234,7 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
       </div>
       <div className="flex justify-center mb-4">
         <button
-          className={`px-8 py-3 rounded-xl text-xl font-bold text-white ${selectedIndexes.every(idx => idx !== undefined) ? 'bg-[#4C53B4] hover:bg-[#3a4095]' : 'bg-gray-300 cursor-not-allowed'}`}
+          className={`rounded-xl font-bold text-white transition ${selectedIndexes.every(idx => idx !== undefined) ? 'bg-[#4C53B4] hover:bg-[#3a4095]' : 'bg-gray-300 cursor-not-allowed'} ${isSmallScreen ? 'px-6 py-2 text-sm' : 'px-8 py-3 text-xl'}`}
           onClick={checkAnswer}
           disabled={!selectedIndexes.every(idx => idx !== undefined) || answerStatus === 'correct'}
         >

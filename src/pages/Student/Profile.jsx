@@ -162,7 +162,7 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
       {showSuccess && (
         <div className="fixed top-4 right-4 bg-green-400 text-white px-6 py-3 rounded-xl shadow-lg animate-bounce">
           <div className="flex items-center gap-2">
@@ -173,21 +173,21 @@ const Profile = () => {
       )}
 
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-3xl p-8 shadow-xl">
-          <div className="flex justify-between items-center mb-8">
+        <div className="bg-white rounded-3xl p-4 sm:p-6 lg:p-8 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
             <div>
-              <h1 className="text-4xl font-bold text-[#4C53B4] mb-2 flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#4C53B4] mb-2 flex items-center gap-2">
                 <i className="fa-solid fa-user-circle text-[#4C53B4]"></i>
                 Profile Settings
               </h1>
-              <p className="text-[#4C53B4]">Manage your personal information</p>
+              <p className="text-sm sm:text-base text-[#4C53B4]">Manage your personal information</p>
             </div>
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="group px-6 py-3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E8E] text-white rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
+                className="group px-6 py-3 bg-gradient-to-r from-[#FF6B6B] to-[#FF8E8E] text-white rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 w-full sm:w-auto"
               >
-                <span className="flex items-center gap-2">
+                <span className="flex items-center justify-center sm:justify-start gap-2">
                   <i className="fa-solid fa-pen-to-square group-hover:rotate-12 transition-transform"></i>
                   Edit Profile
                 </span>
@@ -268,7 +268,7 @@ const Profile = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div 
                   className={`relative p-4 rounded-2xl transition-all duration-300 ${
                     hoveredField === 'first_name' ? 'bg-[#FF6B6B]/5' : 'bg-[#E6F3FF]'
@@ -277,7 +277,7 @@ const Profile = () => {
                   onMouseLeave={() => setHoveredField(null)}
                 >
                   <label className="block text-sm font-medium text-[#4C53B4] mb-1">
-                    <i className="fa-solid fa-signature mr-2"></i>
+                    <i className="fa-solid fa-user mr-2"></i>
                     First Name
                   </label>
                   <input
@@ -299,7 +299,7 @@ const Profile = () => {
                   onMouseLeave={() => setHoveredField(null)}
                 >
                   <label className="block text-sm font-medium text-[#4C53B4] mb-1">
-                    <i className="fa-solid fa-signature mr-2"></i>
+                    <i className="fa-solid fa-user mr-2"></i>
                     Last Name
                   </label>
                   <input
@@ -402,17 +402,17 @@ const Profile = () => {
                 <p className="text-[#FF6B6B] text-lg">{profile?.username}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-[#E6F3FF] rounded-2xl hover:bg-[#FF6B6B]/5 transition-all duration-300 hover:scale-[1.02]">
                   <label className="block text-sm font-medium text-[#4C53B4] mb-1">
-                    <i className="fa-solid fa-signature mr-2"></i>
+                    <i className="fa-solid fa-user mr-2"></i>
                     First Name
                   </label>
                   <p className="text-[#FF6B6B] text-lg">{profile?.first_name}</p>
                 </div>
                 <div className="p-4 bg-[#E6F3FF] rounded-2xl hover:bg-[#FF6B6B]/5 transition-all duration-300 hover:scale-[1.02]">
                   <label className="block text-sm font-medium text-[#4C53B4] mb-1">
-                    <i className="fa-solid fa-signature mr-2"></i>
+                    <i className="fa-solid fa-user mr-2"></i>
                     Last Name
                   </label>
                   <p className="text-[#FF6B6B] text-lg">{profile?.last_name}</p>

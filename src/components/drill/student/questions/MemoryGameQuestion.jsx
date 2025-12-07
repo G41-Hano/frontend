@@ -5,6 +5,15 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
   const [matched, setMatched] = useState([]); // array of card ids that are matched
   const [lock, setLock] = useState(false); // prevent flipping more than 2 at a time
   const [incorrectAttempts, setIncorrectAttempts] = useState(0); // track incorrect pair attempts
+  const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsSmallScreen(window.innerWidth < 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Shuffle cards on first render
   const [shuffledCards] = useState(() => {
@@ -76,31 +85,31 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
       }
 
       if (type.startsWith('image/')) {
-        return <img src={src} alt="card" className="w-full h-24 object-contain rounded" />;
+        return <img src={src} alt="card" className="w-full h-full object-cover rounded-lg" />;
       } 
     }
     if (card.content) {
-      return <span className="text-lg font-semibold">{card.content}</span>;
+      return <span className="text-lg font-semibold text-center px-2">{card.content}</span>;
     }
     return <span className="text-gray-400">No content</span>;
   };
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="text-center text-2xl font-bold mb-4 text-[#8e44ad]">
+    <div className="flex flex-col items-center w-full">
+      <div className={`text-center font-bold mb-4 text-[#8e44ad] ${isSmallScreen ? 'text-lg' : 'text-2xl'}`}>
         {matched.length === shuffledCards.length && shuffledCards.length > 0
           ? 'All pairs matched!'
           : flipped.length === 2
             ? 'Checking...'
             : 'Flip two cards to find a match.'}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 max-w-3xl mx-auto">
+      <div className={`grid gap-3 mt-6 mx-auto ${isSmallScreen ? 'grid-cols-2 max-w-xs' : 'grid-cols-4 max-w-3xl'}`}>
         {shuffledCards.map((card) => {
           const isFlipped = flipped.includes(card.id) || matched.includes(card.id);
           return (
             <button
               key={card.id}
-              className={`relative w-40 h-40 sm:w-44 sm:h-44 rounded-xl shadow-lg border-2 transition-all duration-300 flex items-center justify-center bg-white ${isFlipped ? 'ring-4 ring-[#8e44ad] scale-105' : 'hover:scale-105'}`}
+              className={`relative rounded-xl shadow-lg border-2 transition-all duration-300 flex items-center justify-center bg-white overflow-hidden ${isSmallScreen ? 'w-24 h-24' : 'w-40 h-40'} ${isFlipped ? 'ring-4 ring-[#8e44ad] scale-105' : 'hover:scale-105'}`}
               onClick={() => handleFlip(card.id)}
               disabled={isFlipped || lock}
               style={{ perspective: 1000 }}
@@ -111,8 +120,8 @@ const MemoryGameQuestion = ({ question, onAnswer }) => {
                 {isFlipped ? (
                   renderCardContent(card)
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl text-[#8e44ad] bg-[#f1f2f6] rounded-xl">
-                    <i className="fa-regular fa-circle-question"></i>
+                  <div className="w-full h-full flex items-center justify-center bg-[#f1f2f6] rounded-lg">
+                    <i className={`fa-regular fa-circle-question text-[#8e44ad] ${isSmallScreen ? 'text-2xl' : 'text-4xl'}`}></i>
                   </div>
                 )}
               </div>

@@ -22,6 +22,16 @@ const Droppable = ({ id, children }) => {
 };
 
 const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
+  const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsSmallScreen(window.innerWidth < 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const sentence = question.sentence || '';
   const blanksCount = (sentence.match(/_/g) || []).length;
   const [blankAnswers, setBlankAnswers] = useState(() =>
@@ -63,7 +73,7 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
   const parts = sentence.split('_');
   const display = [];
   for (let i = 0; i < parts.length; i++) {
-    display.push(<span key={`part-${i}`} className="text-2xl">{parts[i]}</span>);
+    display.push(<span key={`part-${i}`} className={isSmallScreen ? 'text-lg' : 'text-2xl'}>{parts[i]}</span>);
     if (i < parts.length - 1) {
       const answerIdx = blankAnswers[blankIdx];
       const currentBlankIdx = blankIdx;
@@ -82,14 +92,14 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
                   setIsIncorrect(false);
                 }
               }}
-              className={`inline-flex items-center justify-center min-w-[150px] h-12 mx-2 align-middle cursor-pointer relative text-xl
+              className={`inline-flex items-center justify-center align-middle cursor-pointer relative
                 ${answerIdx !== null 
                   ? 'bg-white border-2' 
                   : 'bg-[#EEF1F5] border-2 border-dashed border-[#4C53B4]/30'} 
                 ${isIncorrect && answerIdx !== null ? 'border-red-500 animate-shake' : ''}
                 ${isCorrect && answerIdx !== null ? 'border-green-500' : ''}
                 ${isOver ? 'border-[#4C53B4] bg-[#EEF1F5] scale-105' : ''}
-                rounded-lg transition-all duration-200`}
+                rounded-lg transition-all duration-200 ${isSmallScreen ? 'min-w-[100px] h-10 mx-1 text-sm' : 'min-w-[150px] h-12 mx-2 text-xl'}`}
             >
               {answerIdx !== null ? choices[answerIdx]?.text : ''}
             </div>
@@ -186,10 +196,10 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
   // Render draggable item
   const renderDraggableItem = (choice, idx, isDragging = false) => (
     <div
-      className={`px-6 py-3 rounded-lg text-lg font-medium bg-white border-2 border-[#4C53B4] text-[#4C53B4] 
+      className={`rounded-lg font-medium bg-white border-2 border-[#4C53B4] text-[#4C53B4] 
         ${used.has(idx) ? 'opacity-50' : 'cursor-grab hover:bg-[#EEF1F5] transition'}
         ${isDragging ? 'opacity-90 scale-110 shadow-2xl' : ''}
-        transition-all duration-200`}
+        transition-all duration-200 ${isSmallScreen ? 'px-3 py-2 text-sm' : 'px-6 py-3 text-lg'}`}
     >
       {choice.text}
     </div>
@@ -202,10 +212,10 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
       onDragEnd={handleDragEnd}
     >
       <div className="animate-fadeIn">
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-12 text-2xl">
+        <div className={`flex flex-wrap items-center justify-center ${isSmallScreen ? 'gap-1 mb-6' : 'gap-2 mb-12'}`}>
           {display}
         </div>
-        <div className="flex flex-wrap justify-center gap-3 mb-6">
+        <div className={`flex flex-wrap justify-center ${isSmallScreen ? 'gap-2 mb-4' : 'gap-3 mb-6'}`}>
           {choices.map((choice, idx) => (
             <Draggable key={`choice-${idx}`} id={`choice-${idx}`} disabled={used.has(idx)}>
               {({ attributes, listeners, setNodeRef, isDragging }) => (
@@ -225,7 +235,7 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
           {activeId !== null && renderDraggableItem(choices[parseInt(activeId.split('-')[1])], parseInt(activeId.split('-')[1]), true)}
         </DragOverlay>
         <div className="flex flex-col items-center gap-4">
-          <div className="text-sm text-gray-500 text-center">
+          <div className={`text-gray-500 text-center ${isSmallScreen ? 'text-xs' : 'text-sm'}`}>
             <i className="fa-solid fa-info-circle mr-1"></i>
             Drag words to fill blanks. Click a filled blank to remove its answer.
           </div>

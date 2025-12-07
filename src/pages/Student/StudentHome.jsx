@@ -547,33 +547,33 @@ const StudentHome = () => {
   }
 
   return (
-    <div className="p-8 bg-[#EEF1F5] min-h-[calc(100vh-64px)]">
-      <div className="max-w-7xl mx-auto flex gap-8">
+    <div className="p-4 sm:p-6 lg:p-8 bg-[#EEF1F5] min-h-[calc(100vh-64px)]">
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 lg:gap-8">
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col gap-8">
+        <div className="flex-1 flex flex-col gap-6 lg:gap-8">
           {/* Greeting Card */}
-          <div className="bg-[#FFDF9F] rounded-3xl p-8 shadow-lg flex items-center relative overflow-hidden">
+          <div className="bg-[#FFDF9F] rounded-3xl p-4 sm:p-6 lg:p-8 shadow-lg flex flex-col sm:flex-row items-center relative overflow-hidden gap-4 sm:gap-0">
              {/* Abstract shape from image */}
              <div className="absolute -right-20 -top-10 w-48 h-48 bg-white/20 rounded-full"></div>
              <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-white/20 rounded-full"></div>
-            <div className="flex-shrink-0 mr-8">
+            <div className="flex-shrink-0 sm:mr-8">
               {/* Placeholder for Hippo Image */}
-              <img src={HippoHappy} alt="Hippo" className="w-40 h-40 object-contain" />
+              <img src={HippoHappy} alt="Hippo" className="w-32 sm:w-40 h-32 sm:h-40 object-contain" />
             </div>
-            <div>
-              <h1 className="text-4xl font-bold text-[#4C53B4] mb-2">
+            <div className="text-center sm:text-left">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#4C53B4] mb-2">
                 Hi, {user?.first_name || 'Student'}!
               </h1>
-              <p className="text-lg text-gray-700">Let's learn something new today</p>
+              <p className="text-base sm:text-lg text-gray-700">Let's learn something new today</p>
             </div>
           </div>
 
           {/* New Drill Notification */}
-          <div className="bg-white rounded-2xl p-6 shadow-md">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-md">
             {classroomsWithUnansweredDrills.length > 0 ? (
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex-1">
-                  <p className="text-lg font-semibold text-gray-700">
+                  <p className="text-base sm:text-lg font-semibold text-gray-700">
                     You have {classroomsWithUnansweredDrills.length} classroom{classroomsWithUnansweredDrills.length > 1 ? 's' : ''} with pending drills!
                   </p>
                   <div className="mt-2 space-y-1">
@@ -585,14 +585,14 @@ const StudentHome = () => {
                       return (
                         <div key={classroom.id} className={`text-sm ${index === 0 ? 'font-medium' : ''}`}>
                           <span className={`${index === 0 ? 'text-orange-600' : 'text-gray-600'}`}>
-                            {index === 0 && '🎯 '}{classroom.name}
+                            {index === 0 && <i className="fa-solid fa-bullseye text-orange-600 mr-1"></i>}{classroom.name}
                           </span>
                           <span className="text-gray-500 ml-2">
                             ({classroom.unansweredDrillCount} drill{classroom.unansweredDrillCount > 1 ? 's' : ''})
                           </span>
                           <span className={`ml-2 text-xs ${isUrgent ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
                             Due: {deadlineText}
-                            {isUrgent && ' ⚠️'}
+                            {isUrgent && <i className="fa-solid fa-triangle-exclamation text-red-600 ml-1"></i>}
                           </span>
                         </div>
                       );
@@ -601,20 +601,20 @@ const StudentHome = () => {
                 </div>
                 <button 
                   onClick={handleDoItNow} 
-                  className="bg-[#D6F25A] text-[#4C53B4] font-bold px-6 py-2 rounded-full hover:bg-lime-400 transition ml-4"
+                  className="bg-[#D6F25A] text-[#4C53B4] font-bold px-6 py-2 rounded-full hover:bg-lime-400 transition w-full sm:w-auto"
                 >
                   Do it Now
                 </button>
               </div>
             ) : (
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <p className="text-lg font-semibold text-gray-700">Great job! You're all caught up!</p>
+                  <p className="text-base sm:text-lg font-semibold text-gray-700">Great job! You're all caught up!</p>
                   <p className="text-sm text-gray-500 mt-1">No pending drills at the moment</p>
                 </div>
                 <button 
                   onClick={() => navigate('/s/classes')} 
-                  className="bg-[#4C53B4] text-white font-bold px-6 py-2 rounded-full hover:bg-[#3a4095] transition"
+                  className="bg-[#4C53B4] text-white font-bold px-6 py-2 rounded-full hover:bg-[#3a4095] transition w-full sm:w-auto"
                 >
                   View Classes
                 </button>
@@ -623,17 +623,17 @@ const StudentHome = () => {
           </div>
 
           {/* Stats Cards Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* Completed Drills */}
-            <div className="bg-[#EE7B6D] rounded-2xl p-6 shadow-md text-white flex flex-col justify-between">
-              <h3 className="text-xl font-bold mb-2">Completed Drills</h3>
+            <div className="bg-[#EE7B6D] rounded-2xl p-4 sm:p-6 shadow-md text-white flex flex-col justify-between">
+              <h3 className="text-lg sm:text-xl font-bold mb-2">Completed Drills</h3>
               {loading ? (
                 <div className="flex items-center justify-center h-20">
                   <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
                 </div>
               ) : (
                 <>
-              <div className="text-5xl font-extrabold mb-4">{completedDrills}</div>
+              <div className="text-4xl sm:text-5xl font-extrabold mb-4">{completedDrills}</div>
               <div className="w-full bg-white/30 rounded-full h-3">
                 <div className="bg-white h-3 rounded-full" style={{ width: `${completedPercentage}%` }}></div>
               </div>
@@ -642,9 +642,9 @@ const StudentHome = () => {
             </div>
 
             {/* Drill Accuracy Rate Chart */}
-            <div className="bg-[#87CEEB] rounded-2xl p-6 shadow-md">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-800">Drill Accuracy Rate</h3>
+            <div className="bg-[#87CEEB] rounded-2xl p-4 sm:p-6 shadow-md">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-800">Drill Accuracy Rate</h3>
                 <span className="text-xs text-gray-600 bg-white/50 px-2 py-1 rounded-full">
                   First 5 attempts
                 </span>
@@ -655,7 +655,7 @@ const StudentHome = () => {
                 </div>
               ) : !accuracyChartData || accuracyChartData.length === 0 ? (
                 <div className="text-center py-8">
-                  <div className="text-4xl mb-2">📊</div>
+                  <div className="text-4xl mb-2"><i className="fa-solid fa-chart-bar text-gray-600"></i></div>
                   <p className="text-gray-600">No drill attempts yet</p>
                 </div>
               ) : (
@@ -743,7 +743,7 @@ const StudentHome = () => {
           </div>
 
           {/* Recently Learned Words */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* Recently Learned Words */}
             <div className="bg-[#C3FD65] rounded-2xl p-6 shadow-md">
               <h3 className="text-xl font-bold text-gray-800 mb-4">Recently Learned Words</h3>
@@ -753,7 +753,7 @@ const StudentHome = () => {
                 </div>
               ) : recentlyLearnedWords.length === 0 ? (
                 <div className="text-center py-4">
-                  <p className="text-gray-600">No recently learned words</p>
+                  <p className="text-gray-500">No recently learned words</p>
                 </div>
               ) : (
               <ul className="space-y-2 text-gray-700">
@@ -781,7 +781,7 @@ const StudentHome = () => {
                 </div>
               ) : !commonlyMissedWords || commonlyMissedWords.totalWordsAnalyzed === 0 ? (
                 <div className="text-center py-8">
-                  <div className="text-4xl mb-2">📚</div>
+                  <div className="text-4xl mb-2"><i className="fa-solid fa-book text-gray-600"></i></div>
                   <p className="text-gray-600 mb-2">No word analysis data available</p>
                   <p className="text-sm text-gray-500">Complete some drills to see your word mastery progress</p>
                 </div>
@@ -855,7 +855,7 @@ const StudentHome = () => {
         </div>
 
         {/* Right Sidebar Area */}
-        <div className="w-80 flex-shrink-0 flex flex-col gap-8">
+        <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-6 lg:gap-8">
           {/* Recent Badges Section */}
           <div className="bg-white rounded-2xl p-6 shadow-md">
             <div className="flex items-center justify-between mb-4">

@@ -2,6 +2,7 @@ import React from 'react';
 import DrillHeader from './DrillHeader';
 import IntroBubble from './IntroBubble';
 import HippoIdle from '../../../assets/HippoIdle.gif';
+import MascotHippoWaiting from '../../../assets/MascotHippoWaiting.gif';
 //import GameReminderImg from '../../../assets/GameReminder.png';
 import GameReminderImg from '../../../assets/usabilityTestGM.jpg';
 
@@ -24,13 +25,25 @@ const DrillIntroSteps = ({
   onExit,
   onNext
 }) => {
+  const [isSmallScreen, setIsSmallScreen] = React.useState(window.innerWidth < 1024);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsSmallScreen(window.innerWidth < 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const totalPoints = Object.values(points).reduce((a, b) => a + (b || 0), 0);
 
   const getIntroContent = () => {
+    const mascot = isSmallScreen ? MascotHippoWaiting : HippoIdle;
+    
     switch (introStep) {
       case 0:
         return {
-          mascot: HippoIdle,
+          mascot: mascot,
           // Return a React node to style part of the text
           text: (
             <span>
@@ -44,7 +57,7 @@ const DrillIntroSteps = ({
         };
       case 1:
         return {
-          mascot: HippoIdle,
+          mascot: mascot,
           text: (
             <span>
               {wordlistData?.description || "Let's explore these words together!"}
@@ -53,7 +66,7 @@ const DrillIntroSteps = ({
         };
       case 2:
         return {
-          mascot: HippoIdle,
+          mascot: mascot,
           // Small styled label with timer/hourglass icon (larger for readability)
           text: (
             <span className="inline-flex items-center gap-3">
@@ -70,7 +83,7 @@ const DrillIntroSteps = ({
         };
       case 3:
         return {
-          mascot: HippoIdle,
+          mascot: mascot,
           text: (
             <span>
               {"The word is "} 
@@ -95,7 +108,7 @@ const DrillIntroSteps = ({
         const formattedDef = def.charAt(0).toLowerCase() + def.slice(1);
         
         return {
-          mascot: HippoIdle,
+          mascot: mascot,
           text: (
             <span>
             {/*  {article + " "}  // Commented out to remove article */}
@@ -111,7 +124,7 @@ const DrillIntroSteps = ({
         };
       case 5:
         return {
-          mascot: HippoIdle,
+          mascot: mascot,
           text: (
             <span>
               {"This is the sign language of "}
@@ -125,12 +138,12 @@ const DrillIntroSteps = ({
         };
       case 6:
         return {
-          mascot: HippoIdle,
+          mascot: mascot,
           text: transitions[Math.floor(Math.random() * transitions.length)]
         };
       default:
         return {
-          mascot: HippoIdle,
+          mascot: mascot,
           text: "Let's continue!"
         };
     }
@@ -158,7 +171,7 @@ const DrillIntroSteps = ({
       { /* Show Back only when introStep > 0 - for the first intro we hide Back */ }
       {typeof introStep === 'number' && introStep > 0 && introStep <= 5 && (
         <button
-          className="fixed bottom-12 left-12 px-6 py-3 bg-white text-[#4C53B4] rounded-xl text-lg font-bold hover:bg-gray-100 shadow-lg z-50 border border-gray-200"
+          className={`fixed bg-white text-[#4C53B4] rounded-xl font-bold hover:bg-gray-100 shadow-lg z-50 border border-gray-200 transition-all ${isSmallScreen ? 'bottom-6 left-6 px-5 py-3 text-sm' : 'bottom-12 left-12 px-8 py-4 text-xl'}`}
           onClick={onBack}
         >
           Back
@@ -166,7 +179,7 @@ const DrillIntroSteps = ({
       )}
 
       <button
-        className="fixed bottom-12 right-12 px-8 py-3 bg-[#f39c12] text-white rounded-xl text-lg font-bold hover:bg-[#e67e22] shadow-lg z-50"
+        className={`fixed bg-[#f39c12] text-white rounded-xl font-bold hover:bg-[#e67e22] shadow-lg z-50 transition-all ${isSmallScreen ? 'bottom-6 right-6 px-5 py-3 text-sm' : 'bottom-12 right-12 px-10 py-4 text-xl'}`}
         onClick={onNext}
       >
         Next

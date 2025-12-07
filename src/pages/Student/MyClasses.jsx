@@ -564,7 +564,7 @@ const MyClasses = () => {
             Join Classroom
           </button>
         </div>
-        <div className="w-24 sm:w-40 h-24 sm:h-40 flex-shrink-0">
+        <div className="hidden sm:block w-24 sm:w-40 h-24 sm:h-40 flex-shrink-0">
           <img src={pencilBook} alt="Learning" className="h-full w-auto object-contain mx-auto" />
         </div>
       </div>

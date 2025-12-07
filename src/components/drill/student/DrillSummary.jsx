@@ -50,38 +50,38 @@ const DrillSummary = ({
   return (
     <div className="h-screen fixed inset-0 z-50 lg:grid lg:grid-cols-12" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
       {/* Main Content Column */}
-      <div className={`${showLeaderboard ? 'lg:col-span-8' : 'col-span-12'} transition-all duration-300`}>
+      <div className={`w-full transition-all duration-300 ${showLeaderboard ? 'lg:col-span-8' : 'lg:col-span-12'}`}>
         {/* Header */}
-        <div className="w-full flex items-center px-8 pt-8 mb-8 gap-6 z-30 relative">
+        <div className="w-full flex items-center px-4 sm:px-8 pt-4 sm:pt-8 mb-4 sm:mb-8 gap-4 sm:gap-6 z-30 relative">
           <button
             type="button"
-            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center cursor-pointer"
+            className="bg-white p-2 sm:p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center cursor-pointer flex-shrink-0"
             onClick={onBack}
             aria-label="Exit drill"
-            style={{ minWidth: 48, minHeight: 48 }}
+            style={{ minWidth: 40, minHeight: 40 }}
           >
-            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
+            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-base sm:text-lg"></i>
           </button>
-          <div className="flex-1 flex justify-center">
-            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div className="bg-[#f39c12] h-4 rounded-full transition-all" style={{ width: `100%` }}></div>
+          <div className="flex-1 flex justify-center min-w-0">
+            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden">
+              <div className="bg-[#f39c12] h-3 sm:h-4 rounded-full transition-all" style={{ width: `100%` }}></div>
             </div>
           </div>
-          <div className="text-lg font-bold text-[#4C53B4] min-w-[90px] text-right">
+          <div className="text-sm sm:text-lg font-bold text-[#4C53B4] min-w-max text-right flex-shrink-0">
             Points: {totalPoints}
           </div>
         </div>
 
         {/* Congratulations Section */}
-        <div className="flex flex-col items-center justify-center w-full h-[calc(100vh-150px)]">
-          <div className="flex flex-col items-center justify-center w-full max-w-xl bg-transparent rounded-2xl p-10 animate-fadeIn">
-            <div className="text-4xl mb-2 text-center text-gray-700" style={{ fontFamily: '"Fredoka One", cursive' }}>You got <span className="font-bold text-5xl text-[#f39c12]">{totalPoints}</span> points!</div>
-            <img src={HippoHappy} alt="Hippo" className="w-48 h-48 mb-4 mx-auto" />
-            <h2 className="text-4xl font-bold text-[#8e44ad] mb-4 text-center">Congratulations!</h2>
-            <div className="text-2xl mb-2 text-center">You've completed the drill!</div>
-            <div className="flex gap-6 mt-8 justify-center">
+        <div className="flex flex-col items-center justify-center w-full h-[calc(100vh-100px)] sm:h-[calc(100vh-150px)] px-4">
+          <div className="flex flex-col items-center justify-center w-full max-w-xl bg-transparent rounded-2xl p-4 sm:p-10 animate-fadeIn">
+            <div className="text-2xl sm:text-4xl mb-2 text-center text-gray-700" style={{ fontFamily: '"Fredoka One", cursive' }}>You got <span className="font-bold text-3xl sm:text-5xl text-[#f39c12]">{totalPoints}</span> points!</div>
+            <img src={HippoHappy} alt="Hippo" className="w-32 sm:w-48 h-32 sm:h-48 mb-4 mx-auto" />
+            <h2 className="text-2xl sm:text-4xl font-bold text-[#8e44ad] mb-4 text-center">Congratulations!</h2>
+            <div className="text-lg sm:text-2xl mb-2 text-center">You've completed the drill!</div>
+            <div className="flex gap-4 sm:gap-6 mt-6 sm:mt-8 justify-center flex-wrap">
               <button
-                className="px-12 py-5 bg-[#4C53B4] text-white rounded-2xl text-2xl font-bold hover:bg-[#3a4095] shadow-lg"
+                className="px-6 sm:px-12 py-3 sm:py-5 bg-[#4C53B4] text-white rounded-2xl text-base sm:text-2xl font-bold hover:bg-[#3a4095] shadow-lg"
                 onClick={onRetake}
               >
                 Retake Drill
@@ -91,8 +91,8 @@ const DrillSummary = ({
         </div>
       </div>
 
-      {/* Leaderboard Column */}
-      <div className={`transition-all duration-300 h-full absolute lg:relative top-0 right-0 ${showLeaderboard ? 'w-full lg:w-auto lg:col-span-4' : 'w-0'} z-10`}>
+      {/* Leaderboard Column - Desktop */}
+      <div className={`hidden lg:block transition-all duration-300 h-full absolute lg:relative top-0 right-0 ${showLeaderboard ? 'lg:w-auto lg:col-span-4' : 'w-0'} z-10`}>
         {showLeaderboard && (
           <div className="h-full bg-white/80 backdrop-blur-sm p-12 overflow-y-auto rounded-l-2xl">
             <Leaderboard
@@ -104,15 +104,42 @@ const DrillSummary = ({
           </div>
         )}
       </div>
+
+      {/* Leaderboard Drawer - Mobile */}
+      <div className={`lg:hidden fixed inset-0 z-40 transition-all duration-300 ${showLeaderboard ? 'bg-black/40' : 'bg-black/0 pointer-events-none'}`} onClick={() => setShowLeaderboard(false)} />
+      <div className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl transition-all duration-300 transform ${showLeaderboard ? 'translate-y-0' : 'translate-y-full'} max-h-[80vh] overflow-y-auto`}>
+        <div className="flex justify-center pt-2 pb-4">
+          <div className="w-12 h-1 bg-gray-300 rounded-full"></div>
+        </div>
+        <div className="px-4 pb-8">
+          <Leaderboard
+            drillLeaderboard={drillLeaderboard}
+            loadingLeaderboard={loadingLeaderboard}
+            leaderboardError={leaderboardError}
+            onUserSelect={onUserSelect}
+          />
+        </div>
+      </div>
+
+      {/* Show Leaderboard Button - Mobile */}
       <button 
         onClick={() => setShowLeaderboard(!showLeaderboard)}
-        className="absolute top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm p-3 rounded-full z-20 transition-all duration-300"
+        className="lg:hidden fixed bottom-6 right-6 bg-[#f39c12] text-white p-4 rounded-full shadow-lg hover:bg-[#e08a0a] transition-all z-40 flex items-center justify-center"
+        aria-label="Toggle leaderboard"
+      >
+        <i className={`fa-solid ${showLeaderboard ? 'fa-chevron-down' : 'fa-trophy'} text-xl`}></i>
+      </button>
+
+      {/* Desktop toggle button */}
+      <button 
+        onClick={() => setShowLeaderboard(!showLeaderboard)}
+        className="hidden lg:block absolute top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm p-3 rounded-full z-20 transition-all duration-300"
         style={{ right: showLeaderboard ? 'calc(33.33% - 1.5rem)' : '1rem' }}
       >
         <i className={`fa-solid ${showLeaderboard ? 'fa-chevron-right' : 'fa-chevron-left'}`}></i>
       </button>
 
-      {runConfetti && <Confetti recycle={false} />}
+      {runConfetti && <Confetti recycle={false} width={typeof window !== 'undefined' ? window.innerWidth : 800} height={typeof window !== 'undefined' ? window.innerHeight : 600} />}
       
       {/* User details modal */}
       <UserModal user={selectedUser} onClose={onCloseUserModal} />
