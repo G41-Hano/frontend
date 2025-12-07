@@ -760,7 +760,7 @@ const StudentHome = () => {
             </div>
 
             {/* Word Mastery Analysis */}
-            <div className="bg-[#FFDF9F] rounded-2xl p-6 shadow-md -mt-6 md:-mt-0">
+            <div className="bg-[#FFDF9F] rounded-2xl p-6 shadow-md -mt-6 md:-mt- mt-1">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold text-[#4C53B4]">Word Mastery Analysis</h3>
                 {commonlyMissedWords && commonlyMissedWords.totalWordsAnalyzed > 0 && (
