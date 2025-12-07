@@ -634,34 +634,38 @@ const TeacherDashboard = () => {
         {/* Class Leaderboard */}
         <div className="relative rounded-3xl shadow-sm overflow-hidden mt-6" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
           <div className="absolute inset-0 bg-blue-50/70 pointer-events-none rounded-3xl" />
-          <div className="p-6 border-b border-gray-100 relative z-10">
+          <div className="p-4 sm:p-6 border-b border-gray-100 relative z-10">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-800">Class Leaderboard</h2>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Class Leaderboard</h2>
               <span className="text-m text-gray-500">Top performers</span>
             </div>
           </div>
 
-          <div className="p-6 relative z-10">
+          <div className="p-4 sm:p-6 relative z-10 overflow-x-auto">
             {(!leaderboard || leaderboard.length === 0) ? (
               <div className="text-center text-gray-500 py-8">No students have points yet.</div>
             ) : (
               <>
-                <Podium drillLeaderboard={leaderboard} onUserSelect={() => {}} />
+                <div className="flex justify-center overflow-x-auto pb-4">
+                  <Podium drillLeaderboard={leaderboard} onUserSelect={() => {}} />
+                </div>
 
-                <div className="max-w-lg mx-auto bg-white/80 rounded-xl shadow p-4">
-                  <div className="flex font-bold text-[#e09b1a] text-lg mb-2">
-                    <div className="flex-1">NAME</div>
-                    <div className="w-24 text-right">POINTS</div>
+                <div className="w-full sm:max-w-lg mx-auto bg-white/80 rounded-xl shadow p-4 overflow-x-auto">
+                  <div className="flex font-bold text-[#e09b1a] text-base sm:text-lg mb-2 min-w-max sm:min-w-0">
+                    <div className="flex-1 pl-2 w-32 sm:w-auto">NAME</div>
+                    <div className="w-20 sm:w-24 text-right pr-2">POINTS</div>
                   </div>
-                  {leaderboard.slice(3).map((student, idx) => {
-                    const key = student && student.id ? `table-${student.id}` : `table-fallback-${idx}`;
-                    return (
-                      <div key={key} className="flex items-center border-t border-gray-200 py-2">
-                        <div className="flex-1 font-semibold text-gray-700">{student.name}</div>
-                        <div className="w-24 text-right font-bold text-gray-700">{student.totalPoints}</div>
-                      </div>
-                    );
-                  })}
+                  <div className="min-w-max sm:min-w-0">
+                    {leaderboard.slice(3).map((student, idx) => {
+                      const key = student && student.id ? `table-${student.id}` : `table-fallback-${idx}`;
+                      return (
+                        <div key={key} className="flex items-center border-t border-gray-200 py-2">
+                          <div className="flex-1 font-semibold text-gray-700 pl-2 w-32 sm:w-auto">{student.name}</div>
+                          <div className="w-20 sm:w-24 text-right font-bold text-gray-700 pr-2">{student.totalPoints}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </>
             )}

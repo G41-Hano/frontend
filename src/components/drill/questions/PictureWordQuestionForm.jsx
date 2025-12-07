@@ -1,14 +1,15 @@
 import FileInput from '../shared/FileInput';
 
-const PictureWordQuestionForm = ({ question, onChange, setMediaModal }) => {
+const PictureWordQuestionForm = ({ question, onChange, setMediaModal, selectedQuestionWord }) => {
   const addPicture = () => {
-    const newPicture = {
-      id: `pic_${Date.now()}`,
+    const newPictures = Array.from({ length: 4 }, (_, i) => ({
+      id: `pic_${Date.now() + i}`,
       media: null
-    };
+    }));
     onChange({
       ...question,
-      pictureWord: [...(question.pictureWord || []), newPicture]
+      pictureWord: newPictures,
+      answer: selectedQuestionWord
     });
   };
 
@@ -41,7 +42,6 @@ const PictureWordQuestionForm = ({ question, onChange, setMediaModal }) => {
           type="button"
           onClick={addPicture}
           className="px-3 py-1 bg-[#4C53B4] text-white rounded hover:bg-[#3a3f8f]"
-          disabled={(question.pictureWord || []).length >= 4}
         >
           Add Picture
         </button>

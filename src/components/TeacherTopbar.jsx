@@ -8,6 +8,7 @@ import api from '../api';
 const TeacherTopbar = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 640);
   const navigate = useNavigate();
   const { user, logout } = useUser();
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, getNotificationPath, fetchNotifications } = useNotifications();
@@ -15,6 +16,16 @@ const TeacherTopbar = () => {
   // Refs for modal containers
   const profileRef = useRef(null);
   const notificationRef = useRef(null);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsSmallScreen(window.innerWidth < 640);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Handle click outside
   useEffect(() => {
@@ -70,7 +81,7 @@ const TeacherTopbar = () => {
   return (
     <header className="h-16 bg-[#4C53B4] w-full flex items-center justify-between px-4 shadow-md z-20 sticky top-0">
       {/* Logo */}
-      <div className="flex items-center">
+      <div className="flex items-center cursor-pointer" onClick={() => navigate('/t/classes')}>
         <img src={logo} alt="Hano Logo" className="w-24 h-auto" />
       </div>
 
@@ -94,7 +105,7 @@ const TeacherTopbar = () => {
 
           {/* Notification Dropdown */}
           {isNotificationOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl border border-gray-100 shadow-lg py-2 z-50 animate-fadeIn">
+            <div className="absolute bg-white rounded-xl border border-gray-100 shadow-lg py-2 z-50 animate-fadeIn" style={{ width: '320px', maxWidth: 'calc(100vw - 40px)', top: 'calc(100% + 8px)', right: isSmallScreen ? 'auto' : '0', left: isSmallScreen ? '50%' : 'auto', transform: isSmallScreen ? 'translateX(-70%)' : 'none' }}>
               <div className="px-4 py-2 flex justify-between items-center border-b border-gray-100">
                 <h3 className="font-medium text-gray-800">Notifications</h3>
                 {unreadCount > 0 && (

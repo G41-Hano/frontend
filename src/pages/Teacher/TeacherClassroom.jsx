@@ -287,15 +287,15 @@ const TeacherClassroom = () => {
 
   if (error) {
     return (
-      <div className="p-4">
-        <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6">
-          <p className="text-red-600 flex items-center gap-2">
+      <div className="p-4 sm:p-6">
+        <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6 sm:p-8">
+          <h3 className="text-lg sm:text-xl font-extrabold text-[#4C53B4] mb-2 flex items-center gap-2">
             <i className="fa-solid fa-face-frown"></i>
             {error}
-          </p>
+          </h3>
           <button 
             onClick={() => navigate('/t/classes')}
-            className="mt-4 text-sm text-red-600 hover:text-red-800 flex items-center gap-2"
+            className="mt-4 sm:mt-6 text-sm sm:text-base text-red-600 hover:text-red-800 flex items-center gap-2"
           >
             <i className="fa-solid fa-arrow-left"></i>
             Back to Classes
@@ -306,12 +306,12 @@ const TeacherClassroom = () => {
   }
 
   if (!classroom) return (
-    <div className="min-h-screen bg-[#EEF1F5] p-4">
+    <div className="min-h-screen bg-[#EEF1F5] p-4 sm:p-6">
       <div className="max-w-[95%] mx-auto">
         <ClassroomSkeleton />
-        <div className="mt-6 bg-white rounded-3xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6"><Skeleton className="h-8 w-1/4" /></h2>
-          <div className="space-y-4">
+        <div className="mt-6 bg-white rounded-3xl shadow-lg p-6 sm:p-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6"><Skeleton className="h-8 w-1/4" /></h2>
+          <div className="space-y-4 sm:space-y-6">
             <DrillSkeleton />
             <DrillSkeleton />
             <DrillSkeleton />
@@ -382,7 +382,7 @@ const TeacherClassroom = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  py-3 px-4 sm:py-4 sm:px-6 rounded-xl inline-flex items-center gap-2 font-medium text-sm 
+                  py-3 sm:py-4 px-4 sm:px-6 rounded-xl inline-flex items-center gap-2 font-medium text-sm 
                   transition-all duration-300 transform hover:scale-105
                   ${activeTab === tab.id 
                     ? 'bg-[#4C53B4] text-white shadow-lg' 
@@ -396,20 +396,20 @@ const TeacherClassroom = () => {
           </nav>
 
           {/* Tab Content */}
-          <div className="p-6">
+          <div className="p-6 sm:p-8">
             {activeTab === 'drills' && (
               <div>
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800">Drills</h2>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Drills</h2>
                   <button
-                    className="px-5 py-2 bg-[#4C53B4] text-white rounded-xl shadow hover:bg-[#3a4095] transition-all duration-300 flex items-center gap-2"
+                    className="px-5 sm:px-6 py-2 sm:py-3 bg-[#4C53B4] text-white rounded-xl shadow hover:bg-[#3a4095] transition-all duration-300 flex items-center gap-2"
                     onClick={() => setSearchParams({ drill: 'create' })}
                   >
                     <i className="fa-solid fa-plus"></i>
                     Create Drill
                   </button>
                 </div>
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 sm:gap-6">
                   {isDrillsLoading ? (
                     <>
                       <DrillSkeleton />
@@ -427,7 +427,7 @@ const TeacherClassroom = () => {
               </div>
             )}
             {activeTab === 'students' && (
-              <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 animate-slideIn relative overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-4 sm:p-6 animate-slideIn relative overflow-hidden">
                 {/* Decorative shapes */}
                 <div className="absolute -right-16 -top-16 w-32 h-32 bg-[#4C53B4]/5 rounded-full"></div>
                 <div className="absolute -left-16 -bottom-16 w-48 h-48 bg-[#FFDF9F]/10 rounded-full"></div>
@@ -441,13 +441,13 @@ const TeacherClassroom = () => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search students..."
-                        className="w-full pl-10 pr-4 py-2 rounded-xl border-2 border-gray-100 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
+                        className="w-full pl-10 pr-4 py-2 sm:py-3 rounded-xl border-2 border-gray-100 focus:border-[#4C53B4] focus:ring-2 focus:ring-[#4C53B4]/20 transition-all"
                       />
                       <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
                     </div>
                     <button 
                       onClick={() => setIsEnrollModalOpen(true)}
-                      className="px-4 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-all duration-300 flex items-center gap-2"
+                      className="px-4 sm:px-6 py-2 sm:py-3 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition-all duration-300 flex items-center gap-2"
                     >
                       <i className="fa-solid fa-user-plus"></i>
                       Enroll Students
@@ -456,7 +456,7 @@ const TeacherClassroom = () => {
                 </div>
 
                 {/* Students Table */}
-                <div className="p-6 relative">
+                <div className="p-6 sm:p-8 relative">
                   {studentError ? (
                     <div className="text-center py-8">
                       <p className="text-red-500">{studentError}</p>
@@ -474,7 +474,7 @@ const TeacherClassroom = () => {
                         <thead>
                           <tr>
                             <th 
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
+                              className="px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
                               onClick={() => handleSort('id')}
                             >
                               <div className="flex items-center gap-1">
@@ -486,7 +486,7 @@ const TeacherClassroom = () => {
                               </div>
                             </th>
                             <th 
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
+                              className="px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-50"
                               onClick={() => handleSort('name')}
                             >
                               <div className="flex items-center gap-1">
@@ -497,8 +497,8 @@ const TeacherClassroom = () => {
                                 </div>
                               </div>
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th className="px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -561,7 +561,7 @@ const TeacherClassroom = () => {
               </div>
             )}
             {activeTab === 'dashboard' && (
-              <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-6 animate-slideIn h-full">
+              <div className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-6 sm:p-8 animate-slideIn h-full">
                 <TeacherDashboard />
               </div>
             )}
@@ -831,26 +831,26 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
 
   return (
     <div className={`relative rounded-2xl overflow-visible shadow border ${drill.status === 'draft' ? 'border-yellow-300 bg-yellow-50 opacity-80' : 'border-[#F7D9A0] bg-[#FFE6C7]'}`}>
-      <div className="flex items-center justify-between px-6 py-4 cursor-pointer" onClick={e => {
+      <div className="flex items-start justify-between p-4 sm:p-6 cursor-pointer" onClick={e => {
         // Only toggle if not clicking the menu button or its children
         if (!buttonRef.current || !buttonRef.current.contains(e.target)) {
           setOpen(o => !o);
         }
       }}>
-        <div className="flex items-center gap-3">
-          <i className={`fa-solid ${open ? 'fa-caret-down' : 'fa-caret-right'} text-lg text-gray-700`}></i>
-          <div className="flex flex-col">
-            <span className="text-xs text-gray-400 font-semibold leading-tight mb-0.5">Drill {idx+1}</span>
-            <span className="font-bold text-3xl text-black leading-tight">{drill.title}</span>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <i className={`fa-solid ${open ? 'fa-caret-down' : 'fa-caret-right'} text-lg sm:text-xl text-gray-700 flex-shrink-0`}></i>
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs sm:text-sm text-gray-400 font-semibold leading-tight mb-0.5">Drill {idx+1}</span>
+            <span className="font-bold text-3xl sm:text-4xl text-black leading-tight truncate">{drill.title}</span>
             {drill.status === 'draft' && (
-              <span className="block mt-1 w-20 text-center py-1 rounded bg-yellow-200 text-yellow-800 text-xs font-bold">Draft</span>
+              <span className="block mt-1 w-20 text-center py-1 rounded bg-yellow-200 text-yellow-800 text-xs sm:text-sm font-bold">Draft</span>
             )}
           </div>
         </div>
-        <div className="relative z-[100]">
+        <div className="relative z-[100] flex-shrink-0">
           <button
             ref={buttonRef}
-            className="text-gray-500 hover:text-gray-700 p-2 rounded-full focus:outline-none"
+            className="text-gray-500 hover:text-gray-700 p-2 sm:p-3 rounded-full focus:outline-none"
             onClick={handleMenuOpen}
           >
             <i className="fa-solid fa-ellipsis-vertical"></i>
@@ -860,23 +860,23 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
       </div>
       
       {open && (
-        <div className="bg-[#F7F9FC] px-8 py-6 border-t border-[#F7D9A0] flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div className="bg-[#F7F9FC] p-4 sm:p-6 border-t border-[#F7D9A0] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
           <div className="flex-1 flex flex-col gap-2">
-            <div className="text-gray-500 text-sm">Description: <span className="font-medium text-gray-700">{drill.description}</span></div>
-            <div className="text-gray-500 text-sm">Open: <span className="font-medium text-gray-700">{formatDateTime(drill.open_date)}</span></div>
-            <div className="text-gray-500 text-sm">Due: <span className="font-medium text-gray-700">{formatDateTime(drill.deadline)}</span></div>
+            <div className="text-gray-500 text-sm sm:text-base">Description: <span className="font-medium text-gray-700">{drill.description}</span></div>
+            <div className="text-gray-500 text-sm sm:text-base">Open: <span className="font-medium text-gray-700">{formatDateTime(drill.open_date)}</span></div>
+            <div className="text-gray-500 text-sm sm:text-base">Due: <span className="font-medium text-gray-700">{formatDateTime(drill.deadline)}</span></div>
           </div>
-          <div className="flex flex-col items-end gap-2 md:items-center md:flex-row">
+          <div className="flex flex-col items-end gap-2 sm:items-center sm:flex-row">
             {drill.status === 'draft' && (
               <button
-                className="px-5 py-2 rounded-xl bg-[#4C53B4] text-white font-bold shadow hover:bg-[#3a4095] hover:scale-105 transition-all duration-300 flex items-center gap-2"
+                className="px-5 sm:px-6 py-2 sm:py-3 rounded-xl bg-[#4C53B4] text-white font-bold shadow hover:bg-[#3a4095] hover:scale-105 transition-all duration-300 flex items-center gap-2"
                 onClick={() => { handlePublish(); }}
               >
                 <i className="fa-solid fa-upload"></i> Publish
               </button>
             )}
             <button 
-              className="ml-2 px-6 py-2 rounded-xl bg-[#38CA77] text-white font-bold shadow hover:bg-[#2DA05F] transition-all duration-300 flex items-center gap-2"
+              className="ml-2 sm:ml-4 px-6 sm:px-8 py-2 sm:py-3 rounded-xl bg-[#38CA77] text-white font-bold shadow hover:bg-[#2DA05F] transition-all duration-300 flex items-center gap-2"
               onClick={() => { 
                 navigate(`/t/take-drill/${drill.id}`);
               }}
@@ -885,7 +885,7 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
             </button>
             {/* View Drill Ranking button: navigates to the drill results view with a ranking view param */}
             <button
-              className="ml-2 px-6 py-2 rounded-xl bg-[#FFD166] text-[#814200] font-bold shadow hover:bg-[#ffca60] transition-all duration-300 flex items-center gap-2"
+              className="ml-2 sm:ml-4 px-6 sm:px-8 py-2 sm:py-3 rounded-xl bg-[#FFD166] text-[#814200] font-bold shadow hover:bg-[#ffca60] transition-all duration-300 flex items-center gap-2"
               onClick={() => {
                 // Navigate to the teacher-mounted leaderboard route so it resolves to /t/drill/:id/leaderboard
                 // Also pass classroom and title as state for the leaderboard to use if needed.
@@ -910,32 +910,32 @@ function DrillPanel({ drill, idx, onDelete, setSearchParams, openMenuDrillId, se
           }}
         >
           <div 
-            className="bg-white rounded-xl shadow-xl p-8 w-[350px] flex flex-col items-center mx-4"
+            className="bg-white rounded-xl shadow-xl p-8 sm:p-12 w-[350px] sm:w-[400px] flex flex-col items-center mx-4"
             style={fadeInUpStyle}
           >
             <div className="w-16 h-16 flex items-center justify-center bg-yellow-100 rounded-full mb-4">
               <i className="fa-solid fa-triangle-exclamation text-yellow-500 text-3xl"></i>
             </div>
-            <div className="font-bold text-xl mb-2 text-center">Delete Drill</div>
+            <div className="font-bold text-xl sm:text-2xl mb-2 text-center">Delete Drill</div>
             <div className="mb-6 text-gray-600 text-center">
               Are you sure you want to delete <span className="font-semibold">{drill.title}</span>?
-              <p className="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
+              <p className="text-sm sm:text-base text-gray-500 mt-2">This action cannot be undone.</p>
             </div>
             <div className="flex justify-end gap-3 w-full">
               <button 
-                className="flex-1 px-6 py-3 rounded-xl bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors" 
+                className="flex-1 px-6 sm:px-8 py-3 sm:py-4 rounded-xl bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 transition-colors" 
                 onClick={() => setConfirmDelete(false)} 
                 disabled={deleting}
               >
                 Cancel
               </button>
               <button 
-                className="flex-1 px-6 py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors" 
+                className="flex-1 px-6 sm:px-8 py-3 sm:py-4 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors" 
                 onClick={handleDelete} 
                 disabled={deleting}
               >
                 {deleting ? (
-                  <div className="flex items-center justify-center gap-2">
+                  <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm text-gray-500">
                     <div className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full" 
                       style={{ animation: 'spin 1s linear infinite' }}>
                     </div>

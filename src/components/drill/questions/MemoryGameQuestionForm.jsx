@@ -3,17 +3,23 @@ import MemoryGameCard from './MemoryGameCard';
 const MemoryGameQuestionForm = ({ question, onChange, setNotification, setMediaModal, availableWords }) => {
   const addCard = () => {
     const currentCards = question.memoryCards || [];
-
-    const newCard = {
+    const newCard1 = {
       id: `card_${Date.now()}`,
       content: '',
       pairId: '',
       media: null,
       number: currentCards.length + 1,
     };
+    const newCard2 = {
+      id: `card_${Date.now() + 1}`,
+      content: '',
+      pairId: '',
+      media: null,
+      number: currentCards.length + 2,
+    };
     onChange({
       ...question,
-      memoryCards: [...currentCards, newCard]
+      memoryCards: [...currentCards, newCard1, newCard2]
     });
   };
 

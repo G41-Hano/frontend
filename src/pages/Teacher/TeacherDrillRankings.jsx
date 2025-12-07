@@ -128,8 +128,8 @@ const TeacherDrillRankings = () => {
             Back to Classroom
           </button>
           <div className="absolute inset-0 bg-blue-100/60 pointer-events-none rounded-2xl" />
-          <div className="relative z-10">
-            <h2 className="text-3xl font-extrabold text-[#e09b1a] text-center mb-8 tracking-wide flex items-center justify-center gap-2">
+          <div className="relative z-10 p-4 sm:p-0">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#e09b1a] text-center mb-6 sm:mb-8 tracking-wide flex items-center justify-center gap-2">
               <span>{drillName} Leaderboard</span>
             </h2>
             {loading ? (
@@ -142,17 +142,17 @@ const TeacherDrillRankings = () => {
               <>
                 <Podium drillLeaderboard={leaderboard} onUserSelect={() => {}} />
                 {/* Table for the rest */}
-                <div className="max-w-lg mx-auto bg-white/80 rounded-xl shadow p-4">
-                  <div className="flex font-bold text-[#e09b1a] text-lg mb-2">
-                    <div className="flex-1">NAME</div>
-                    <div className="w-24 text-right">POINTS</div>
+                <div className="w-full sm:max-w-lg mx-auto bg-white/80 rounded-xl shadow p-4">
+                  <div className="flex font-bold text-[#e09b1a] text-base sm:text-lg mb-2">
+                    <div className="flex-1 pl-2">NAME</div>
+                    <div className="w-20 sm:w-24 text-right pr-2">POINTS</div>
                   </div>
                   {leaderboard.slice(3).map((student) => (
                     <div key={student.id} className="flex items-center border-t border-gray-200 py-2">
-                      <div className="flex-1 font-semibold text-gray-700">
+                      <div className="flex-1 font-semibold text-gray-700 pl-2">
                         {student.name}
                       </div>
-                      <div className="w-24 text-right font-bold text-gray-700">{student.points}</div>
+                      <div className="w-20 sm:w-24 text-right font-bold text-gray-700 pr-2">{student.points}</div>
                     </div>
                   ))}
                 </div>

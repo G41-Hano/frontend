@@ -255,17 +255,17 @@ const ViewDrillResults = () => {
   };
 
   return (
-    <div className="p-8 animate-fadeIn">
+    <div className="p-4 sm:p-6 lg:p-8 animate-fadeIn">
       {/* Header Banner */}
-      <div className="bg-[#4C53B4] text-white p-6 rounded-xl shadow-lg mb-8 relative overflow-hidden">
+      <div className="bg-[#4C53B4] text-white p-4 sm:p-6 rounded-xl shadow-lg mb-6 sm:mb-8 relative overflow-hidden">
         <div className="absolute -right-16 -top-16 w-48 h-48 bg-white/10 rounded-full"></div>
         <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-white/5 rounded-full"></div>
         
-        <div className="flex items-center justify-between relative">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between relative gap-4 sm:gap-0">
           <div>
-            <h1 className="text-3xl font-bold mb-1">Drill Results</h1>
-            <h2 className="text-xl font-medium mb-2">{drill.title}</h2>
-            <div className="flex items-center gap-2 text-sm text-white/80">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-1">Drill Results</h1>
+            <h2 className="text-lg sm:text-xl font-medium mb-2">{drill.title}</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs sm:text-sm text-white/80">
               <span><i className="fa-solid fa-calendar-days mr-1"></i> Created: {drill.created_at ? new Date(drill.created_at).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
@@ -277,9 +277,9 @@ const ViewDrillResults = () => {
               <span><i className="fa-solid fa-list-check mr-1"></i> {questions.length} Questions</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <button 
-              className="px-4 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-all flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-all flex items-center gap-2 text-sm w-full sm:w-auto justify-center"
               onClick={refreshResults}
               disabled={refreshing}
             >
@@ -287,7 +287,7 @@ const ViewDrillResults = () => {
               {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
             <button 
-              className="px-4 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-all flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-all flex items-center gap-2 text-sm w-full sm:w-auto justify-center"
               onClick={() => navigate(-1)}
             >
               <i className="fa-solid fa-arrow-left"></i>

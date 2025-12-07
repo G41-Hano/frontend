@@ -157,6 +157,7 @@ const QuestionFormContainer = ({
                 onChange={(updatedQuestion) => {
                   setQuestionDraft(updatedQuestion);
                 }}
+                selectedQuestionWord={selectedQuestionWord}
               />
             )}
 
