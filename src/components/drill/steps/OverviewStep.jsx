@@ -32,7 +32,11 @@ const OverviewStep = ({
           className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-[#4C53B4]" 
           placeholder="Enter drill description"
           rows="3"
+          maxLength="150"
         />
+        <div className="text-right text-sm text-gray-500 mt-1">
+          {drill.description.length}/150
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>

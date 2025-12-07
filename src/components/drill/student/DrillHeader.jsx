@@ -7,6 +7,7 @@ const DrillHeader = ({ onBack, progress, points, drillTitle, wordlistName }) => 
       <div className="w-full flex items-center justify-between px-8 pt-4 pb-2 gap-6">
         {/* Back button */}
         <button
+          type="button"
           className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center flex-shrink-0"
           onClick={onBack}
           aria-label="Exit drill"

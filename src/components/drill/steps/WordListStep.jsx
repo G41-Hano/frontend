@@ -121,42 +121,8 @@ const WordListStep = ({
       // Check if there are any words added
       const existingWords = drill.customWordList.map(w => w.word).filter(w => w);
       
-      // Add random seed and timestamp to force different descriptions each time
-      const randomSeed = Math.floor(Math.random() * 1000000);
-      const timestamp = Date.now();
-      
-      // Different starting phrases to force variety
-      const startingPhrases = [
-        `${drill.wordlistName} ${drill.wordlistName.toLowerCase().endsWith('s') ? 'are' : 'is'}`,
-        `We call them ${drill.wordlistName.toLowerCase()} because they ${drill.wordlistName.toLowerCase().endsWith('s') ? 'are' : 'is'}`,
-        `${drill.wordlistName} ${drill.wordlistName.toLowerCase().endsWith('s') ? 'are' : 'is'} special because they`,
-        `You can find ${drill.wordlistName.toLowerCase()} when you look for things that ${drill.wordlistName.toLowerCase().endsWith('s') ? 'are' : 'is'}`,
-        `${drill.wordlistName} ${drill.wordlistName.toLowerCase().endsWith('s') ? 'help' : 'helps'} us because they ${drill.wordlistName.toLowerCase().endsWith('s') ? 'are' : 'is'}`
-      ];
-      
-      const perspectives = [
-        'Explain what they are in a simple way',
-        'Describe how they look or feel',
-        'Tell where we see or use them',
-        'Explain why they are helpful',
-        'Describe what makes them special'
-      ];
-      
-      const randomStart = startingPhrases[Math.floor(Math.random() * startingPhrases.length)];
-      const randomPerspective = perspectives[Math.floor(Math.random() * perspectives.length)];
-      
-      let promptText;
-      let systemMessage;
-      
-      if (existingWords.length > 0) {
-        // If words exist, use them to generate description
-        promptText = `[ID:${timestamp}-${randomSeed}] Create a BRAND NEW description about "${drill.wordlistName}". The wordlist contains: ${existingWords.join(', ')}. ${randomPerspective}. Start your description with: "${randomStart}". Then add 1 more short sentence. Use VERY simple words for grade 3 students. IMPORTANT: Describe the TOPIC "${drill.wordlistName}" in general - do NOT try to mention or use the individual words (${existingWords.join(', ')}) in your description. Just explain what ${drill.wordlistName.toLowerCase()} means. Be creative and different!`;
-        systemMessage = "You are a creative special education teacher. Write for grade 3 hearing impaired students using the simplest words possible. Describe the TOPIC/CATEGORY, not the individual words in the list. For example, if the topic is 'School' and words are 'pencil, book, apple', describe what school is in general - do NOT mention pencils, books, or apples in your description. Each description must be COMPLETELY DIFFERENT - use different sentence structures and examples. Start with the given phrase, then continue with fresh ideas. Output ONLY the description text.";
-      } else {
-        // If no words yet, generate description based on the word list name/topic
-        promptText = `[ID:${timestamp}-${randomSeed}] Create a BRAND NEW description about "${drill.wordlistName}". ${randomPerspective}. Start your description with: "${randomStart}". Then add 1 more short sentence. Use VERY simple words for grade 3 students. DO NOT repeat common phrases. Be creative and different!`;
-        systemMessage = "You are a creative special education teacher. Write for grade 3 hearing impaired students using the simplest words possible. Each description must be COMPLETELY DIFFERENT - use different sentence structures, different examples, different words. Never repeat the same phrases or patterns. Start with the given phrase, then continue with fresh ideas. Output ONLY the description text.";
-      }
+      let promptText = `Provide a simple, one-sentence definition for the topic "${drill.wordlistName}" that a grade 3 student can understand. The definition must be under 150 characters.`;
+      let systemMessage = "You are a helpful assistant that provides clear and simple definitions. Output only the definition text.";
       
       // Call the AI API with maximum temperature for variety
       const prompt = {
@@ -170,21 +136,26 @@ const WordListStep = ({
       
       if (result.status === 200 && result.data?.response) {
         let generatedDescription = result.data.response.trim();
-        
-        // Clean up the response - remove any markdown formatting or extra quotes
+
+        // Clean up the response: remove quotes, markdown, and any leftover IDs
         generatedDescription = generatedDescription
-          .replace(/^["']|["']$/g, '') // Remove leading/trailing quotes
-          .replace(/```.*?\n/g, '') // Remove markdown code blocks
-          .replace(/```/g, '') // Remove remaining backticks
+          .replace(/^["']|[\"']$/g, '') // Remove leading/trailing quotes
+          .replace(/```.*\n?|```/g, '')    // Remove markdown code blocks
+          .replace(/\[ID:.*?\]\s*/, '')   // Remove any [ID:...] tags
           .trim();
-        
-        // If multiple descriptions are returned (separated by newlines), take only the first one
-        const lines = generatedDescription.split('\n').filter(line => line.trim());
-        if (lines.length > 1) {
-          // Take the first non-empty line that starts with the wordlist name
-          generatedDescription = lines.find(line => 
-            line.toLowerCase().startsWith(drill.wordlistName.toLowerCase())
-          ) || lines[0];
+
+        // Ensure the description is under 150 characters after cleaning
+        if (generatedDescription.length > 150) {
+          generatedDescription = generatedDescription.substring(0, 150).trim();
+          // Ensure it ends with a complete word
+          generatedDescription = generatedDescription.substring(0, Math.min(generatedDescription.length, generatedDescription.lastIndexOf(' ')));
+        }
+
+        // If multiple sentences are returned, take only the first one.
+        const sentences = generatedDescription.split('. ');
+        generatedDescription = sentences[0].trim();
+        if (!generatedDescription.endsWith('.')) {
+            generatedDescription += '.';
         }
         
         setCustomListDesc(generatedDescription.trim());
@@ -384,6 +355,7 @@ const WordListStep = ({
                 onChange={e => setCustomListDesc(e.target.value)}
                 placeholder="Describe this word list"
                 rows={3}
+                maxLength={150}
               />
               <div className="flex-shrink-0">
                 <AiGenerateButton
@@ -391,6 +363,9 @@ const WordListStep = ({
                   loading={aiLoading.listDesc}
                 />
               </div>
+            </div>
+            <div className="text-right text-sm text-gray-500 mt-1">
+              {customListDesc.length}/150
             </div>
           </div>
           <div className="mb-6">

@@ -42,9 +42,9 @@ const Sidebar = ({ isOpen, onClose }) => {
     `}>
       {/* Logo and Close Button */}
       <div className="p-6 flex items-center justify-between">
-        <div className="flex-1 flex justify-center">
+        <NavLink to={`/${user?.role === 'teacher' ? 't' : 's'}/home`} className="flex-1 flex justify-center">
           <img src={logo} alt="Hano Logo" className="w-32 md:w-40" />
-        </div>
+        </NavLink>
         <button 
           onClick={onClose}
           className="md:hidden absolute right-4 top-4 p-2 hover:bg-[#8BC5E3] rounded-full transition-colors"

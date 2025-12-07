@@ -4,6 +4,7 @@ import api from '../../api';
 import drillBg from '../../assets/drill_bg.png';
 import StudentDrillResultsModal from '../../components/StudentDrillResultsModal';
 import { DashboardSkeleton } from '../../components/loading';
+import Podium from '../../components/drill/student/Podium';
 
 // --- HELPER COMPONENTS ---
 
@@ -645,34 +646,7 @@ const TeacherDashboard = () => {
               <div className="text-center text-gray-500 py-8">No students have points yet.</div>
             ) : (
               <>
-                <div className="flex justify-center items-end gap-8 mb-10">
-                  {[1, 0, 2].map((idx, pos) => {
-                    const student = leaderboard[idx];
-                    const key = student ? `podium-${student.id}` : `podium-empty-${pos}`;
-                    if (!student) return <div key={key} className="w-32" />;
-                    const rank = pos === 0 ? 2 : pos === 1 ? 1 : 3;
-                    const borderColors = ['border-purple-400', 'border-yellow-400', 'border-orange-400'];
-                    const size = pos === 1 ? 'w-32 h-32' : 'w-24 h-24';
-                    const ring = pos === 1 ? 'ring-4 ring-yellow-300' : '';
-                    return (
-                      <div key={key} className="flex flex-col items-center">
-                        <div className="flex flex-col items-center mb-2">
-                          <span className={`font-extrabold text-2xl ${rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-purple-400' : 'text-orange-400'}`}>{rank}</span>
-                          {rank === 1 && (
-                            <span className="-mt-2 text-yellow-400 text-4xl drop-shadow-lg">👑</span>
-                          )}
-                        </div>
-                        <div className={`relative ${size} rounded-full overflow-hidden border-4 ${borderColors[pos]} bg-white flex items-center justify-center ${ring}`}>
-                          <StudentAvatar name={student.name} avatarUrl={student.avatarUrl} />
-                        </div>
-                        <div className={`mt-4 text-center ${pos === 1 ? 'font-extrabold text-xl' : 'font-bold text-lg'} text-gray-800`}>
-                          {student.name.split(' ')[0]}
-                        </div>
-                        <div className="text-center text-gray-600 font-bold">{student.totalPoints}</div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <Podium drillLeaderboard={leaderboard} onUserSelect={() => {}} />
 
                 <div className="max-w-lg mx-auto bg-white/80 rounded-xl shadow p-4">
                   <div className="flex font-bold text-[#e09b1a] text-lg mb-2">

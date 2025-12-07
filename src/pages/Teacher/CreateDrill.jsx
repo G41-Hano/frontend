@@ -113,6 +113,10 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   // Overview change handler
   const handleOverviewChange = e => {
     const { name, value } = e.target;
+    if (name === 'description' && value.length > 150) {
+      setNotification({ show: true, message: 'Description cannot exceed 150 characters.', type: 'error' });
+      return;
+    }
     setDrill(prev => {
       const newDrill = { ...prev, [name]: value };
       
@@ -138,6 +142,11 @@ const CreateDrill = ({ onDrillCreated, classroom, students }) => {
   };
 
   const handleChoiceMedia = (i, file) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4'];
+    if (file && !allowedTypes.includes(file.type)) {
+      setNotification({ show: true, message: 'Invalid file type. Please upload an image or video.', type: 'error' });
+      return;
+    }
     const newChoices = questionDraft.choices.map((c, idx) => idx === i ? { ...c, media: file } : c);
     setQuestionDraft({ ...questionDraft, choices: newChoices });
   };

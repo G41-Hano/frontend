@@ -518,12 +518,36 @@ const AllClasses = () => {
     navigate(`/t/classes/${classroomId}/`);
   };  
 
+  const getNoClassroomsMessage = (filter) => {
+    switch (filter) {
+      case 'hidden':
+        return {
+          title: 'No Hidden Classrooms',
+          message: 'You have not hidden any classrooms yet.'
+        };
+      case 'archived':
+        return {
+          title: 'No Archived Classrooms',
+          message: 'You have not archived any classrooms yet.'
+        };
+      default:
+        return {
+          title: 'No Classrooms Found',
+          message: 'Create a new classroom to get started.'
+        };
+    }
+  };
+
   // Filter classrooms
   const filteredClassrooms = filter === 'active'
     ? classrooms.filter(c => !c?.is_hidden && !c?.is_archived)
     : filter === 'hidden'
       ? classrooms.filter(c => c?.is_hidden && !c?.is_archived)
       : classrooms.filter(c => c?.is_archived);
+
+  useEffect(() => {
+    console.log('Filtered Classrooms:', filteredClassrooms);
+  }, [filteredClassrooms]);
 
   if (loading) {
     return (
@@ -652,22 +676,32 @@ const AllClasses = () => {
             strategy={rectSortingStrategy}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 relative">
-              {filteredClassrooms.map((classroom) => (
-                <SortableClassroomCard
-                  key={classroom.id}
-                  classroom={classroom}
-                  handleOpenMenu={handleOpenMenu}
-                  openMenuId={openMenuId}
-                  handleColorChange={handleColorChange}
-                  handleHideToggle={handleHideToggle}
-                  setSelectedClassroom={setSelectedClassroom}
-                  setIsUpdateModalOpen={setIsUpdateModalOpen}
-                  setIsDeleteModalOpen={setIsDeleteModalOpen}
-                  setOpenMenuId={setOpenMenuId}
-                  handleClick={handleClick}
-                  handleArchiveClassroom={handleArchiveClassroom}
-                />
-              ))}
+              {filteredClassrooms.length > 0 ? (
+                filteredClassrooms.map((classroom) => (
+                  <SortableClassroomCard
+                    key={classroom.id}
+                    classroom={classroom}
+                    handleOpenMenu={handleOpenMenu}
+                    openMenuId={openMenuId}
+                    handleColorChange={handleColorChange}
+                    handleHideToggle={handleHideToggle}
+                    setSelectedClassroom={setSelectedClassroom}
+                    setIsUpdateModalOpen={setIsUpdateModalOpen}
+                    setIsDeleteModalOpen={setIsDeleteModalOpen}
+                    setOpenMenuId={setOpenMenuId}
+                    handleClick={handleClick}
+                    handleArchiveClassroom={handleArchiveClassroom}
+                  />
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12 text-gray-500">
+                  <div className="mb-4">
+                    <i className="fa-solid fa-school-circle-xmark text-4xl text-gray-400"></i>
+                  </div>
+                  <h3 className="text-xl font-medium">{getNoClassroomsMessage(filter).title}</h3>
+                  <p>{getNoClassroomsMessage(filter).message}</p>
+                </div>
+              )}
             </div>
           </SortableContext>
 

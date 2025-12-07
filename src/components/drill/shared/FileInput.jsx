@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 
-const FileInput = ({ value, onChange, onPreview, onSelectFromWordlist, hasWordlistMedia }) => {
+const FileInput = ({ value, onChange, onPreview, onSelectFromWordlist, hasWordlistMedia, accept }) => {
   const src = useMemo(() => {
     const isFile = value instanceof File;
     return isFile ? URL.createObjectURL(value) : (value && value.url ? value.url : '');
@@ -20,7 +20,7 @@ const FileInput = ({ value, onChange, onPreview, onSelectFromWordlist, hasWordli
           <input
             key={inputKey}
             type="file"
-            accept="image/*,video/*"
+            accept={accept || 'image/*,video/*'}
             className="hidden"
             onChange={e => {
               const file = e.target.files[0];

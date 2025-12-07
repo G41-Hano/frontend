@@ -104,7 +104,7 @@ const StudentDrillResultsModal = ({ student, drills, onClose }) => {
                   <h3 className="text-xl font-extrabold text-[#4C53B4] mb-4 border-b pb-2">{drill.title}</h3>
                   
                   <div className="space-y-3">
-                    {drill.drill_results.map((result, index) => {
+                    {drill.drill_results.sort((a, b) => a.run_number - b.run_number).map((result, index) => {
                       const isBestAttempt = result.is_best_attempt;
                       const attemptDate = new Date(result.completion_time || result.start_time).toLocaleDateString();
                       
@@ -136,9 +136,6 @@ const StudentDrillResultsModal = ({ student, drills, onClose }) => {
                             <div className="text-2xl font-extrabold text-green-600">
                               {result.points} <span className="text-lg font-semibold text-gray-700">pts</span>
                             </div>
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                             <i className="fa-solid fa-sync"></i> Total run: {result.run_number}
                           </div>
                         </div>
                       );

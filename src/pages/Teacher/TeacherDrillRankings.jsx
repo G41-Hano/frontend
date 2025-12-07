@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api';
 import drillBg from '../../assets/drill_bg.png';
+import Podium from '../../components/drill/student/Podium';
 
 const TeacherDrillRankings = () => {
   const { id } = useParams();
@@ -139,53 +140,7 @@ const TeacherDrillRankings = () => {
               <div className="text-center text-gray-400 py-12">No students attempted the Drill yet.</div>
             ) : (
               <>
-                {/* Top 3 Podium: 2nd (left), 1st (center), 3rd (right) */}
-                <div className="flex justify-center items-end gap-8 mb-10">
-                  {[1, 0, 2].map((idx, pos) => {
-                    const student = leaderboard[idx];
-                    if (!student) return <div key={pos} className="w-32" />;
-                    // Podium order: left=2nd, center=1st, right=3rd
-                    const rank = pos === 0 ? 2 : pos === 1 ? 1 : 3;
-                    const borderColors = [
-                      'border-purple-400', // 2nd place (left)
-                      'border-yellow-400', // 1st place (center)
-                      'border-orange-400'  // 3rd place (right)
-                    ];
-                    const size = pos === 1 ? 'w-32 h-32' : 'w-24 h-24';
-                    const ring = pos === 1 ? 'ring-4 ring-yellow-300' : '';
-                    return (
-                      <div key={student.id} className="flex flex-col items-center">
-                        {/* Rank and Crown above image */}
-                        <div className="flex flex-col items-center mb-2">
-                          <span className={`font-extrabold text-2xl ${rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-purple-400' : 'text-orange-400'}`}>{rank}</span>
-                          {rank === 1 && (
-                            <span className="-mt-2 text-yellow-400 text-4xl drop-shadow-lg">👑</span>
-                          )}
-                        </div>
-                        <div className={`relative ${size} rounded-full overflow-hidden border-4 ${borderColors[pos]} bg-white flex items-center justify-center ${ring}`}>
-                          {student.avatar ? (
-                            <img 
-                              src={student.avatar} 
-                              alt={student.name} 
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.style.display = 'none';
-                                e.target.parentElement.innerHTML = `<span class="text-[#4C53B4] font-bold text-3xl">${getInitials(student.name)}</span>`;
-                              }}
-                            />
-                          ) : (
-                            <span className="text-[#4C53B4] font-bold text-3xl">{getInitials(student.name)}</span>
-                          )}
-                        </div>
-                        <div className={`mt-4 text-center ${pos === 1 ? 'font-extrabold text-xl' : 'font-bold text-lg'} text-gray-800`}>
-                          {student.name}
-                        </div>
-                        <div className="text-center text-gray-600 font-bold">{student.points}</div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <Podium drillLeaderboard={leaderboard} onUserSelect={() => {}} />
                 {/* Table for the rest */}
                 <div className="max-w-lg mx-auto bg-white/80 rounded-xl shadow p-4">
                   <div className="flex font-bold text-[#e09b1a] text-lg mb-2">

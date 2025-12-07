@@ -202,16 +202,6 @@ const SentenceBuilderQuestion = ({ question, onAnswer, currentAnswer }) => {
       onDragEnd={handleDragEnd}
     >
       <div className="animate-fadeIn">
-        {showTryAgain && (
-          <div className="text-center text-2xl font-bold text-red-500 animate-fadeIn mb-4">
-            Try again!
-          </div>
-        )}
-        {isCorrect && (
-          <div className="text-center text-2xl font-bold mb-4 text-green-600">
-            Correct!
-          </div>
-        )}
         <div className="flex flex-wrap items-center justify-center gap-2 mb-12 text-2xl">
           {display}
         </div>

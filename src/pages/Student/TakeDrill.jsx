@@ -5,7 +5,7 @@ import drillBg from '../../assets/drill_bg.png';
 import '../../styles/animations.css';
 import HippoWaiting from '../../assets/MascotHippoWaiting.gif';
 import HippoSad from '../../assets/MascotHippoSad.gif';
-import { DrillIntroSteps, QuestionRenderer, DrillSummary } from '../../components/drill/student';
+import { DrillIntroSteps, QuestionRenderer, DrillSummary, ExitConfirmationModal } from '../../components/drill/student';
 import { 
   groupQuestionsByWord, 
   calculateTotalSteps, 
@@ -29,6 +29,9 @@ const TakeDrill = () => {
   const [timeSpent, setTimeSpent] = useState({});
   const [points, setPoints] = useState({});
   const [answerStatus, setAnswerStatus] = useState(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackKey, setFeedbackKey] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [wordGroups, setWordGroups] = useState([]);
   const [currentAnswer, setCurrentAnswer] = useState(null);
   const [wrongAnswers, setWrongAnswers] = useState([]);
@@ -43,6 +46,7 @@ const TakeDrill = () => {
   const [showTimer, setShowTimer] = useState(false);
   const [shuffleSeed, setShuffleSeed] = useState(() => Math.random());
   const [reminderShown, setReminderShown] = useState(false);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   // Seeded shuffle function for reproducible shuffling
   const seededShuffle = (array, seed) => {
@@ -210,6 +214,8 @@ const TakeDrill = () => {
     }
   }, [introStep, reminderShown]);
 
+  // Show feedback for a limited time
+
   // Timer logic
   useEffect(() => {
     let intervalId;
@@ -232,6 +238,17 @@ const TakeDrill = () => {
 
   // Leaderboard fetch
   useEffect(() => {
+    if (answerStatus) {
+      setShowFeedback(true);
+      setFeedbackKey(prev => prev + 1); // Force re-render
+      const timer = setTimeout(() => {
+        setShowFeedback(false);
+      }, 1500); // Hide after 1.5 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [answerStatus]);
+
+  useEffect(() => {
     if (introStep === 7) {
       setLoadingLeaderboard(true);
       setLeaderboardError(null);
@@ -245,7 +262,8 @@ const TakeDrill = () => {
           results.forEach(result => {
             const studentId = result.student.id;
             const currentLatest = leaderboardMap.get(studentId);
-            if (!currentLatest || result.run_number > currentLatest.run_number) {
+            if (!currentLatest || result.run_number > currentLatest.run_number || 
+                (result.run_number === currentLatest.run_number && new Date(result.submission_time) > new Date(currentLatest.submission_time))) {
               leaderboardMap.set(studentId, result);
             }
           });
@@ -267,7 +285,7 @@ const TakeDrill = () => {
           })
           .catch(() => setLeaderboardError('Failed to load leaderboard'))
           .finally(() => setLoadingLeaderboard(false));
-      }, 3000); // Wait 3 seconds for backend to process results
+      }, 8000); // Wait 8 seconds for backend to process results
     }
   }, [introStep, id]);
 
@@ -346,7 +364,8 @@ const TakeDrill = () => {
         console.error('Error status:', error.response?.status);
       }
     } else {
-      setAnswerStatus('wrong');
+      setAnswerStatus(null);
+      setTimeout(() => setAnswerStatus('wrong'), 50);
       if (currentQuestion.type === 'M') {
         setWrongAnswers(prev => prev.includes(answer) ? prev : [...prev, answer]);
       }
@@ -394,7 +413,7 @@ const TakeDrill = () => {
   };
 
   // Page-exit handler used by the header back arrow
-  const handleExit = () => navigate(-1);
+  const handleExit = () => setIsExitModalOpen(true);
 
   // Intro-specific back handler (used by the new bottom-left Back button)
   const handleIntroBack = () => {
@@ -407,7 +426,7 @@ const TakeDrill = () => {
 
     // If we're at the first intro step, exit the drill (navigate back)
     if (introStep === 0) {
-      navigate(-1);
+      setIsExitModalOpen(true);
       return;
     }
 
@@ -421,8 +440,6 @@ const TakeDrill = () => {
       return;
     }
 
-    // Fallback to navigating back a page
-    navigate(-1);
   };
 
   const handleRetake = () => {
@@ -444,166 +461,180 @@ const TakeDrill = () => {
   const handleUserSelect = (user) => setSelectedUser(user);
   const handleCloseUserModal = () => setSelectedUser(null);
 
-  // Show full screen layout immediately with loading state
-  if (loading || !drill || wordGroups.length === 0) {
-    return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
-        <div className="w-full flex items-center px-8 pt-6 mb-2 gap-6">
-          <button
-            className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
-            onClick={handleExit}
-            style={{ minWidth: 48, minHeight: 48 }}
-          >
-            <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
-          </button>
-          
-          <div className="flex-1 flex justify-center">
-            <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div className="bg-[#f39c12] h-full rounded-full animate-pulse" style={{ width: '5%' }} />
+  const renderContent = () => {
+    if (loading || !drill || wordGroups.length === 0) {
+      return (
+        <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
+          <div className="w-full flex items-center px-8 pt-6 mb-2 gap-6">
+            <button
+              type="button"
+              className="bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center"
+              onClick={handleExit}
+              style={{ minWidth: 48, minHeight: 48 }}
+            >
+              <i className="fa-solid fa-arrow-left text-[#8e44ad] text-lg"></i>
+            </button>
+            
+            <div className="flex-1 flex justify-center">
+              <div className="w-full max-w-[900px] bg-gray-200 rounded-full h-4 overflow-hidden">
+                <div className="bg-[#f39c12] h-full rounded-full animate-pulse" style={{ width: '5%' }} />
+              </div>
+            </div>
+            
+            <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
+              Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
             </div>
           </div>
-          
-          <div className="text-lg font-bold text-[#4C53B4] min-w-[120px] text-right">
-            Points: {Object.values(points).reduce((a, b) => a + (b || 0), 0)}
-          </div>
-        </div>
 
-        <div className="w-full flex flex-col items-center justify-center h-[calc(100vh-180px)]">
-          <div className="flex items-center gap-4">
-            <img src={HippoWaiting} alt="Loading..." className="w-32 h-32" />
-            <div className="text-xl font-semibold text-[#8e44ad]">Loading your drill...</div>
+          <div className="w-full flex flex-col items-center justify-center h-[calc(100vh-180px)]">
+            <div className="flex items-center gap-4">
+              <img src={HippoWaiting} alt="Loading..." className="w-32 h-32" />
+              <div className="text-xl font-semibold text-[#8e44ad]">Loading your drill...</div>
+            </div>
           </div>
         </div>
-      </div>
-    );
-  }
-  
-  if (error) {
-    return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
-        <div className="w-full h-full flex flex-col items-center justify-center">
-          <div className="bg-white rounded-xl p-8 shadow-lg max-w-md text-center">
-            <img src={HippoSad} alt="Error" className="w-32 h-32 mx-auto mb-4" />
-            <div className="text-xl font-semibold text-red-500 mb-4">{error}</div>
-            <button
-              className="px-6 py-2 bg-[#8e44ad] text-white rounded-lg hover:bg-[#6f3381]"
-              onClick={handleExit}
-            >
-              Go Back
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (dateError) {
-    const isNotOpen = dateError.includes('will be available');
-    const isExpired = dateError.includes('expired');
+      );
+    }
     
-    return (
-      <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
-        <div className="w-full h-full flex flex-col items-center justify-center">
-          <div className="bg-white rounded-xl p-8 shadow-lg max-w-md text-center">
-            <img 
-              src={isNotOpen ? HippoWaiting : HippoSad} 
-              alt={isNotOpen ? "Waiting" : "Expired"} 
-              className="w-32 h-32 mx-auto mb-4" 
-            />
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
-              {isNotOpen ? 'Drill Not Yet Available' : 'Drill Has Expired'}
-            </h2>
-            <p className="text-gray-600 mb-6">{dateError}</p>
-            
-            {isNotOpen && (
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-center gap-2 text-blue-700">
-                  <i className="fa-solid fa-info-circle"></i>
-                  <span className="text-sm font-medium">Tip: Check back later or contact your teacher</span>
-                </div>
-              </div>
-            )}
-            
-            {isExpired && (
-              <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
-                <div className="flex items-center justify-center gap-2 text-red-700">
-                  <i className="fa-solid fa-exclamation-triangle"></i>
-                  <span className="text-sm font-medium">Contact your teacher if you need access</span>
-                </div>
-              </div>
-            )}
-            
-            <button
-              onClick={handleExit}
-              className="px-6 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition"
-            >
-              Go Back
-            </button>
+    if (error) {
+      return (
+        <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
+          <div className="w-full h-full flex flex-col items-center justify-center">
+            <div className="bg-white rounded-xl p-8 shadow-lg max-w-md text-center">
+              <img src={HippoSad} alt="Error" className="w-32 h-32 mx-auto mb-4" />
+              <div className="text-xl font-semibold text-red-500 mb-4">{error}</div>
+              <button
+                className="px-6 py-2 bg-[#8e44ad] text-white rounded-lg hover:bg-[#6f3381]"
+                onClick={handleExit}
+              >
+                Go Back
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  // Render different steps based on introStep
-  if (introStep >= 0 && introStep <= 5) {
-    return (
-      <DrillIntroSteps
-        drillBg={drillBg}
-        introStep={introStep}
-        drill={drill}
-        wordlistData={wordlistData}
-        currentWord={currentWord}
-        progress={progress}
-        points={points}
-        onBack={handleIntroBack}
-        onExit={handleExit}
-        onNext={handleNext}
+    if (dateError) {
+      const isNotOpen = dateError.includes('will be available');
+      const isExpired = dateError.includes('expired');
+      
+      return (
+        <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto bg-cover bg-fixed" style={{ backgroundImage: `url(${drillBg})` }}>
+          <div className="w-full h-full flex flex-col items-center justify-center">
+            <div className="bg-white rounded-xl p-8 shadow-lg max-w-md text-center">
+              <img 
+                src={isNotOpen ? HippoWaiting : HippoSad} 
+                alt={isNotOpen ? "Waiting" : "Expired"} 
+                className="w-32 h-32 mx-auto mb-4" 
+              />
+              <h2 className="text-xl font-bold text-gray-800 mb-4">
+                {isNotOpen ? 'Drill Not Yet Available' : 'Drill Has Expired'}
+              </h2>
+              <p className="text-gray-600 mb-6">{dateError}</p>
+              
+              {isNotOpen && (
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-center gap-2 text-blue-700">
+                    <i className="fa-solid fa-info-circle"></i>
+                    <span className="text-sm font-medium">Tip: Check back later or contact your teacher</span>
+                  </div>
+                </div>
+              )}
+              
+              {isExpired && (
+                <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center justify-center gap-2 text-red-700">
+                    <i className="fa-solid fa-exclamation-triangle"></i>
+                    <span className="text-sm font-medium">Contact your teacher if you need access</span>
+                  </div>
+                </div>
+              )}
+              
+              <button
+                onClick={handleExit}
+                className="px-6 py-2 bg-[#4C53B4] text-white rounded-xl hover:bg-[#3a4095] transition"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (introStep >= 0 && introStep <= 5) {
+      return (
+        <DrillIntroSteps
+          drillBg={drillBg}
+          introStep={introStep}
+          drill={drill}
+          wordlistData={wordlistData}
+          currentWord={currentWord}
+          progress={progress}
+          points={points}
+          onBack={handleIntroBack}
+          onExit={handleExit}
+          onNext={handleNext}
+        />
+      );
+    }
+
+    if (introStep === 6) {
+      return (
+        <QuestionRenderer
+          drillBg={drillBg}
+          currentQuestion={currentQuestion}
+          progress={progress}
+          points={points}
+          answerStatus={answerStatus}
+        showFeedback={showFeedback}
+        feedbackKey={feedbackKey}
+          currentAnswer={currentAnswer}
+          wrongAnswers={wrongAnswers}
+          isTeacherPreview={isTeacherPreview}
+          showTimer={showTimer}
+          timeSpent={timeSpent}
+          currentWordIdx={currentWordIdx}
+          currentQuestionIdx={currentQuestionIdx}
+          onBack={handleExit}
+          onAnswer={handleAnswer}
+          onNext={handleNext}
+          drillTitle={drill?.title}
+          wordlistName={wordlistData?.name}
+        />
+      );
+    }
+
+    if (introStep === 7) {
+      return (
+        <DrillSummary
+          drillBg={drillBg}
+          points={points}
+          onBack={handleExit}
+          onRetake={handleRetake}
+          drillLeaderboard={drillLeaderboard}
+          loadingLeaderboard={loadingLeaderboard}
+          leaderboardError={leaderboardError}
+          selectedUser={selectedUser}
+          onUserSelect={handleUserSelect}
+          onCloseUserModal={handleCloseUserModal}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <>
+      <ExitConfirmationModal 
+        isOpen={isExitModalOpen} 
+        onConfirm={() => navigate(-1)} 
+        onCancel={() => setIsExitModalOpen(false)} 
       />
-    );
-  }
-
-  if (introStep === 6) {
-    return (
-      <QuestionRenderer
-        drillBg={drillBg}
-        currentQuestion={currentQuestion}
-        progress={progress}
-        points={points}
-        answerStatus={answerStatus}
-        currentAnswer={currentAnswer}
-        wrongAnswers={wrongAnswers}
-        isTeacherPreview={isTeacherPreview}
-        showTimer={showTimer}
-        timeSpent={timeSpent}
-        currentWordIdx={currentWordIdx}
-        currentQuestionIdx={currentQuestionIdx}
-        onExit={handleExit}
-        onAnswer={handleAnswer}
-        onNext={handleNext}
-        drillTitle={drill?.title}
-        wordlistName={wordlistData?.name}
-      />
-    );
-  }
-
-  if (introStep === 7) {
-    return (
-      <DrillSummary
-        drillBg={drillBg}
-        points={points}
-        onBack={handleExit}
-        onRetake={handleRetake}
-        drillLeaderboard={drillLeaderboard}
-        loadingLeaderboard={loadingLeaderboard}
-        leaderboardError={leaderboardError}
-        selectedUser={selectedUser}
-        onUserSelect={handleUserSelect}
-        onCloseUserModal={handleCloseUserModal}
-      />
-    );
-  }
-
-  return null;
+      {renderContent()}
+    </>
+  );
 };
 export default TakeDrill;

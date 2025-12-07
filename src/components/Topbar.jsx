@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Tooltip } from 'react-tooltip';
 import Badge from '../assets/Badge.png';
 import Points from '../assets/Points.png';
 import { useNavigate } from 'react-router-dom';
@@ -178,16 +179,25 @@ const Topbar = ({ onMenuClick }) => {
         {!isTeacher && (
           <>
             {/* Badge Count Box */}
-            <div className="bg-white rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.05)] px-3 sm:px-4 py-2 flex items-center gap-2">
+            <button 
+              onClick={() => navigate('/s/badges')}
+              className="bg-white rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.05)] px-3 sm:px-4 py-2 flex items-center gap-2 transition-transform duration-200 hover:scale-105"
+              data-tooltip-id="badges-tooltip"
+            >
               <img src={Badge} alt="Badges" className="w-6 sm:w-7 h-6 sm:h-7" />
               <span className="text-gray-600 font-medium font-baloo text-sm sm:text-base">{badgeCount}</span>
-            </div>
+            </button>
+            <Tooltip id="badges-tooltip" place="bottom">View your badges</Tooltip>
 
             {/* Points Box */}
-            <div className="bg-white rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.05)] px-3 sm:px-4 py-2 flex items-center gap-2">
+            <div 
+              className="bg-white rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),0_2px_4px_rgba(0,0,0,0.05)] px-3 sm:px-4 py-2 flex items-center gap-2"
+              data-tooltip-id="points-tooltip"
+            >
               <img src={Points} alt="Points" className="w-6 sm:w-7 h-6 sm:h-7" />
               <span className="text-gray-600 font-medium font-baloo text-sm sm:text-base">{points}</span>
             </div>
+            <Tooltip id="points-tooltip" place="bottom">Your total points</Tooltip>
           </>
         )}
 

@@ -118,7 +118,7 @@ const DrillIntroSteps = ({
                 <span style={{ color: '#4C53B4', fontWeight: 700 }}>
                   {currentWord.word}
                 </span>
-              {". Can you read it with me? Play the video to see how!"}
+              {". Can you sign it with me? Play the video to see how!"}
             </span>          
           ),
           video: currentWord.signVideo
@@ -141,7 +141,7 @@ const DrillIntroSteps = ({
   return (
     <div className="min-h-screen fixed inset-0 z-50 overflow-y-auto" style={{ backgroundImage: `url(${drillBg})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
       <DrillHeader 
-        onBack={onExit || onBack}
+        onBack={onExit}
         progress={progress}
         points={totalPoints}
         drillTitle={drill?.title}

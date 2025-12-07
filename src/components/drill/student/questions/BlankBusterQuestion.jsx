@@ -208,16 +208,6 @@ const BlankBusterQuestion = ({ question, onAnswer, currentAnswer, answerStatus }
 
   return (
     <div className="animate-fadeIn">
-      {checked && isCorrect === false && (
-        <div className="text-center text-2xl font-bold mb-4 text-red-600">
-          Try again!
-        </div>
-      )}
-      {checked && isCorrect === true && (
-        <div className="text-center text-2xl font-bold mb-4 text-green-600">
-          Correct!
-        </div>
-      )}
       <div className="flex justify-center gap-2 mb-8">{display}</div>
       <div className="flex flex-wrap justify-center gap-4 mb-6">
         {availableChoices.map(({ letter, idx, canUse }) => (

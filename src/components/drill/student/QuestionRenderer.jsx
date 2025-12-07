@@ -8,6 +8,7 @@ import SentenceBuilderQuestion from './questions/SentenceBuilderQuestion';
 import HippoCurious from '../../../assets/MascotHippoCurious.gif';
 import HippoHappy from '../../../assets/MascotHippoHappy.gif';
 import HippoSad from '../../../assets/MascotHippoSad.gif';
+import AnswerFeedback from './AnswerFeedback';
 
 const QuestionRenderer = ({
   drillBg,
@@ -15,6 +16,7 @@ const QuestionRenderer = ({
   progress,
   points,
   answerStatus,
+  showFeedback,
   currentAnswer,
   wrongAnswers,
   isTeacherPreview,
@@ -220,6 +222,8 @@ const QuestionRenderer = ({
           </div>
         </div>
       </div>
+
+      {showFeedback && <AnswerFeedback status={answerStatus} />}
       
       {/* Next button - Show for teacher preview or when student has correct answer */}
       {(isTeacherPreview || answerStatus === 'correct') && (

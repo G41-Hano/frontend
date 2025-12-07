@@ -60,6 +60,7 @@ export default function CreateCustomWordList({index,word,handleUpdateCustomWord,
             value={word.image}
             onChange={file => handleUpdateCustomWord(index, 'image', file)}
             onPreview={(src, type) => setMediaModal({ open: true, src, type })}
+            accept="image/jpeg,image/png"
           />
         </div>
         <div>
@@ -68,6 +69,7 @@ export default function CreateCustomWordList({index,word,handleUpdateCustomWord,
             value={word.signVideo}
             onChange={file => handleUpdateCustomWord(index, 'signVideo', file)}
             onPreview={(src, type) => setMediaModal({ open: true, src, type })}
+            accept="video/*"
           />
         </div>
       </div>

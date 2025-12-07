@@ -367,7 +367,7 @@ const TeacherClassroom = () => {
         onEdit={() => setIsUpdateModalOpen(true)}
         onDelete={() => setIsDeleteModalOpen(true)}
         onArchive={handleArchiveClassroom}
-        onBack={() => navigate(-1)}
+        onBack={() => navigate('/t/classes')}
       />
 
       {/* Content Area */}
