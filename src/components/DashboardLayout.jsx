@@ -9,7 +9,7 @@ const DashboardLayout = () => {
   const {user} = useUser();
 
   return (
-    <div className="h-screen flex overflow-hidden">
+    <div className="h-screen flex overflow-hidden font-baloo">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 

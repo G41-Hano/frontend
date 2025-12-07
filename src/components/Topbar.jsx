@@ -68,10 +68,18 @@ const Topbar = ({ onMenuClick }) => {
   // Fetch badge count and points for students
   useEffect(() => {
     if (!isTeacher && user?.id) {
-      // Fetch badge count
-      api.get('/api/badges/student-badges/', { params: { student_id: user.id } })
-        .then(res => setBadgeCount(res.data.length))
-        .catch(() => setBadgeCount(0));
+      // Fetch badge count - get all badges and filter for earned ones
+      api.get('/api/badges/')
+        .then(res => {
+          // Filter for earned badges (is_earned === true)
+          const earnedBadges = res.data.filter(badge => badge.is_earned);
+          console.log('Earned badges:', earnedBadges);
+          setBadgeCount(earnedBadges.length);
+        })
+        .catch(err => {
+          console.error('Failed to fetch badge count:', err);
+          setBadgeCount(0);
+        });
 
       calculateTotalPoints();
     }

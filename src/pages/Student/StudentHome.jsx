@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
 import HippoHappy from '../../assets/HippoIdle.gif';
+import MascotHippo from '../../assets/MascotHippoWaiting.gif';
 import api from '../../api';
 import { DashboardSkeleton } from '../../components/loading';
 
@@ -158,13 +159,12 @@ const StudentHome = () => {
     }
   }, [user?.id]);
 
-  // Fetch recent drills and their actual points
+  // Fetch recent drills and their actual points - ONLY ANSWERED DRILLS
   useEffect(() => {
     const fetchRecentDrills = async () => {
       try {
         const response = await api.get('/api/drills/');
-        // Get the 5 most recent drills
-        const drills = response.data.slice(0, 5);
+        const drills = response.data;
         
         // Fetch drill results for each drill to get actual points
         const recentDrillsData = await Promise.all(
@@ -174,39 +174,40 @@ const StudentHome = () => {
               const resultsResponse = await api.get(`/api/drills/${drill.id}/results/student/`);
               const drillResults = resultsResponse.data;
               
+              // ONLY include drills that have been answered (have results)
+              if (!drillResults || drillResults.length === 0) {
+                return null; // Skip unanswered drills
+              }
+              
               // Calculate total points from latest attempt for this drill
               let totalPoints = 0;
-              if (drillResults && drillResults.length > 0) {
-                // Find the latest attempt (highest run_number)
-                const latestAttempt = drillResults.reduce((latest, current) => {
-                  return (current.run_number || 0) > (latest.run_number || 0) ? current : latest;
-                }, drillResults[0]);
-                
-                // Calculate points from the latest attempt
-                if (latestAttempt.question_results) {
-                  totalPoints = latestAttempt.question_results.reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
-                }
+              // Find the latest attempt (highest run_number)
+              const latestAttempt = drillResults.reduce((latest, current) => {
+                return (current.run_number || 0) > (latest.run_number || 0) ? current : latest;
+              }, drillResults[0]);
+              
+              // Calculate points from the latest attempt
+              if (latestAttempt.question_results) {
+                totalPoints = latestAttempt.question_results.reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
               }
               
               return {
                 id: drill.id,
                 name: drill.title,
                 points: totalPoints,
-                questions: drill.questions || [] // Include questions to extract words
+                questions: drill.questions || [], // Include questions to extract words
+                hasAnswered: true // Mark as answered
               };
             } catch (error) {
               console.error(`Error fetching results for drill ${drill.id}:`, error);
-              return {
-                id: drill.id,
-                name: drill.title,
-                points: 0,
-                questions: drill.questions || []
-              };
+              return null; // Skip drills with errors
             }
           })
         );
 
-        setRecentDrills(recentDrillsData);
+        // Filter out null values (unanswered drills) and get the 5 most recent answered drills
+        const answeredDrills = recentDrillsData.filter(drill => drill !== null).slice(0, 5);
+        setRecentDrills(answeredDrills);
       } catch (error) {
         console.error('Error fetching recent drills:', error);
       }
@@ -215,7 +216,7 @@ const StudentHome = () => {
     if (user?.id) {
       fetchRecentDrills();
     }
-  }, [user?.id]); // Remove studentPoints dependency since we're fetching actual drill results
+  }, [user?.id]);
 
   // Calculate vocabulary mastery from drill statistics
   useEffect(() => {
@@ -276,43 +277,46 @@ const StudentHome = () => {
   // Calculate word mastery from actual drill results
   useEffect(() => {
     const calculateWordMastery = async () => {
-      if (!user?.id || recentDrills.length === 0) {
+      if (!user?.id) {
         return;
       }
 
       try {
-        const wordStats = new Map(); // word -> { correct: 0, total: 0, attempts: [] }
-        let totalQuestionsProcessed = 0;
+        const wordStats = new Map(); // word -> { attemptCount: number }
         let wordsFound = 0;
 
+        // Analyze each drill's results - use ALL answered drills, not just recent ones
+        const drillsToAnalyze = recentDrills.length > 0 ? recentDrills : [];
+        
+        if (drillsToAnalyze.length === 0) {
+          setCommonlyMissedWords({ mastered: [], missed: [], totalWordsAnalyzed: 0 });
+          return;
+        }
+
         // Analyze each drill's results
-        for (const drill of recentDrills) {
+        for (const drill of drillsToAnalyze) {
           try {
-            
             // Get drill results for this specific drill
             const resultsResponse = await api.get(`/api/drills/${drill.id}/results/student/`);
             const drillResults = resultsResponse.data || [];
             
-            // Process each attempt
+            // Track which words appear in which attempts
+            const wordsByAttempt = new Map(); // word -> Set of attempt numbers
+            
             drillResults.forEach(result => {
               if (result.question_results && Array.isArray(result.question_results)) {
-                totalQuestionsProcessed += result.question_results.length;
-                
-                result.question_results.forEach((qr, qrIndex) => {
-                  // Extract word from question result
+                result.question_results.forEach((qr) => {
                   let word = null;
-                                    
-                  // Try to get word from different sources
+                  
+                  // Extract word from question result
                   if (qr.question && qr.question.word) {
                     word = qr.question.word.trim();
                   } else if (qr.question && qr.question.pictureWord && Array.isArray(qr.question.pictureWord)) {
-                    // For picture word questions, use the first word
                     const firstPicture = qr.question.pictureWord[0];
                     if (firstPicture && firstPicture.word) {
                       word = firstPicture.word.trim();
                     }
                   } else if (qr.question && qr.question.memoryCards && Array.isArray(qr.question.memoryCards)) {
-                    // For memory game questions, use the first word
                     const firstCard = qr.question.memoryCards[0];
                     if (firstCard && firstCard.word) {
                       word = firstCard.word.trim();
@@ -321,26 +325,23 @@ const StudentHome = () => {
 
                   if (word) {
                     wordsFound++;
-                    if (!wordStats.has(word)) {
-                      wordStats.set(word, { correct: 0, total: 0, attempts: [] });
+                    if (!wordsByAttempt.has(word)) {
+                      wordsByAttempt.set(word, new Set());
                     }
-                    
-                    const stats = wordStats.get(word);
-                    stats.total++;
-                    stats.attempts.push({
-                      correct: qr.is_correct || false,
-                      points: qr.points_awarded || 0,
-                      drillId: drill.id,
-                      drillName: drill.name
-                    });
-                    
-                    if (qr.is_correct) {
-                      stats.correct++;
-                    }
-                    
+                    // Track which attempt this word was answered in
+                    wordsByAttempt.get(word).add(result.run_number || 1);
                   }
                 });
               }
+            });
+            
+            // Convert to word stats (number of attempts to master each word)
+            wordsByAttempt.forEach((attempts, word) => {
+              if (!wordStats.has(word)) {
+                wordStats.set(word, { attempts: attempts.size, drills: [] });
+              }
+              const stats = wordStats.get(word);
+              stats.drills.push(drill.id);
             });
           } catch (error) {
             console.error(`Error analyzing drill ${drill.id} for word mastery:`, error);
@@ -349,13 +350,11 @@ const StudentHome = () => {
 
         // If no words found from question results, try extracting from drill questions directly
         if (wordsFound === 0) {
-          
           for (const drill of recentDrills) {
             if (drill.questions && Array.isArray(drill.questions)) {
               drill.questions.forEach(question => {
                 let word = null;
                 
-                // Extract word from different question types
                 if (question.word && question.word.trim()) {
                   word = question.word.trim();
                 } else if (question.type === 'P' && question.pictureWord && Array.isArray(question.pictureWord)) {
@@ -372,52 +371,42 @@ const StudentHome = () => {
                 
                 if (word) {
                   if (!wordStats.has(word)) {
-                    wordStats.set(word, { correct: 0, total: 0, attempts: [] });
+                    wordStats.set(word, { attempts: 1, drills: [drill.id] });
                   }
-                  
-                  const stats = wordStats.get(word);
-                  stats.total++;
-                  stats.attempts.push({
-                    correct: true, // Assume correct since drill was completed
-                    points: 10, // Default points
-                    drillId: drill.id,
-                    drillName: drill.name
-                  });
-                  stats.correct++;
                 }
               });
             }
           }
         }
 
-        // Convert to arrays and calculate mastery percentages
+        // Convert to arrays and calculate mastery based on attempt count
         const wordMasteryData = Array.from(wordStats.entries()).map(([word, stats]) => {
-          const masteryPercentage = stats.total > 0 ? (stats.correct / stats.total) * 100 : 0;
-          const totalAttempts = stats.total;
-          const correctAttempts = stats.correct;
+          // Mastery: fewer attempts = better mastery
+          // 1 attempt = 100%, 2 attempts = 80%, 3+ attempts = 60%
+          let masteryPercentage = 100;
+          if (stats.attempts === 2) masteryPercentage = 80;
+          else if (stats.attempts >= 3) masteryPercentage = 60;
           
           return {
             word,
-            masteryPercentage: Math.round(masteryPercentage),
-            totalAttempts,
-            correctAttempts,
-            attempts: stats.attempts
+            masteryPercentage,
+            totalAttempts: stats.attempts,
+            correctAttempts: 1 // Always 1 since they eventually got it right
           };
         });
 
-        // Sort by mastery percentage (ascending for missed, descending for mastered)
+        // Sort by mastery percentage (descending)
         const sortedByMastery = wordMasteryData.sort((a, b) => b.masteryPercentage - a.masteryPercentage);
         
-        // Get top 5 mastered words (highest mastery percentage)
+        // Get top 5 mastered words (100% mastery - answered on first try)
         const masteredWords = sortedByMastery
-          .filter(word => word.masteryPercentage >= 80 && word.totalAttempts >= 2) // At least 80% mastery and 2+ attempts
+          .filter(word => word.masteryPercentage === 100)
           .slice(0, 5);
         
-        // Get top 5 missed words (lowest mastery percentage)
+        // Get words needing practice (answered in 2+ attempts)
         const missedWords = sortedByMastery
-          .filter(word => word.masteryPercentage < 80 && word.totalAttempts >= 2) // Less than 80% mastery and 2+ attempts
-          .slice(-5)
-          .reverse(); // Show most problematic first
+          .filter(word => word.masteryPercentage < 100)
+          .slice(0, 5);
 
         // Combine for display
         const combinedData = {
@@ -429,16 +418,11 @@ const StudentHome = () => {
         setCommonlyMissedWords(combinedData);
       } catch (error) {
         console.error('Error calculating word mastery:', error);
-        // Fallback to empty data
         setCommonlyMissedWords({ mastered: [], missed: [], totalWordsAnalyzed: 0 });
       }
     };
 
-    // Add error boundary for the async function
-    calculateWordMastery().catch(error => {
-      console.error('Unhandled error in calculateWordMastery:', error);
-      setCommonlyMissedWords({ mastered: [], missed: [], totalWordsAnalyzed: 0 });
-    });
+    calculateWordMastery();
   }, [user?.id, recentDrills]);
 
   // Calculate accuracy rates by attempt
@@ -519,8 +503,10 @@ const StudentHome = () => {
 
   // Calculate completed drills and percentage
   const completedDrills = drillStats?.total_completed_drills || 0;
-  const totalDrills = recentDrills.length || 1; // Use recent drills as proxy for total
-  const completedPercentage = (completedDrills / Math.max(totalDrills, 1)) * 100;
+  // Calculate total drills: completed + pending (from unansweredDrills count)
+  const totalPendingDrills = Object.values(unansweredDrills).reduce((sum, count) => sum + count, 0);
+  const totalDrills = completedDrills + totalPendingDrills || 1;
+  const completedPercentage = Math.min((completedDrills / Math.max(totalDrills, 1)) * 100, 100); // Cap at 100%
 
   // Handle "Do it Now" button click
   const handleDoItNow = () => {
@@ -547,24 +533,24 @@ const StudentHome = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 bg-[#EEF1F5] min-h-[calc(100vh-64px)]">
+    <div className="p-4 sm:p-6 lg:p-8 bg-[#EEF1F5] min-h-[calc(100vh-64px)] font-baloo">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 lg:gap-8">
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col gap-6 lg:gap-8">
           {/* Greeting Card */}
-          <div className="bg-[#FFDF9F] rounded-3xl p-4 sm:p-6 lg:p-8 shadow-lg flex flex-col sm:flex-row items-center relative overflow-hidden gap-4 sm:gap-0">
+          <div className="bg-[#FFDF9F] rounded-3xl p-3 sm:p-3 lg:p-4 shadow-lg flex flex-col sm:flex-row items-center relative overflow-hidden gap-2 sm:gap-3">
              {/* Abstract shape from image */}
              <div className="absolute -right-20 -top-10 w-48 h-48 bg-white/20 rounded-full"></div>
              <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-white/20 rounded-full"></div>
-            <div className="flex-shrink-0 sm:mr-8">
+            <div className="flex-shrink-0 sm:mb-4 sm:ml-8 sm:mr-8 overflow-hidden">
               {/* Placeholder for Hippo Image */}
-              <img src={HippoHappy} alt="Hippo" className="w-32 sm:w-40 h-32 sm:h-40 object-contain" />
+              <img src={MascotHippo} alt="Hippo" className="w-32 sm:w-44 h-32 sm:h-44 object-cover object-center scale-150 mb-6" />
             </div>
-            <div className="text-center sm:text-left">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#4C53B4] mb-2">
+            <div className="text-center sm:text-left relative z-50">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl text-[#4C53B4] mb-2 font-baloo font-bold">
                 Hi, {user?.first_name || 'Student'}!
               </h1>
-              <p className="text-base sm:text-lg text-gray-700">Let's learn something new today</p>
+              <p className="text-base sm:text-xl text-gray-700 font-baloo font-semibold">Let's learn something new today</p>
             </div>
           </div>
 
@@ -625,24 +611,33 @@ const StudentHome = () => {
           {/* Stats Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* Completed Drills */}
-            <div className="bg-[#EE7B6D] rounded-2xl p-4 sm:p-6 shadow-md text-white flex flex-col justify-between">
-              <h3 className="text-lg sm:text-xl font-bold mb-2">Completed Drills</h3>
-              {loading ? (
-                <div className="flex items-center justify-center h-20">
-                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
-                </div>
-              ) : (
-                <>
-              <div className="text-4xl sm:text-5xl font-extrabold mb-4">{completedDrills}</div>
-              <div className="w-full bg-white/30 rounded-full h-3">
-                <div className="bg-white h-3 rounded-full" style={{ width: `${completedPercentage}%` }}></div>
+            <div className="bg-gradient-to-br from-[#EE7B6D] to-[#E85D4D] rounded-3xl p-4 sm:p-6 shadow-lg text-white flex flex-col justify-between relative overflow-hidden min-h-[280px]">
+              <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full"></div>
+              <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full"></div>
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                <h3 className="text-2xl sm:text-xl font-bold mb-4">Completed Drills</h3>
+                {loading ? (
+                  <div className="flex items-center justify-center flex-1">
+                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="text-6xl sm:text-7xl font-extrabold">{completedDrills}</div>
+                    </div>
+                    <div className="space-y-2 mt-auto">
+                      <div className="w-full bg-white/30 rounded-full h-2">
+                        <div className="bg-white h-2 rounded-full transition-all duration-500" style={{ width: `${completedPercentage}%` }}></div>
+                      </div>
+                      <p className="text-sm text-white/80">{Math.round(completedPercentage)}% Complete</p>
+                    </div>
+                  </>
+                )}
               </div>
-                </>
-              )}
             </div>
 
             {/* Drill Accuracy Rate Chart */}
-            <div className="bg-[#87CEEB] rounded-2xl p-4 sm:p-6 shadow-md">
+            <div className="bg-gradient-to-br from-[#87CEEB] to-[#5DADE2] rounded-3xl p-6 sm:p-8 shadow-lg relative overflow-hidden">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
                 <h3 className="text-lg sm:text-xl font-bold text-gray-800">Drill Accuracy Rate</h3>
                 <span className="text-xs text-gray-600 bg-white/50 px-2 py-1 rounded-full">
@@ -802,7 +797,7 @@ const StudentHome = () => {
                             <div className="flex items-center justify-between">
                               <span className="font-medium text-gray-800">{word.word}</span>
                               <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-600">{word.correctAttempts}/{word.totalAttempts}</span>
+                                 {/*<span className="text-sm text-gray-600">{word.correctAttempts}/{word.totalAttempts}</span> */}
                                 <div className="w-16 bg-gray-200 rounded-full h-2">
                                   <div 
                                     className="bg-[#C3FD65] h-2 rounded-full transition-all duration-500" 
@@ -833,7 +828,7 @@ const StudentHome = () => {
                             <div className="flex items-center justify-between">
                               <span className="font-medium text-gray-800">{word.word}</span>
                               <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-600">{word.correctAttempts}/{word.totalAttempts}</span>
+                               {/* <span className="text-sm text-gray-600">{word.correctAttempts}/{word.totalAttempts}</span>*/}
                                 <div className="w-16 bg-gray-200 rounded-full h-2">
                                   <div 
                                     className="bg-[#EE7B6D] h-2 rounded-full transition-all duration-500" 
@@ -932,7 +927,7 @@ const StudentHome = () => {
       {selectedBadge && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div
-            className="bg-[#8A2799] rounded-2xl shadow-2xl flex flex-col items-center relative animate-fadeIn"
+            className="bg-[#8A2799] rounded-2xl shadow-2xl flex flex-col items-center relative"
             style={{
               width: '700px',
               maxWidth: '98vw',

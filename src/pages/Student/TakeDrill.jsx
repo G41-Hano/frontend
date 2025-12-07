@@ -257,35 +257,31 @@ const TakeDrill = () => {
       setTimeout(() => {
         api.get(`/api/drills/${id}/results/`)
           .then(res => {
-          const results = res.data || [];
-          const leaderboardMap = new Map();
-          results.forEach(result => {
-            const studentId = result.student.id;
-            const currentLatest = leaderboardMap.get(studentId);
-            if (!currentLatest || result.run_number > currentLatest.run_number || 
-                (result.run_number === currentLatest.run_number && new Date(result.submission_time) > new Date(currentLatest.submission_time))) {
-              leaderboardMap.set(studentId, result);
-            }
-          });
-          const leaderboardArr = Array.from(leaderboardMap.values())
-            .map(result => {
-              // Calculate points from question_results instead of using backend's result.points
-              const calculatedPoints = (result.question_results || [])
-                .reduce((sum, qr) => sum + (qr.points_awarded || 0), 0);
-              
-              return {
+            const results = res.data || [];
+            console.log('Leaderboard raw results:', results);
+            const leaderboardMap = new Map();
+            results.forEach(result => {
+              const studentId = result.student.id;
+              const currentLatest = leaderboardMap.get(studentId);
+              console.log(`Processing result - Student: ${result.student.name}, Run: ${result.run_number}, Points: ${result.points}`);
+              if (!currentLatest || result.run_number > currentLatest.run_number) {
+                leaderboardMap.set(studentId, result);
+              }
+            });
+            const leaderboardArr = Array.from(leaderboardMap.values())
+              .map(result => ({
                 id: result.student.id,
                 name: result.student.name,
                 avatar: result.student.avatar,
-                points: calculatedPoints
-              };
-            })
-            .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
-          setDrillLeaderboard(leaderboardArr);
+                points: result.points
+              }))
+              .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+            console.log('Final leaderboard:', leaderboardArr);
+            setDrillLeaderboard(leaderboardArr);
           })
           .catch(() => setLeaderboardError('Failed to load leaderboard'))
           .finally(() => setLoadingLeaderboard(false));
-      }, 8000); // Wait 8 seconds for backend to process results
+      }, 3000); // Wait 3 seconds for backend to process results
     }
   }, [introStep, id]);
 

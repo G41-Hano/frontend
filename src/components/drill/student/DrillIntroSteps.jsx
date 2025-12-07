@@ -131,7 +131,9 @@ const DrillIntroSteps = ({
                 <span style={{ color: '#4C53B4', fontWeight: 700 }}>
                   {currentWord.word}
                 </span>
-              {". Can you sign it with me? Play the video to see how!"}
+              {". Can you sign it with me?"}
+              <br />
+              {"Play the video to see how!"}
             </span>          
           ),
           video: currentWord.signVideo

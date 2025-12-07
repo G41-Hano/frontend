@@ -49,8 +49,8 @@ const TeacherDrillRankings = () => {
         const classroomResponse = await api.get(`/api/classrooms/${resolvedClassroomId}/students/`);
         const allStudents = classroomResponse.data.students;
 
-        // Get drill results
-        const resultsResponse = await api.get(`/api/drills/${id}/results/`);
+        // Get drill results with cache-busting parameter
+        const resultsResponse = await api.get(`/api/drills/${id}/results/?t=${Date.now()}`);
         const results = resultsResponse.data;
 
         // Create a map of student results, keeping only their latest attempt

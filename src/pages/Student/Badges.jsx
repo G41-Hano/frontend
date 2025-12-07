@@ -43,9 +43,9 @@ const Badges = ({ studentId }) => {
             <BadgeSkeleton count={6} />
           </div>
         ) : badges.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] w-full animate-fadeIn">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] w-full">
             <h2 className="text-5xl font-extrabold text-[#e09b1a] mb-2 drop-shadow-sm ">No Badges yet?</h2>
-            <p className="text-xl text-gray-800 mb-8 font-semibold animate-pulse">Let's keep learning to earn your first batch!</p>
+            <p className="text-xl text-gray-800 mb-8 font-semibold">Let's keep learning to earn your first batch!</p>
             <div className="bg-[#DE6C62] rounded-2xl px-8 py-8 mb-8 max-w-2xl w-full text-center animate-wiggle">
               <p className="text-white font-extrabold text-2xl mb-2">Stay motivated!</p>
               <p className="text-white font-bold text-lg mb-2">Every drill you complete brings you closer to earning badges.</p>
@@ -91,7 +91,7 @@ const Badges = ({ studentId }) => {
             {selectedBadge && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
                 <div
-                  className="bg-[#8A2799] rounded-2xl shadow-2xl flex flex-col items-center relative animate-fadeIn"
+                  className="bg-[#8A2799] rounded-2xl shadow-2xl flex flex-col items-center relative"
                   style={{
                     width: '700px',
                     maxWidth: '98vw',
